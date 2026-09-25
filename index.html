@@ -1289,6 +1289,19 @@
     </div>
 </div>
 
+<div id="modalAddWorkplaceUnit" class="modal-overlay">
+    <div class="modal-content" style="max-width: 450px;">
+        <div class="modal-header">
+            <h2><i class="fas fa-plus-circle" style="color:var(--ok)"></i> Yeni Görev Yeri Ekle</h2>
+            <span class="close-modal" onclick="closeModal('modalAddWorkplaceUnit')">&times;</span>
+        </div>
+        <div style="display:flex; gap:10px;">
+            <input type="text" id="newWorkplaceUnitName" placeholder="Görev yeri adı girip Enter'a basınız..." onkeypress="if(event.key==='Enter') saveNewWorkplaceUnit()">
+            <button class="btn btn-success" onclick="saveNewWorkplaceUnit()"><i class="fas fa-plus"></i> Ekle</button>
+        </div>
+    </div>
+</div>
+
 <div id="modalEditSpecialUnits" class="modal-overlay">
     <div class="modal-content" style="max-width: 500px;">
         <div class="modal-header">
@@ -2027,15 +2040,14 @@ function initFridayTooltips() {
         undoStack.push({ id: id, dateStr: dateStr, place: place, prev: currentVal }); 
         if(undoStack.length > 50) undoStack.shift(); 
         
-        if (actionVal === 'permit') {
+if (actionVal === null) {
+            d.avail[dateStr] = {};
+        } else if (actionVal === 'permit') {
             const allPossible = [...activePlaces]; if(refakatciMode) allPossible.push("Refakatçi");
-            allPossible.forEach(p => { if (d.allowed.includes(p)) d.avail[dateStr][p] = 'permit'; });
-        } else if (actionVal === null && currentVal === 'permit') {
-            const allPossible = [...activePlaces]; if(refakatciMode) allPossible.push("Refakatçi");
-            allPossible.forEach(p => { if (d.avail[dateStr][p] === 'permit') delete d.avail[dateStr][p]; });
+            allPossible.forEach(p => { d.avail[dateStr][p] = 'permit'; });
+            d.avail[dateStr]['GENERAL'] = 'permit';
         } else {
-            if (actionVal) d.avail[dateStr][place] = actionVal; 
-            else { delete d.avail[dateStr][place]; }
+            d.avail[dateStr][place] = actionVal;
         }
 
         if (d.avail[dateStr] && Object.keys(d.avail[dateStr]).length === 0) delete d.avail[dateStr];
@@ -2070,11 +2082,26 @@ function initFridayTooltips() {
         const allP = [...activePlaces]; if(refakatciMode) allP.push("Refakatçi");
         c.style.gridTemplateColumns = `250px repeat(${dates.length}, 40px)`; let h = `<div class="cal-head">Tarih</div>`; dates.forEach(d => h+=`<div class="cal-head" style="${d.isW?'background:#ffe4e6; color:#be123c':''}">${d.d}<br>${d.wd}</div>`);
         docs.forEach(d => {
-            const hasQuota = allP.some(p => (d.targets[p]?.w > 0 || d.targets[p]?.e > 0)); if (!hasQuota) return;
             let quotaInfo = '';
             allP.forEach(p => { if(d.allowed.includes(p)) { let markedW = 0, markedE = 0; Object.keys(d.avail).forEach(dateStr => { if(d.avail[dateStr] && d.avail[dateStr][p] === 'wanted') { const dateObj = dates.find(x => x.str === dateStr); if(dateObj) { if(dateObj.isW) markedE++; else markedW++; } } }); const remW = d.targets[p].w - markedW; const remE = d.targets[p].e - markedE; const isRef = p === 'Refakatçi'; const remWClass = isRef ? 'q-rem' : (remW===0?'q-done':(remW<0?'text-red':'')); const remEClass = isRef ? 'q-rem' : (remE===0?'q-done':(remE<0?'text-red':'')); quotaInfo += `<div class="quota-line"><span class="q-label">${p}</span><span class="q-label">Kalan: <span class="${remWClass}">${remW}</span> Hİ | <span class="${remEClass}">${remE}</span> HS</span></div>`; } });
             h += `<div class="cal-head name-col"><div class="doc-name" title="${d.name}">${d.name}</div><div class="doc-quota-info">${quotaInfo}</div></div>`;
-            dates.forEach(x => { h += `<div class="cal-cell-wrapper ${x.isW ? 'weekend-col' : ''}">`; allP.forEach(p => { if(!d.allowed.includes(p)) return; let status = (d.avail[x.str] && d.avail[x.str][p]) || ''; let label = p.substring(0,3); let icon = status==='wanted'?'✓':(status==='unwanted'?'X':(status==='permit'?'<i class="fas fa-umbrella-beach"></i>':'')); h += `<div class="sub-cell ${status}" onmousedown="handleMouseDown(event, ${d.id},'${x.str}','${p}',this)" onmouseenter="handleMouseEnter(event, ${d.id},'${x.str}','${p}',this)"><span class="u-tag" style="font-size:0.55em; position:absolute; left:2px; top:1px; opacity:0.6">${label}</span>${icon}</div>`; }); h += `</div>`; });
+            dates.forEach(x => { 
+                h += `<div class="cal-cell-wrapper ${x.isW ? 'weekend-col' : ''}">`; 
+                if (!d.allowed || d.allowed.length === 0) {
+                    let status = (d.avail[x.str] && Object.values(d.avail[x.str]).find(v => v)) || '';
+                    let icon = status === 'wanted' ? '✓' : (status === 'unwanted' ? 'X' : (status === 'permit' ? '<i class="fas fa-umbrella-beach"></i>' : ''));
+                    h += `<div class="sub-cell ${status}" style="height:100%; min-height:50px;" onmousedown="handleMouseDown(event, ${d.id},'${x.str}','GENERAL',this)" onmouseenter="handleMouseEnter(event, ${d.id},'${x.str}','GENERAL',this)">${icon}</div>`;
+                } else {
+                    allP.forEach(p => { 
+                        if(!d.allowed.includes(p)) return; 
+                        let status = (d.avail[x.str] && d.avail[x.str][p]) || ''; 
+                        let label = p.substring(0,3); 
+                        let icon = status==='wanted'?'✓':(status==='unwanted'?'X':(status==='permit'?'<i class="fas fa-umbrella-beach"></i>':'')); 
+                        h += `<div class="sub-cell ${status}" onmousedown="handleMouseDown(event, ${d.id},'${x.str}','${p}',this)" onmouseenter="handleMouseEnter(event, ${d.id},'${x.str}','${p}',this)"><span class="u-tag" style="font-size:0.55em; position:absolute; left:2px; top:1px; opacity:0.6">${label}</span>${icon}</div>`; 
+                    });
+                }
+                h += `</div>`; 
+            });
         }); c.innerHTML = h;
         renderDynamicPrevDuty();
     }
@@ -2210,27 +2237,33 @@ function initFridayTooltips() {
         });
     }
 
-    function addNewWorkplaceUnit() {
-        const name = prompt("Yeni Görev Yeri Adı:");
-        if (name) {
-            const formatted = titleCase(name.trim());
-            if (!workplaceUnits.includes(formatted)) {
-                workplaceUnits.push(formatted);
-                saveData();
-                renderWorkplaceGrid();
-            } else {
-                alert("Bu birim zaten mevcut.");
-            }
+function addNewWorkplaceUnit() {
+        document.getElementById('newWorkplaceUnitName').value = '';
+        document.getElementById('modalAddWorkplaceUnit').style.display = 'flex';
+        setTimeout(() => document.getElementById('newWorkplaceUnitName').focus(), 100);
+    }
+
+    function saveNewWorkplaceUnit() {
+        const inp = document.getElementById('newWorkplaceUnitName');
+        const name = titleCase(inp.value.trim());
+        if (!name) return;
+        if (workplaceUnits.includes(name)) {
+            showModernAlert("Hata", "Bu birim zaten mevcut.");
+            return;
         }
+        workplaceUnits.push(name);
+        saveData();
+        renderWorkplaceGrid();
+        closeModal('modalAddWorkplaceUnit');
     }
 
     function deleteWorkplaceUnit(unit) {
-        if (confirm(`${unit} birimi silinecektir. Emin misiniz?`)) {
+        confirmAction('Birim Sil', `${unit} birimi silinecektir. Emin misiniz?`, () => {
             workplaceUnits = workplaceUnits.filter(u => u !== unit);
             if (jokerConfig.workplaceAssignments[unit]) delete jokerConfig.workplaceAssignments[unit];
             saveData();
             renderWorkplaceGrid();
-        }
+        });
     }
 
     function addManualWorkplace(unit, person) {
@@ -3954,14 +3987,12 @@ function exportJokerPDF() {
     const konsultan = jokerConfig.owners["Konsültan"] || "";
     const servisKidemlisi = jokerConfig.owners["Servis Kıdemlisi"] || "";
 
-    // Satır dizilimleri ve Dahiliye'nin konumu güncellendi
-    const rowsDefinition = [
-        ["Servis", "Yoğun Bakım", "Pol-1", "Pol-2", "Pol-3"],
-        ["MS Merkezi", "Uyku", "Anjio", "EMG", "EEG"],
-        ["Servis Kıdemlisi", "Konsültan"],
-        ["Radyoloji", "Kardiyoloji", "FTR", "Anestezi", "Dahiliye"], // Dahiliye buraya eklendi
-        ["Psikiatri", "Çocuk Nöroloji"]
-    ];
+// Görev yerlerini (varsayılan + yeni eklenen tüm birimleri) 4'erli gruplar halinde dinamik satırlara böl
+        const rowsDefinition = [];
+        const chunkSize = 4;
+        for (let i = 0; i < workplaceUnits.length; i += chunkSize) {
+            rowsDefinition.push(workplaceUnits.slice(i, i + chunkSize));
+        }
 
     let content = [
         { text: 'SELÇUK ÜNİVERSİTESİ TIP FAKÜLTESİ NÖROLOJİ AD.', fontSize: 14, bold: true, alignment: 'center' },
