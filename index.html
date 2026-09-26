@@ -350,19 +350,19 @@
         .error-list li { padding: 10px; border-bottom: 1px solid #fecaca; color: #7f1d1d; background: #fef2f2; margin-bottom: 5px; border-radius: 4px; font-size: 0.9rem; display: flex; align-items: center; gap: 10px; }
         .error-list li i { color: #dc2626; }
         
-        /* Step 7 Styles */
+/* Step 7 Styles */
         .final-export-row { 
     display: flex; 
     justify-content: space-between; 
     align-items: center; 
-    gap: 8px; 
+    gap: 4px; 
     margin-bottom: 30px; 
     width: 100%;
 }
 .btn-export { 
     flex: 1; 
-    padding: 6px 10px; 
-    font-size: 0.8rem; 
+    padding: 6px 3px; 
+    font-size: 0.72rem; 
     white-space: nowrap; 
     min-width: 0;
 }
@@ -1053,10 +1053,13 @@
 
          <div id="finalSummaryBox" class="joker-summary-box"></div>
 
-         <div class="final-export-row">         
+<div class="final-export-row">         
+    <button class="btn btn-export" style="background:#059669; color:white;" onclick="exportNobetPNG()"><i class="fas fa-file-image"></i> Nöbet PNG</button>
     <button class="btn btn-primary btn-export" style="background:#2b579a" onclick="exportWord()"><i class="fas fa-file-word"></i> Nöbet Word</button>
     <button class="btn btn-danger btn-export" onclick="exportPDF()"><i class="fas fa-file-pdf"></i> Nöbet PDF</button>
-    <button class="btn btn-export btn-workplace-custom" onclick="exportWorkplacesPDF()"><i class="fas fa-map-marked-alt"></i> Görev Yerleri PDF</button>
+    <button class="btn btn-export" style="background:#059669; color:white;" onclick="exportWorkplacesPNG()"><i class="fas fa-file-image"></i> Görev Yeri PNG</button>
+    <button class="btn btn-export btn-workplace-custom" onclick="exportWorkplacesPDF()"><i class="fas fa-map-marked-alt"></i> Görev Yeri PDF</button>
+    <button class="btn btn-export" style="background:#059669; color:white;" onclick="exportJokerPNG()"><i class="fas fa-file-image"></i> Joker PNG</button>
     <button class="btn btn-primary btn-export" style="background:#1e40af" onclick="exportJokerWord()"><i class="fas fa-file-word"></i> Joker Word</button>
     <button class="btn btn-danger btn-export" style="background:#b91c1c" onclick="exportJokerPDF()"><i class="fas fa-file-pdf"></i> Joker PDF</button>
 </div>
@@ -1134,12 +1137,12 @@
 </div>
 <div id="modalSwap" class="modal-overlay">
     <input type="file" id="docxImportInput" accept=".docx" style="display:none;" onchange="handleDocxFileUpload(event)">
-    <div class="modal-content" id="swapModalContent" style="max-width:1080px; max-height:96vh; display:flex; flex-direction:column; padding:18px 24px; position:relative;" ondragover="handleSwapDragOver(event)" ondragleave="handleSwapDragLeave(event)" ondrop="handleSwapFileDrop(event)">
+    <div class="modal-content" id="swapModalContent" style="max-width:1080px; max-height:96vh; display:flex; flex-direction:column; padding:18px 24px; position:relative;" ondragenter="handleSwapDragEnter(event)" ondragover="handleSwapDragOver(event)" ondragleave="handleSwapDragLeave(event)" ondrop="handleSwapFileDrop(event)">
         
-        <div id="swapDropZoneOverlay" style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(59,130,246,0.92); z-index:100; border-radius:16px; flex-direction:column; align-items:center; justify-content:center; color:white;">
-            <i class="fas fa-file-word" style="font-size:4rem; margin-bottom:15px;"></i>
-            <div style="font-size:1.4rem; font-weight:700;">Word (.docx) Dosyasını Buraya Bırakın</div>
-            <div style="font-size:0.9rem; opacity:0.8; margin-top:5px;">Sistem nöbet günlerini ve asistanları otomatik tanıyacaktır.</div>
+        <div id="swapDropZoneOverlay" style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(59,130,246,0.94); z-index:100; border-radius:16px; flex-direction:column; align-items:center; justify-content:center; color:white; pointer-events:none;">
+            <i class="fas fa-file-word" style="font-size:4.5rem; margin-bottom:15px;"></i>
+            <div style="font-size:1.5rem; font-weight:700;">Word (.docx) Dosyasını Buraya Bırakın</div>
+            <div style="font-size:0.95rem; opacity:0.9; margin-top:6px;">Nöbet günleri ve asistan eşleşmeleri otomatik algılanacaktır.</div>
         </div>
 
         <div class="modal-header" style="margin-bottom:8px; padding-bottom:6px; display:flex; justify-content:space-between; align-items:center;">
@@ -3965,8 +3968,236 @@ function exportJokerWord() {
 }
    
  
-// 5. Joker PDF Çıktısı (Güncellenmiş Toplam Sayı)
-function exportJokerPDF() {
+// --- PNG OLUŞTURUCU VE OTOMATİK EKRAN KIRPMA MODÜLÜ ---
+function downloadPdfMakeAsPng(docDefinition, filename) {
+    if (typeof pdfjsLib === 'undefined') {
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+        script.onload = () => {
+            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+            renderAndDownloadPng(docDefinition, filename);
+        };
+        document.head.appendChild(script);
+    } else {
+        renderAndDownloadPng(docDefinition, filename);
+    }
+}
+
+function renderAndDownloadPng(docDefinition, filename) {
+    const pdfDocGenerator = pdfMake.createPdf(docDefinition);
+    pdfDocGenerator.getBuffer((buffer) => {
+        const uint8Array = new Uint8Array(buffer);
+        pdfjsLib.getDocument({ data: uint8Array }).promise.then(pdf => {
+            pdf.getPage(1).then(page => {
+                const scale = 2.5; // Yüksek çözünürlüklü HD netlik
+                const viewport = page.getViewport({ scale: scale });
+                const canvas = document.createElement('canvas');
+                const context = canvas.getContext('2d');
+                canvas.height = viewport.height;
+                canvas.width = viewport.width;
+
+                const renderContext = {
+                    canvasContext: context,
+                    viewport: viewport
+                };
+
+                page.render(renderContext).promise.then(() => {
+                    // Ekran Alıntısı Aracı Gibi Beyaz Boşlukları Otomatik Kırpma Mantığı
+                    const croppedCanvas = cropWhiteMargins(canvas, 25);
+                    const dataUrl = croppedCanvas.toDataURL('image/png');
+                    const a = document.createElement('a');
+                    a.href = dataUrl;
+                    a.download = filename;
+                    a.click();
+                });
+            });
+        }).catch(err => {
+            console.error('PNG Dönüştürme Hatası:', err);
+            showModernAlert('Hata', 'PNG görseli oluşturulurken bir hata oluştu.');
+        });
+    });
+}
+
+// Görsel Etrafındaki Fazla Beyaz Kenarlıkları Temizleme Fonksiyonu
+function cropWhiteMargins(canvas, padding = 20) {
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width;
+    const h = canvas.height;
+    const imgData = ctx.getImageData(0, 0, w, h);
+    const data = imgData.data;
+
+    let minX = w, minY = h, maxX = 0, maxY = 0;
+
+    for (let y = 0; y < h; y += 3) {
+        for (let x = 0; x < w; x += 3) {
+            const idx = (y * w + x) * 4;
+            const r = data[idx], g = data[idx + 1], b = data[idx + 2];
+            // Beyaz olmayan piksel tespiti
+            if (r < 242 || g < 242 || b < 242) {
+                if (x < minX) minX = x;
+                if (x > maxX) maxX = x;
+                if (y < minY) minY = y;
+                if (y > maxY) maxY = y;
+            }
+        }
+    }
+
+    if (minX >= maxX || minY >= maxY) return canvas;
+
+    minX = Math.max(0, minX - padding);
+    minY = Math.max(0, minY - padding);
+    maxX = Math.min(w, maxX + padding);
+    maxY = Math.min(h, maxY + padding);
+
+    const cropW = maxX - minX;
+    const cropH = maxY - minY;
+
+    const croppedCanvas = document.createElement('canvas');
+    croppedCanvas.width = cropW;
+    croppedCanvas.height = cropH;
+    const croppedCtx = croppedCanvas.getContext('2d');
+    croppedCtx.drawImage(canvas, minX, minY, cropW, cropH, 0, 0, cropW, cropH);
+
+    return croppedCanvas;
+}
+
+// 1. NÖBET PNG (Selçuk Ünv. Logosu, Birebir Çizgiler ve Otomatik Ekran Alıntısı Kırpması)
+function exportNobetPNG() {
+    if(!schedule || schedule.length === 0) { showModernAlert("Uyarı", "Önce nöbet listesi oluşturulmalıdır."); return; }
+    
+    const allP = [...activePlaces]; 
+    if(refakatciMode) allP.push("Refakatçi");
+    
+    const sVal = document.getElementById('startDate').value;
+    const MONTH_TR = ["OCAK","ŞUBAT","MART","NİSAN","MAYIS","HAZİRAN","TEMMUZ","AĞUSTOS","EYLÜL","EKİM","KASIM","ARALIK"];
+    const startD = new Date(sVal || Date.now());
+    const ayAdi = MONTH_TR[startD.getMonth()];
+    const yil = startD.getFullYear();
+
+    // Selçuk Üniversitesi Vektörel Amblem Logosu
+    const selcukLogoSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="55" height="55">
+        <circle cx="50" cy="50" r="46" fill="none" stroke="#000000" stroke-width="1.5"/>
+        <circle cx="50" cy="50" r="41" fill="none" stroke="#000000" stroke-width="0.8"/>
+        <path d="M50 16 L53 26 L63 21 L58 31 L68 33 L58 39 L65 47 L54 45 L55 56 L50 51 L45 56 L46 45 L35 47 L42 39 L32 33 L42 31 L37 21 L47 26 Z" fill="#000000"/>
+        <text x="50" y="83" font-size="7.5" font-weight="bold" font-family="Arial" fill="#000000" text-anchor="middle">SELÇUK ÜNİVERSİTESİ</text>
+    </svg>`;
+
+    // Üst Birebir Word Antet Tablosu
+    const headerTable = {
+        table: {
+            widths: [65, '*', 70, 70],
+            body: [
+                [
+                    { rowSpan: 5, svg: selcukLogoSvg, alignment: 'center', margin: [0, 2, 0, 0] },
+                    { text: 'SELÇUK ÜNİVERSİTESİ\nTIP FAKÜLTESİ HASTANESİ', bold: true, fontSize: 8.5, alignment: 'center' },
+                    { text: 'Dok.Kodu', bold: true, fontSize: 8 },
+                    { text: 'STH-F-98', bold: true, fontSize: 8 }
+                ],
+                [
+                    {},
+                    { text: '', margin: [0,0] },
+                    { text: 'Yayın Tarihi', bold: true, fontSize: 8 },
+                    { text: '10.02.2018', bold: true, fontSize: 8 }
+                ],
+                [
+                    {},
+                    { text: 'NÖROLOJİ ANABİLİMDALI', bold: true, fontSize: 8.5, alignment: 'center' },
+                    { text: 'Revizyon No', bold: true, fontSize: 8 },
+                    { text: '00', bold: true, fontSize: 8 }
+                ],
+                [
+                    {},
+                    { text: ayAdi + ' AYI NÖBET LİSTESİ', bold: true, fontSize: 9.5, color: '#dc2626', alignment: 'center' },
+                    { text: 'Rev. Tarihi', bold: true, fontSize: 8 },
+                    { text: '', fontSize: 8 }
+                ],
+                [
+                    {},
+                    { text: '', margin: [0,0] },
+                    { text: 'Sayfa No', bold: true, fontSize: 8 },
+                    { text: '1/1', bold: true, fontSize: 8 }
+                ]
+            ]
+        },
+        layout: {
+            hLineWidth: () => 0.8,
+            vLineWidth: () => 0.8,
+            hLineColor: () => '#000000',
+            vLineColor: () => '#000000',
+            paddingTop: () => 1,
+            paddingBottom: () => 1
+        },
+        margin: [0, 0, 0, 8]
+    };
+
+    // Tablo Başlıkları
+    let tableHeader = [
+        { text: 'NÖBET TARİHİ', bold: true, fontSize: 8, alignment: 'center', fillColor: '#e2e8f0' }
+    ];
+    allP.forEach(p => {
+        const pUpper = p.toLocaleUpperCase('tr-TR');
+        const label = p === 'Refakatçi' ? 'REFAKAT NÖBETİ' : `NÖBETÇİ ASİSTANLAR\n(${pUpper})`;
+        tableHeader.push({ text: label, bold: true, fontSize: 8, alignment: 'center', fillColor: '#e2e8f0' });
+    });
+    tableHeader.push({ text: 'İCAPÇI ÖĞRETİM ÜYESİ', bold: true, fontSize: 8, alignment: 'center', fillColor: '#e2e8f0' });
+
+    // Günlük Nöbet Satırları
+    let tableBody = [tableHeader];
+
+    schedule.forEach(r => {
+        const isW = r.date.isW;
+        const bg = isW ? '#d9d9d9' : null;
+        let rowData = [
+            { text: r.date.full, fontSize: 7.8, alignment: 'left', fillColor: bg }
+        ];
+        allP.forEach(p => {
+            const name = r.assign[p] ? r.assign[p].name.toLocaleUpperCase('tr-TR') : '';
+            rowData.push({ text: name, fontSize: 7.8, alignment: 'left', fillColor: bg });
+        });
+        rowData.push({ text: '', fontSize: 7.8, fillColor: bg });
+        tableBody.push(rowData);
+    });
+
+    const mainTableWidths = [70, ...allP.map(() => '*'), 110];
+
+    const dd = {
+        pageSize: 'A4',
+        pageOrientation: 'portrait',
+        pageMargins: [20, 15, 20, 15],
+        content: [
+            headerTable,
+            {
+                table: {
+                    headerRows: 1,
+                    widths: mainTableWidths,
+                    body: tableBody
+                },
+                layout: {
+                    hLineWidth: () => 0.8,
+                    vLineWidth: () => 0.8,
+                    hLineColor: () => '#000000',
+                    vLineColor: () => '#000000',
+                    paddingTop: () => 1.5,
+                    paddingBottom: () => 1.5,
+                    paddingLeft: () => 4,
+                    paddingRight: () => 4
+                }
+            },
+            {
+                text: 'Prof. Dr. Şerefnur ÖZTÜRK\nANABİLİMDALI BAŞKANI',
+                bold: true,
+                fontSize: 8.5,
+                alignment: 'right',
+                margin: [0, 8, 0, 0]
+            }
+        ]
+    };
+
+    downloadPdfMakeAsPng(dd, `nobet_listesi_${ayAdi.toLowerCase()}_${yil}.png`);
+}
+
+// 2. JOKER PDF & PNG ŞABLONLARI
+function getJokerPdfDocDefinition() {
     const institution = "Selçuk Üniversitesi Nöroloji Anabilim Dalı";
     const aj = getActiveJokersWithTasks(true); 
     const extraPeople = getExtraServisPeopleList();
@@ -4005,7 +4236,7 @@ function exportJokerPDF() {
 
     const colWidths = ['auto', ...aj.map(() => '*'), ...extraPeople.map(() => '*'), 'auto'];
 
-    pdfMake.createPdf({ 
+    return { 
         pageSize: 'A4', 
         pageOrientation: 'portrait', 
         pageMargins: [20, 20, 20, 20],
@@ -4025,24 +4256,31 @@ function exportJokerPDF() {
                 }
             } 
         ] 
-    }).download('joker_listesi.pdf');
+    };
 }
 
+function exportJokerPDF() {
+    const dd = getJokerPdfDocDefinition();
+    pdfMake.createPdf(dd).download('joker_listesi.pdf');
+}
 
+function exportJokerPNG() {
+    const dd = getJokerPdfDocDefinition();
+    downloadPdfMakeAsPng(dd, 'joker_listesi.png');
+}
 
-    function exportWorkplacesPDF() {
+// 3. GÖREV YERLERİ PDF & PNG ŞABLONLARI
+function getWorkplacesPdfDocDefinition() {
     const titleDate = getFormattedMonthYear();
-    
     const j1 = document.getElementById('joker1Select')?.value || "";
     const konsultan = jokerConfig.owners["Konsültan"] || "";
     const servisKidemlisi = jokerConfig.owners["Servis Kıdemlisi"] || "";
 
-// Görev yerlerini (varsayılan + yeni eklenen tüm birimleri) 4'erli gruplar halinde dinamik satırlara böl
-        const rowsDefinition = [];
-        const chunkSize = 4;
-        for (let i = 0; i < workplaceUnits.length; i += chunkSize) {
-            rowsDefinition.push(workplaceUnits.slice(i, i + chunkSize));
-        }
+    const rowsDefinition = [];
+    const chunkSize = 4;
+    for (let i = 0; i < workplaceUnits.length; i += chunkSize) {
+        rowsDefinition.push(workplaceUnits.slice(i, i + chunkSize));
+    }
 
     let content = [
         { text: 'SELÇUK ÜNİVERSİTESİ TIP FAKÜLTESİ NÖROLOJİ AD.', fontSize: 14, bold: true, alignment: 'center' },
@@ -4109,14 +4347,23 @@ function exportJokerPDF() {
         alignment: 'right', bold: true, fontSize: 12, margin: [0, 20, 0, 0]
     });
 
-    const dd = {
+    return {
         pageSize: 'A4',
         pageOrientation: 'portrait',
         pageMargins: [40, 30, 40, 30],
         content: content
     };
+}
 
+function exportWorkplacesPDF() {
+    const dd = getWorkplacesPdfDocDefinition();
+    const titleDate = getFormattedMonthYear();
     pdfMake.createPdf(dd).download(`gorev_yerleri_${titleDate.replace(' ', '_')}.pdf`);
+}
+
+function exportWorkplacesPNG() {
+    const dd = getWorkplacesPdfDocDefinition();
+    downloadPdfMakeAsPng(dd, 'gorev_yerleri.png');
 }
     
     function getActiveJokersWithTasks(exportOnly = false) {
@@ -4143,23 +4390,36 @@ function exportJokerPDF() {
         } else b.style.display = 'none'; 
     }
 // --- WORD (.DOCX) SÜRÜKLE-BIRAK VE DOSYA YÜKLEME ---
+    let swapDragCounter = 0;
+
+    function handleSwapDragEnter(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        swapDragCounter++;
+        const overlay = document.getElementById('swapDropZoneOverlay');
+        if (overlay) overlay.style.display = 'flex';
+    }
+
     function handleSwapDragOver(e) {
         e.preventDefault();
         e.stopPropagation();
-        const overlay = document.getElementById('swapDropZoneOverlay');
-        if (overlay) overlay.style.display = 'flex';
     }
 
     function handleSwapDragLeave(e) {
         e.preventDefault();
         e.stopPropagation();
-        const overlay = document.getElementById('swapDropZoneOverlay');
-        if (overlay) overlay.style.display = 'none';
+        swapDragCounter--;
+        if (swapDragCounter <= 0) {
+            swapDragCounter = 0;
+            const overlay = document.getElementById('swapDropZoneOverlay');
+            if (overlay) overlay.style.display = 'none';
+        }
     }
 
     function handleSwapFileDrop(e) {
         e.preventDefault();
         e.stopPropagation();
+        swapDragCounter = 0;
         const overlay = document.getElementById('swapDropZoneOverlay');
         if (overlay) overlay.style.display = 'none';
 
@@ -4312,7 +4572,8 @@ function exportJokerPDF() {
             statusInfo.innerHTML = `<span style="color:#16a34a;"><i class="fas fa-check-circle"></i> Word listesi (${newTempSchedule.length} gün) başarıyla yüklendi. Takas yapabilir veya Kaydet butonuna basabilirsiniz.</span>`;
         }
     }
-// --- NÖBET TAKASI (BECAYİŞ) MANTIĞI ---
+
+    // --- NÖBET TAKASI (BECAYİŞ) MANTIĞI ---
     let tempSwapSchedule = [];
     let swapUndoStack = [];
     let modifiedSwapKeys = new Set();
@@ -4321,11 +4582,11 @@ function exportJokerPDF() {
     let allowCrossSwap = false;
 
     function openSwapModal() {
-        if (!schedule || schedule.length === 0) {
-            showModernAlert("Uyarı", "Önce oluşturulmuş bir nöbet listesi bulunmalıdır.");
-            return;
+        if (schedule && schedule.length > 0) {
+            tempSwapSchedule = JSON.parse(JSON.stringify(schedule));
+        } else {
+            tempSwapSchedule = [];
         }
-        tempSwapSchedule = JSON.parse(JSON.stringify(schedule));
         swapUndoStack = [];
         modifiedSwapKeys = new Set();
         selectedShiftSource = null;
@@ -4358,9 +4619,23 @@ function exportJokerPDF() {
         }
     }
 
-function renderSwapGrid() {
+    function renderSwapGrid() {
         const cont = document.getElementById('swapGridContainer');
         if (!cont) return;
+
+        if (!tempSwapSchedule || tempSwapSchedule.length === 0) {
+            cont.innerHTML = `
+                <div style="text-align:center; padding:50px 20px; color:#64748b;">
+                    <i class="fas fa-file-word" style="font-size:3.5rem; color:#cbd5e1; margin-bottom:15px; display:block;"></i>
+                    <div style="font-size:1.1rem; font-weight:700; color:#334155; margin-bottom:6px;">Henüz yüklü veya oluşturulmuş bir nöbet listesi bulunmuyor.</div>
+                    <div style="font-size:0.85rem; color:#64748b;">
+                        Sağ üstteki <strong>"Dosya Yükle (.docx)"</strong> butonuna tıklayarak veya daha önce oluşturulmuş bir .docx nöbet listesini bu pencereye <strong>sürükleyip bırakarak</strong> başlayabilirsiniz.
+                    </div>
+                </div>`;
+            const statusInfoEmpty = document.getElementById('swapStatusInfo');
+            if (statusInfoEmpty) statusInfoEmpty.innerHTML = "İşlem yapabilmek için lütfen bir nöbet listesi yükleyin.";
+            return;
+        }
 
         const allP = [...activePlaces];
         if (refakatciMode) allP.push("Refakatçi");
