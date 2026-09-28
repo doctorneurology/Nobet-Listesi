@@ -11,6 +11,14 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
 
     <style>
+/* Becayiş Tablosunda Tarih Sütununu Genişletme */
+#swapGridContainer table td:first-child,
+#swapGridContainer table th:first-child,
+.becayis-date-col {
+    min-width: 140px !important;
+    width: 140px !important;
+    white-space: nowrap;
+}
         :root { --primary: #0f172a; --accent: #3b82f6; --bg: #f8fafc; --border: #e2e8f0; --ok: #16a34a; --err: #dc2626; --warn: #f59e0b; --demo: #8b5cf6; --joker: #7c3aed; --permit: #d97706; --info: #0ea5e9; }
         body { font-family: 'Inter', sans-serif; background: var(--bg); color: #334155; margin: 0; padding: 20px; user-select: none; }
         .container { max-width: 1550px; margin: 0 auto; background: white; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); overflow: hidden; display: flex; flex-direction: column; min-height: 90vh; }
@@ -636,7 +644,31 @@
     92%, 100% { transform: translateX(0px); }      
 }
 
- </style>
+ 
+@media (max-width: 900px) {
+    .preview-flex-container { overflow: auto; max-height: 75vh; -webkit-overflow-scrolling: touch; }
+    #swapGridContainer, .cal-wrapper { -webkit-overflow-scrolling: touch; }
+    .preview-flex-container .res-table th, #swapGridContainer .res-table th { position: sticky; top: 0; z-index: 5; background: #f1f5f9; }
+    .preview-flex-container .res-table th:first-child, .preview-flex-container .res-table td:first-child, #swapGridContainer .res-table th:first-child, #swapGridContainer .res-table td:first-child { position: sticky; left: 0; z-index: 4; background: #fff; }
+    .preview-flex-container .res-table th:first-child, #swapGridContainer .res-table th:first-child { z-index: 6; background: #f1f5f9; }
+    .preview-flex-container .res-table tr.weekend-row td:first-child, #swapGridContainer .res-table tr.weekend-row td:first-child { background: #ffe4e6; }
+}
+/* Becayiş Ekranını Genişletme */
+#becayisModal .modal-dialog,
+.becayis-modal .modal-dialog,
+div[id*="becayis"] .modal-dialog {
+    max-width: 95vw !important;
+    width: 95vw !important;
+    margin: 1.75rem auto !important;
+}
+
+#becayisModal .modal-content,
+.becayis-modal .modal-content,
+div[id*="becayis"] .modal-content {
+    min-height: 85vh;
+    border-radius: 12px;
+}
+</style>
 </head>
 <body>
 
@@ -1137,7 +1169,7 @@
 </div>
 <div id="modalSwap" class="modal-overlay">
     <input type="file" id="docxImportInput" accept=".docx" style="display:none;" onchange="handleDocxFileUpload(event)">
-    <div class="modal-content" id="swapModalContent" style="max-width:1080px; max-height:96vh; display:flex; flex-direction:column; padding:18px 24px; position:relative;" ondragenter="handleSwapDragEnter(event)" ondragover="handleSwapDragOver(event)" ondragleave="handleSwapDragLeave(event)" ondrop="handleSwapFileDrop(event)">
+    <div class="modal-content" id="swapModalContent" style="max-width:1150px; width:88%; max-height:82vh; display:flex; flex-direction:column; padding:18px 24px; position:relative;" ondragenter="handleSwapDragEnter(event)" ondragover="handleSwapDragOver(event)" ondragleave="handleSwapDragLeave(event)" ondrop="handleSwapFileDrop(event)">
         
         <div id="swapDropZoneOverlay" style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(59,130,246,0.94); z-index:100; border-radius:16px; flex-direction:column; align-items:center; justify-content:center; color:white; pointer-events:none;">
             <i class="fas fa-file-word" style="font-size:4.5rem; margin-bottom:15px;"></i>
@@ -1164,24 +1196,77 @@
 
         <div id="swapGridContainer" style="overflow-y:auto; flex:1; max-height:calc(96vh - 150px); padding-right:2px;"></div>
 
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px; border-top:1px solid #eee; padding-top:10px; gap:10px; flex-wrap:wrap;">
-            <!-- Sol Buton Grubu -->
-            <div style="display:flex; gap:6px; align-items:center;">
-                <button id="btnAllowCrossSwap" class="btn btn-ghost btn-sm" onclick="toggleCrossSwap()"><i class="fas fa-random"></i> H.İçi ⇄ H.Sonu Takası</button>
-                <button class="btn btn-dark btn-sm" onclick="undoSwap()"><i class="fas fa-undo"></i> Geri Al</button>
-                <button class="btn btn-danger btn-sm" onclick="resetSwaps()"><i class="fas fa-trash-alt"></i> Sıfırla</button>
-            </div>
+<!-- Düzenli ve Eşit Boyutlu Becayiş Alt Buton Alanı -->
+<div style="display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 8px; width: 100%; margin-top: 12px; padding-top: 12px; border-top: 1px solid #e2e8f0; background: #f8fafc; flex-wrap: wrap;">
+    
+<button id="btnAllowCrossSwap"
+    class="btn btn-secondary"
+    style="
+        height:38px;
+        padding:0 14px;
+        font-size:0.82rem;
+        font-weight:700;
+        background:#64748b !important;
+        color:#ffffff !important;
+        border:1px solid #475569 !important;
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        gap:5px;
+        border-radius:8px;
+        white-space:nowrap;
+    ">
+    <i class="fas fa-random"></i> H.içi ⇄ H.sonu
+</button>
+    
+    <button class="btn btn-warning" style="height: 38px; padding: 0 12px; font-size: 0.82rem; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; gap: 5px; border-radius: 8px; white-space: nowrap;" onclick="undoSwap()">
+        <i class="fas fa-undo"></i> Takası Geri Al
+    </button>
+    
+    <!-- SIFIRLA: Yapılan değişiklikleri ilk yüklenen haline döndürür -->
+    <button class="btn btn-warning" style="height: 38px; padding: 0 14px; font-size: 0.82rem; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; gap: 5px; border-radius: 8px; white-space: nowrap;" onclick="resetSwapSchedule()">
+        <i class="fas fa-sync-alt"></i> Sıfırla
+    </button>
 
-            <!-- Tam Orta: Büyük Değiştir Butonu -->
-            <div>
-                <button id="btnExecuteSwap" class="btn btn-purple" style="padding:8px 24px; font-size:0.95rem; font-weight:700;" disabled onclick="executeSelectedSwap()"><i class="fas fa-check"></i> Değiştir</button>
-            </div>
+    <!-- EKRANI TEMİZLE: Yüklü listeyi tamamen kaldırır (Onaylı) -->
+    <button class="btn btn-danger" style="height: 38px; padding: 0 12px; font-size: 0.82rem; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; gap: 5px; border-radius: 8px; white-space: nowrap;" onclick="openModernClearConfirmModal()">
+        <i class="fas fa-trash-alt"></i> Ekranı Temizle
+    </button>
 
-            <!-- Sağ Buton Grubu -->
-            <div style="display:flex; gap:8px; align-items:center;">
-                <button class="btn btn-ghost btn-sm" onclick="closeModal('modalSwap')">İptal</button>
-                <button class="btn btn-success" style="padding:8px 24px; font-size:0.95rem; font-weight:700;" onclick="saveSwapChanges()"><i class="fas fa-save"></i> Kaydet</button>
-            </div>
+    <!-- DEĞİŞTİR -->
+    <button id="btnExecuteSwap" class="btn btn-primary" style="height: 38px; padding: 0 30px; min-width: 110px; font-size: 0.85rem; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; gap: 5px; border-radius: 8px; white-space: nowrap;" onclick="executeSelectedSwap()">
+        <i class="fas fa-exchange-alt"></i> Değiştir
+    </button>
+
+    <!-- BANA BIRAK -->
+    <button id="btnBanaBirakToggle" class="btn btn-info" style="height: 38px; padding: 0 14px; font-size: 0.85rem; font-weight: 700; color: #fff; display: inline-flex; align-items: center; justify-content: center; gap: 5px; border-radius: 8px; white-space: nowrap;" onclick="toggleBanaBirakMode()">
+        <i class="fas fa-magic"></i> Bana Bırak
+    </button>
+
+<button class="btn btn-light"
+    style="
+        height:38px;
+        padding:0 15px;
+        font-size:0.82rem;
+        font-weight:700;
+        background:#64748b !important;
+        color:#ffffff !important;
+        border:1px solid #475569 !important;
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        gap:5px;
+        border-radius:8px;
+        white-space:nowrap;
+    ">
+    İptal
+</button>
+    
+    <!-- KAYDET -->
+    <button class="btn btn-success" style="height: 38px; padding: 0 18px; font-size: 0.85rem; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; gap: 5px; border-radius: 8px; white-space: nowrap;" onclick="saveSwapChanges()">
+        <i class="fas fa-check-circle"></i> Kaydet
+    </button>
+</div>
         </div>
     </div>
 </div>
@@ -1374,6 +1459,62 @@
 <div id="generalAlertModal" class="modal-overlay"><div class="modal-content" style="text-align:center; max-width:400px;"><h2 id="genAlertTitle">Uyarı</h2><p id="genAlertMsg"></p><div style="display:flex; justify-content:center;"><button class="btn btn-primary" onclick="closeAlertModal()">Tamam</button></div></div></div>
 
 <script>
+
+// Modern Ekranı Temizle Onay Penceresini Açar
+function openModernClearConfirmModal() {
+    const modal = document.getElementById('modernClearConfirmModal');
+    if (modal) {
+        modal.style.display = 'flex';
+        modal.classList.add('show');
+    }
+}
+
+// Modal Kapatma Fonksiyonu
+function closeModernClearConfirmModal() {
+    const modal = document.getElementById('modernClearConfirmModal');
+    if (modal) {
+        modal.style.display = 'none';
+        modal.classList.remove('show');
+    }
+}
+
+// Onay Verildiğinde Ekranı ve Seçimleri Sıfırlar
+function clearBecayisScreenConfirmed() {
+    closeModernClearConfirmModal();
+    if (window.becayisState) {
+        window.becayisState.selectedSlot1 = null;
+        window.becayisState.selectedSlot2 = null;
+        window.becayisState.history = [];
+        window.becayisState.currentSchedule = null;
+    }
+    const container = document.getElementById('becayisBoardContainer') || document.getElementById('becayisTableBody');
+    if (container) {
+        container.innerHTML = '<div style="padding:20px; text-align:center; color:#666;">Becayiş ekranı temizlendi. Yeni dosya yükleyebilir veya mevcut listeden aktarabilirsiniz.</div>';
+    }
+}
+const STORAGE_KEY = 'nobetData';
+(function () { try { if (!localStorage.getItem(STORAGE_KEY)) { const o = localStorage.getItem('nobetData_v1_2_3'); if (o) localStorage.setItem(STORAGE_KEY, o); } } catch (e) {} })();
+const NOBET_LOGO_PNG = 'data:image/png;base64,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';
+const FRIDAY_CONFLICTS = {
+    fridayRuleToggle: ['fridayWeMaxOneToggle', 'fridayMaxOneToggle'],
+    fridayWeMaxOneToggle: ['fridayRuleToggle', 'fridayMaxOneToggle', 'fridayWe1MaxOneToggle', 'fridayAbsoluteToggle'],
+    fridayMaxOneToggle: ['fridayRuleToggle', 'fridayWeMaxOneToggle', 'fridayWe1MaxOneToggle'],
+    fridayWe1MaxOneToggle: ['fridayMaxOneToggle', 'fridayWeMaxOneToggle', 'fridayAbsoluteToggle'],
+    fridayAbsoluteToggle: ['fridayWeMaxOneToggle', 'fridayWe1MaxOneToggle']
+};
+function updateFridayLocks() {
+    Object.keys(FRIDAY_CONFLICTS).forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const hitEl = FRIDAY_CONFLICTS[id].map(o => document.getElementById(o)).find(x => x && x.checked);
+        const lock = !!hitEl && !el.checked;
+        el.disabled = lock;
+        const row = el.closest('label').parentElement.parentElement;
+        row.style.opacity = lock ? '0.45' : '';
+        row.title = lock ? 'Açık olan "' + hitEl.closest('label').nextElementSibling.textContent.trim() + '" kuralıyla çakışıyor' : '';
+    });
+}
+document.getElementById('modalFriday').addEventListener('change', updateFridayLocks);
 
 // --- AÇILIŞ İÇİN RASTGELE 2 ANİMASYON HAVUZU (IŞIK REFLEKSİ & İNO) ---
 const OPENING_ANIMATIONS = [
@@ -1587,7 +1728,7 @@ let extraServisAssignments = {}; // { "2026-07-01": ["Ahmet Yılmaz","Ayşe Kaya
         loadData();
         if(!document.getElementById('startDate').value) { document.getElementById('startDate').valueAsDate = new Date(); }
         if(document.getElementById('weDifferentDaysToggle')) document.getElementById('weDifferentDaysToggle').checked = weDifferentDaysRule;
-if(!localStorage.getItem('nobetData_v1_2_3')) { onStartChange(); } else { init(); }
+if(!localStorage.getItem(STORAGE_KEY)) { onStartChange(); } else { init(); }
         document.getElementById('fridayRuleToggle').checked = fridayRuleEnabled;
 document.getElementById('fridayMaxOneToggle').checked = fridayMaxOneRule;
 document.getElementById('fridayAbsoluteToggle').checked = fridayAbsoluteRule;
@@ -1640,7 +1781,7 @@ specialUnits: specialUnits,
 
         jokerConfig.owners = data.jokerConfig.owners;
         jokerConfig.prevDuty = data.jokerConfig.prevDuty;
-        localStorage.setItem('nobetData_v1_2_3', JSON.stringify(data));
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
         const el = document.getElementById('saveStatus');
         el.innerHTML = '<i class="fas fa-sync fa-spin"></i>'; setTimeout(() => el.innerHTML = '<i class="fas fa-check"></i> Kayıtlı', 500);
     }
@@ -1656,7 +1797,7 @@ specialUnits: specialUnits,
     }
 
     function loadData() {
-    const raw = localStorage.getItem('nobetData_v1_2_3'); 
+    const raw = localStorage.getItem(STORAGE_KEY); 
     if(raw) {
         const data = JSON.parse(raw);
         document.getElementById('startDate').value = data.sDate;
@@ -1711,7 +1852,7 @@ if(document.getElementById('weDifferentDaysToggle')) document.getElementById('we
     }
 }
 
-    function clearData() { localStorage.removeItem('nobetData_v1_2_3'); location.reload(); }
+    function clearData() { localStorage.removeItem(STORAGE_KEY); location.reload(); }
     
     // --- MODAL & ARAÇLAR ---
     let pendingConfirmAction = null;
@@ -1909,7 +2050,7 @@ function toggleWeDifferentDays() {
 }
 
 function openFridayModal() {
-    renderDynamicPlaceFridayRules();
+    renderDynamicPlaceFridayRules(); updateFridayLocks();
     document.getElementById('modalFriday').style.display = 'flex';
 }
 
@@ -3729,6 +3870,15 @@ function exportWord() {
         const ayAdi = MONTH_TR[startD.getMonth()];
         const yil = startD.getFullYear();
 
+// Word çıktısı oluşturulurken İcapçı Öğretim Üyesi verisini koru
+        let icapciText = "-------------------";
+        if (window.currentScheduleData && window.currentScheduleData.icapciMap) {
+            const map = window.currentScheduleData.icapciMap;
+            const uniqueProf = [...new Set(Object.values(map))].filter(Boolean);
+            if (uniqueProf.length > 0) icapciText = uniqueProf.join(" / ");
+        } else if (window.icapciOgretimUyesi) {
+            icapciText = window.icapciOgretimUyesi;
+        }
         // Ölçü Dönüşümleri (1 cm = 567 twips)
         const tblW_Header = 10595; // 18.68 cm
         const tblW_Main = 10607;   // 18.7 cm
@@ -3831,7 +3981,37 @@ function exportWord() {
             });
             
             // İcapçı
-            dataRows += `<w:tc><w:tcPr><w:tcW w:w="${colW}" w:type="dxa"/>${tcBorders}${bgShd}<w:vAlign w:val="center"/></w:tcPr><w:p><w:pPr><w:spacing w:after="0" w:line="240" w:lineRule="auto"/></w:pPr></w:p></w:tc></w:tr>`;
+            // İcapçı - dışarıdan yüklenen Word dosyasındaki hali korunur
+const icapciName =
+    window.preservedIcapciMap &&
+    Object.prototype.hasOwnProperty.call(
+        window.preservedIcapciMap,
+        r.date.full
+    )
+        ? window.preservedIcapciMap[r.date.full]
+        : "";
+
+dataRows += `
+<w:tc>
+    <w:tcPr>
+        <w:tcW w:w="${colW}" w:type="dxa"/>
+        ${tcBorders}
+        ${bgShd}
+        <w:vAlign w:val="center"/>
+    </w:tcPr>
+    <w:p>
+        <w:pPr>
+            <w:spacing w:after="0" w:line="240" w:lineRule="auto"/>
+            <w:jc w:val="left"/>
+            <w:rPr>${cali10Normal}</w:rPr>
+        </w:pPr>
+        <w:r>
+            <w:rPr>${cali10Normal}</w:rPr>
+            <w:t>${icapciName}</w:t>
+        </w:r>
+    </w:p>
+</w:tc>
+</w:tr>`;
         });
 
         // ---------------- DOKÜMAN GÖVDESİ ----------------
@@ -4083,12 +4263,16 @@ function exportNobetPNG() {
     </svg>`;
 
     // Üst Birebir Word Antet Tablosu
+// PNG ÜST ANTET
+// Ortadaki geniş sütun tek parça tutulur.
+// Böylece gereksiz yatay çizgiler ve boş satırlar oluşmaz.
+// PNG ÜST ANTET
     const headerTable = {
         table: {
             widths: [65, '*', 70, 70],
             body: [
                 [
-                    { rowSpan: 5, svg: selcukLogoSvg, alignment: 'center', margin: [0, 2, 0, 0] },
+                    { rowSpan: 5, image: NOBET_LOGO_PNG, width: 55, alignment: 'center', margin: [0, 2, 0, 0] },
                     { text: 'SELÇUK ÜNİVERSİTESİ\nTIP FAKÜLTESİ HASTANESİ', bold: true, fontSize: 8.5, alignment: 'center' },
                     { text: 'Dok.Kodu', bold: true, fontSize: 8 },
                     { text: 'STH-F-98', bold: true, fontSize: 8 }
@@ -4154,7 +4338,21 @@ function exportNobetPNG() {
             const name = r.assign[p] ? r.assign[p].name.toLocaleUpperCase('tr-TR') : '';
             rowData.push({ text: name, fontSize: 7.8, alignment: 'left', fillColor: bg });
         });
-        rowData.push({ text: '', fontSize: 7.8, fillColor: bg });
+        const icapciName =
+    window.preservedIcapciMap &&
+    Object.prototype.hasOwnProperty.call(
+        window.preservedIcapciMap,
+        r.date.full
+    )
+        ? window.preservedIcapciMap[r.date.full]
+        : "";
+
+rowData.push({
+    text: icapciName,
+    fontSize: 7.8,
+    alignment: 'left',
+    fillColor: bg
+});
         tableBody.push(rowData);
     });
 
@@ -4433,45 +4631,44 @@ function exportWorkplacesPNG() {
         }
     }
 
-    function handleDocxFileUpload(e) {
-        if (e.target.files && e.target.files.length > 0) {
-            const file = e.target.files[0];
-            processDocxShiftFile(file);
-            e.target.value = '';
-        }
+function handleDocxFileUpload(e) {
+    if (e.target.files && e.target.files.length > 0) {
+        const file = e.target.files[0];
+        processDocxShiftFile(file);
+        e.target.value = '';
     }
-
-    function processDocxShiftFile(file) {
-        if (typeof JSZip === 'undefined') {
-            const script = document.createElement('script');
-            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
-            script.onload = () => readDocxFileContent(file);
-            document.head.appendChild(script);
-        } else {
-            readDocxFileContent(file);
-        }
+}
+function processDocxShiftFile(file) {
+    if (typeof JSZip === 'undefined') {
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+        script.onload = () => readDocxFileContent(file);
+        document.head.appendChild(script);
+    } else {
+        readDocxFileContent(file);
     }
+}
 
-    function readDocxFileContent(file) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            const arrayBuffer = e.target.result;
-            JSZip.loadAsync(arrayBuffer).then(function(zip) {
-                if (!zip.file("word/document.xml")) {
-                    showModernAlert("Hata", "Geçersiz Word belgesi. Tablo verisi bulunamadı.");
-                    return;
-                }
-                zip.file("word/document.xml").async("string").then(function(xmlStr) {
-                    parseDocxTableAndSetSchedule(xmlStr);
-                });
-            }).catch(function(err) {
-                showModernAlert("Hata", "Word dosyası okunamadı: " + err.message);
+function readDocxFileContent(file) {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const arrayBuffer = e.target.result;
+        JSZip.loadAsync(arrayBuffer).then(function(zip) {
+            if (!zip.file("word/document.xml")) {
+                showModernAlert("Hata", "Geçersiz Word belgesi. Tablo verisi bulunamadı.");
+                return;
+            }
+            zip.file("word/document.xml").async("string").then(function(xmlStr) {
+                parseDocxTableAndSetSchedule(xmlStr);
             });
-        };
-        reader.readAsArrayBuffer(file);
-    }
+        }).catch(function(err) {
+            showModernAlert("Hata", "Word dosyası okunamadı: " + err.message);
+        });
+    };
+    reader.readAsArrayBuffer(file);
+}
 
-    function parseDocxTableAndSetSchedule(xmlStr) {
+function parseDocxTableAndSetSchedule(xmlStr) {
         const parser = new DOMParser();
         const xmlDoc = parser.parseFromString(xmlStr, "text/xml");
         const rows = xmlDoc.getElementsByTagName("w:tr");
@@ -4494,17 +4691,53 @@ function exportWorkplacesPNG() {
         };
 
         const headerTexts = getRowCellTexts(rows[0]);
-        const allP = [...activePlaces];
-        if (refakatciMode) allP.push("Refakatçi");
 
+        // Yüklenen Word tablosundaki tüm nöbet birimlerini otomatik tespit et
         const colMap = {};
+        const detectedUnits = [];
+
         headerTexts.forEach((txt, idx) => {
+            if (!txt) return;
             const upperTxt = txt.toLocaleUpperCase('tr-TR');
-            allP.forEach(p => {
-                if (upperTxt.includes(p.toLocaleUpperCase('tr-TR'))) {
-                    colMap[p] = idx;
+            
+            // Tarih ve İcapçı gibi birim dışı sütunları atla
+            if (upperTxt.includes("TARİH") || upperTxt.includes("İCAPÇI") || upperTxt.includes("DOK.KODU") || upperTxt.includes("YAYIN TARİHİ") || upperTxt.includes("SAYFA NO")) {
+                return;
+            }
+
+            let unitName = "";
+            if (upperTxt.includes("REFAKAT")) {
+                unitName = "Refakatçi";
+                refakatciMode = true;
+                const toggle = document.getElementById('refModeToggle');
+                if (toggle) toggle.checked = true;
+            } else {
+                let matched = activePlaces.find(p => upperTxt.includes(p.toLocaleUpperCase('tr-TR')));
+                if (matched) {
+                    unitName = matched;
+                } else {
+                    let match = txt.match(/\(([^)]+)\)/);
+                    if (match && match[1]) {
+                        unitName = titleCase(match[1].trim());
+                    } else {
+                        unitName = titleCase(txt.replace(/NÖBETÇİ\s+ASİSTANLAR/gi, '').replace(/NÖBET/gi, '').trim());
+                    }
                 }
-            });
+            }
+
+            if (unitName) {
+                colMap[unitName] = idx;
+                if (!detectedUnits.includes(unitName)) {
+                    detectedUnits.push(unitName);
+                }
+            }
+        });
+
+        // Tespit edilen yeni birimleri aktif birimler listesine ekle
+        detectedUnits.forEach(u => {
+            if (u !== "Refakatçi" && !activePlaces.includes(u)) {
+                activePlaces.push(u);
+            }
         });
 
         const newTempSchedule = [];
@@ -4535,11 +4768,11 @@ function exportWorkplacesPNG() {
             }
 
             const assignObj = {};
-            allP.forEach(p => {
+            detectedUnits.forEach(p => {
                 const colIdx = colMap[p];
                 if (colIdx !== undefined && cells[colIdx]) {
                     const rawName = cells[colIdx].trim();
-                    if (rawName && rawName !== '-') {
+                    if (rawName && rawName !== '-' && rawName !== 'BOŞ' && rawName !== '(BOŞ)') {
                         let matchedDoc = docs.find(d => d.name.toLocaleLowerCase('tr-TR') === rawName.toLocaleLowerCase('tr-TR'));
                         if (!matchedDoc) matchedDoc = { id: Date.now() + Math.random(), name: titleCase(rawName) };
                         assignObj[p] = matchedDoc;
@@ -4569,7 +4802,51 @@ function exportWorkplacesPNG() {
 
         const statusInfo = document.getElementById('swapStatusInfo');
         if (statusInfo) {
-            statusInfo.innerHTML = `<span style="color:#16a34a;"><i class="fas fa-check-circle"></i> Word listesi (${newTempSchedule.length} gün) başarıyla yüklendi. Takas yapabilir veya Kaydet butonuna basabilirsiniz.</span>`;
+            statusInfo.innerHTML = `<span style="color:#16a34a;"><i class="fas fa-check-circle"></i> Word listesi (${newTempSchedule.length} gün) yüklendi. Algılanan birimler: <strong>${detectedUnits.join(', ')}</strong></span>`;
+// Word Dosyasındaki İcapçı Verilerini Arka Planda Sakla
+// Becayiş ekranında İcapçı sütunu GÖSTERİLMEYECEK,
+// ancak çıktı alınırken orijinal haliyle kullanılacak.
+
+let icapciColIdx = -1;
+
+headerTexts.forEach((txt, idx) => {
+    if (
+        txt &&
+        txt.toLocaleUpperCase('tr-TR').includes("İCAPÇI")
+    ) {
+        icapciColIdx = idx;
+    }
+});
+
+if (icapciColIdx !== -1) {
+
+    const icapciMap = {};
+
+    for (let r = 1; r < rows.length; r++) {
+
+        const cells = getRowCellTexts(rows[r]);
+
+        const rawDateStr = cells[0] || "";
+
+        const dateMatch = rawDateStr.match(
+            /(\d{2}\.\d{2}\.\d{4})/
+        );
+
+        if (dateMatch) {
+
+            // Hücre boş olsa bile tarih kaydedilecek.
+            // Böylece boş İcapçı hücreleri de gerçekten boş kalacak.
+            icapciMap[dateMatch[0]] =
+                (cells[icapciColIdx] || "").trim();
+        }
+    }
+
+    window.preservedIcapciMap =
+        JSON.parse(JSON.stringify(icapciMap));
+}
+
+        // Orijinal Yüklenen Listeyi Saklama
+        window.originalLoadedSchedule = JSON.parse(JSON.stringify(newTempSchedule));
         }
     }
 
@@ -4580,6 +4857,62 @@ function exportWorkplacesPNG() {
     let selectedShiftSource = null;
     let selectedShiftTarget = null;
     let allowCrossSwap = false;
+
+function saveSwapChanges() {
+    if (!tempSwapSchedule || tempSwapSchedule.length === 0) {
+        if (typeof showModernAlert === 'function') showModernAlert('Uyarı', 'Kaydedilecek nöbet listesi bulunamadı.');
+        else alert('Kaydedilecek nöbet listesi bulunamadı.');
+        return;
+    }
+
+    // 1. Word'deki İlk Nöbet Tarihini Ana Tarih Inputuna Aktar (Önizleme Bağlantısı İçin)
+    if (tempSwapSchedule[0] && tempSwapSchedule[0].date) {
+        const dObj = tempSwapSchedule[0].date;
+        let isoDateStr = dObj.str || "";
+        
+        if (!isoDateStr && dObj.full) {
+            const p = dObj.full.split('.');
+            if (p.length === 3) isoDateStr = `${p[2]}-${p[1]}-${p[0]}`;
+        }
+
+        const startDateInput = document.getElementById('startDate');
+        if (startDateInput && isoDateStr) {
+            startDateInput.value = isoDateStr;
+        }
+    }
+
+    // 2. Global Nöbet Listesini Güncelle
+    schedule = JSON.parse(JSON.stringify(tempSwapSchedule));
+    if (!window.currentScheduleData) window.currentScheduleData = {};
+    window.currentScheduleData.schedule = tempSwapSchedule;
+
+    // 3. İcapçı Verisini Sakla (Word/PNG Çıktıları İçin)
+    if (window.preservedIcapciMap) {
+        window.currentScheduleData.icapciMap = window.preservedIcapciMap;
+    }
+
+    // 4. Ana Önizleme Ekranını Yeniden Çiz/Tetikle
+    if (typeof renderMainScheduleTable === 'function') {
+        renderMainScheduleTable(tempSwapSchedule);
+    } else if (typeof renderSchedule === 'function') {
+        renderSchedule(tempSwapSchedule);
+    } else if (typeof renderTable === 'function') {
+        renderTable();
+    } else if (typeof generateSchedule === 'function') {
+        generateSchedule();
+    }
+
+    // 5. Modalı Kapat ve Bildirim Ver
+    closeModal('modalSwap');
+
+    if (typeof showModernAlert === 'function') {
+        showModernAlert('Başarılı', 'Becayiş/Word listesi başarıyla kaydedildi ve önizleme ekranına aktarıldı.');
+    } else if (typeof showToast === 'function') {
+        showToast('Nöbet listesi önizlemeye yansıtıldı!', 'success');
+    } else {
+        alert('Nöbet listesi önizleme ekranına aktarıldı.');
+    }
+}
 
     function openSwapModal() {
         if (schedule && schedule.length > 0) {
@@ -4592,6 +4925,8 @@ function exportWorkplacesPNG() {
         selectedShiftSource = null;
         selectedShiftTarget = null;
         allowCrossSwap = false;
+        originalLoadedSwapSchedule = JSON.parse(JSON.stringify(tempSwapSchedule));
+        banaBirakMode = true; toggleBanaBirakMode();
         updateCrossSwapBtnUI();
         renderSwapGrid();
         document.getElementById('modalSwap').style.display = 'flex';
@@ -4619,145 +4954,219 @@ function exportWorkplacesPNG() {
         }
     }
 
-    function renderSwapGrid() {
-        const cont = document.getElementById('swapGridContainer');
-        if (!cont) return;
+// SIFIRLA (Modern Uyarılı & Yapılan Değişiklikleri İptal Eden Yapı)
+function resetSwapSchedule() {
+    if (window.originalLoadedSchedule) {
+        tempSwapSchedule = JSON.parse(JSON.stringify(window.originalLoadedSchedule));
+        renderSwapGrid(tempSwapSchedule);
+        
+        if (typeof showModernAlert === 'function') {
+            showModernAlert('Bilgi', 'Tüm yapılan değişiklikler sıfırlandı, ilk yüklenen orijinal nöbet listesine dönüldü.');
+        } else if (typeof showToast === 'function') {
+            showToast('Tüm değişiklikler sıfırlandı.', 'info');
+        } else {
+            alert('Tüm değişiklikler sıfırlandı.');
+        }
+    } else {
+        if (typeof showModernAlert === 'function') {
+            showModernAlert('Uyarı', 'Geri alınacak orijinal bir nöbet listesi bulunamadı.');
+        } else {
+            alert('Geri alınacak orijinal bir nöbet listesi bulunamadı.');
+        }
+    }
+}
 
-        if (!tempSwapSchedule || tempSwapSchedule.length === 0) {
-            cont.innerHTML = `
-                <div style="text-align:center; padding:50px 20px; color:#64748b;">
-                    <i class="fas fa-file-word" style="font-size:3.5rem; color:#cbd5e1; margin-bottom:15px; display:block;"></i>
-                    <div style="font-size:1.1rem; font-weight:700; color:#334155; margin-bottom:6px;">Henüz yüklü veya oluşturulmuş bir nöbet listesi bulunmuyor.</div>
-                    <div style="font-size:0.85rem; color:#64748b;">
-                        Sağ üstteki <strong>"Dosya Yükle (.docx)"</strong> butonuna tıklayarak veya daha önce oluşturulmuş bir .docx nöbet listesini bu pencereye <strong>sürükleyip bırakarak</strong> başlayabilirsiniz.
-                    </div>
-                </div>`;
-            const statusInfoEmpty = document.getElementById('swapStatusInfo');
-            if (statusInfoEmpty) statusInfoEmpty.innerHTML = "İşlem yapabilmek için lütfen bir nöbet listesi yükleyin.";
+// EKRANI TEMİZLE: Ekrandaki yüklü olan listeyi tamamen kaldırır
+function clearBecayisScreenConfirmed() {
+    closeModernClearConfirmModal();
+    tempSwapSchedule = null;
+    window.becayisState = { selectedSlot1: null, selectedSlot2: null, history: [], currentSchedule: null };
+    
+    const container = document.getElementById('swapGridContainer') || document.getElementById('becayisBoardContainer');
+    if (container) {
+        container.innerHTML = '<div style="padding:40px; text-align:center; color:#64748b; font-weight:500;">Becayiş ekranı temizlendi. Dosya yükleyebilir veya mevcut nöbet listesini aktarabilirsiniz.</div>';
+    }
+    if (typeof showToast === 'function') showToast('Becayiş ekranı tamamen temizlendi.', 'info');
+}
+
+function renderSwapGrid() {
+    const modalBody = document.getElementById('swapModalBodyFlex') || document.getElementById('swapGridContainer');
+    if (!modalBody) return;
+
+    // Düzenleyici Flex Container Yapısı
+    let parentDiv = document.getElementById('swapModalFlexParent');
+    if (!parentDiv) {
+        modalBody.innerHTML = `
+            <div id="swapModalFlexParent" style="display:flex; gap:15px; width:100%; align-items:flex-start;">
+                <div id="swapGridLeftTable" style="flex:1; overflow-x:auto;"></div>
+                <div id="banaBirakSidePanel" style="width:320px; display:none; flex-shrink:0;"></div>
+            </div>`;
+    }
+
+    const leftTable = document.getElementById('swapGridLeftTable');
+    
+    if (!tempSwapSchedule || tempSwapSchedule.length === 0) {
+        leftTable.innerHTML = `<div style="text-align:center; padding:40px; color:#64748b;">Nöbet listesi bulunamadı.</div>`;
+        return;
+    }
+
+    let allP = [...activePlaces];
+    if (refakatciMode && !allP.includes("Refakatçi")) allP.push("Refakatçi");
+
+    let html = `<table class="res-table" style="table-layout: fixed; width: 100%; font-size: 0.88rem; margin-top:0;">
+        <thead>
+            <tr>
+                <th style="width:135px; text-align:center; padding:5px; height:34px;">Tarih</th>`;
+    allP.forEach(p => {
+        html += `<th style="text-align:center; padding:5px; height:34px;">${p}</th>`;
+    });
+    html += `</tr></thead><tbody>`;
+
+    tempSwapSchedule.forEach((row, dayIdx) => {
+        const isW = row.date.isW;
+        const weekendClass = isW ? 'weekend-row' : '';
+        html += `<tr class="${weekendClass}" style="height:28px;">
+            <td style="text-align:center; font-weight:bold; vertical-align:middle; padding:3px 8px;">${row.date.full} (${row.date.wd})</td>`;
+
+        allP.forEach(p => {
+            const doc = row.assign ? row.assign[p] : null;
+            const shiftKey = `${dayIdx}_${p}`;
+            const isSource = selectedShiftSource && selectedShiftSource.key === shiftKey;
+            const isTarget = selectedShiftTarget && selectedShiftTarget.key === shiftKey;
+            const isModified = modifiedSwapKeys.has(shiftKey);
+
+            let isEligible = false;
+            if (selectedShiftSource && !isSource) {
+                isEligible = checkSwapEligibility(selectedShiftSource, { dayIdx, place: p, doc });
+            }
+
+            let cellStyle = "cursor:pointer; padding:3px 8px; vertical-align:middle; height:28px; transition:background-color 0.15s ease;";
+            let statusBadge = "";
+
+            if (isSource) {
+                cellStyle += "background:#eff6ff !important; font-weight:bold; color:#1e40af;";
+                statusBadge = `<span class="badge" style="background:#3b82f6; color:#fff; font-size:0.68rem; padding:1px 5px;">Seçilen</span>`;
+            } else if (isTarget) {
+                cellStyle += "background:#f3e8ff !important; font-weight:bold; color:#6b21a8;";
+                statusBadge = `<span class="badge" style="background:#7c3aed; color:#fff; font-size:0.68rem; padding:1px 5px;">Hedef</span>`;
+            } else if (selectedShiftSource) {
+                if (isEligible) {
+                    cellStyle += "background:#dcfce7 !important; color:#14532d !important; font-weight:bold;";
+                    statusBadge = `<span class="badge" style="background:#16a34a; color:#fff; font-size:0.68rem; padding:1px 5px;">Uygun</span>`;
+                } else {
+                    cellStyle += "opacity:0.25; pointer-events:none;";
+                }
+            } else if (!doc) {
+                cellStyle += "color:#94a3b8; font-style:italic;";
+            }
+
+            if (isModified && !isSource && !isTarget) {
+                statusBadge += `<span class="badge" style="background:#f97316; color:#fff; font-size:0.68rem; padding:1px 5px; margin-left:4px;">Değişti</span>`;
+            }
+
+            const displayName = doc && doc.name ? doc.name : "(BOŞ)";
+
+            html += `<td style="${cellStyle}" onclick="handleShiftClick(${dayIdx}, '${p}')" title="${banaBirakMode ? 'Aynı hücreye tekrar tıklayarak manuel isim atayabilir veya boş bırakabilirsiniz.' : ''}">
+                <div style="display:flex; align-items:center; justify-content:space-between; width:100%; overflow:hidden;">
+                    <span style="overflow:hidden; text-overflow:ellipsis; ${doc ? 'font-weight:600;' : 'font-weight:normal; opacity:0.7;'}">${displayName}</span>
+                    ${statusBadge}
+                </div>
+            </td>`;
+        });
+
+        html += `</tr>`;
+    });
+
+    html += `</tbody></table>`;
+    leftTable.innerHTML = html;
+
+    // "Bana Bırak" Paneli Çizimi
+    renderBanaBirakPanel();
+
+    // Buton durumlarını güncelle
+    const btnSwap = document.getElementById('btnExecuteSwap');
+    if (btnSwap) btnSwap.disabled = !(selectedShiftSource && selectedShiftTarget);
+}
+
+function handleShiftClick(dayIdx, place) {
+        const shiftKey = `${dayIdx}_${place}`;
+        const currentDoc = tempSwapSchedule[dayIdx].assign ? tempSwapSchedule[dayIdx].assign[place] : null;
+
+        if (banaBirakMode) {
+            // İlk tıklama: Hücreyi seç
+            if (!selectedShiftSource) {
+                selectedShiftSource = { dayIdx, place, doc: currentDoc, key: shiftKey };
+                renderSwapGrid();
+                return;
+            }
+
+            // Aynı hücreye ikinci tıklama: Manuel isim değiştir / BOŞ bırak penceresini aç
+            if (selectedShiftSource.key === shiftKey) {
+                openDirectAssignModal(dayIdx, place);
+                selectedShiftSource = null;
+                renderSwapGrid();
+                return;
+            }
+
+            // Başka bir hücreye tıklama: Kuralsız takas yap
+            selectedShiftTarget = { dayIdx, place, doc: currentDoc, key: shiftKey };
+            renderSwapGrid();
             return;
         }
 
-        const allP = [...activePlaces];
-        if (refakatciMode) allP.push("Refakatçi");
-
-        let html = `<table class="res-table" style="table-layout: fixed; width: 100%; font-size: 0.88rem; margin-top:0;">
-            <thead>
-                <tr>
-                    <th style="width:135px; text-align:center; padding:5px; height:34px; font-size:0.85rem;">Tarih</th>`;
-        allP.forEach(p => {
-            html += `<th style="text-align:center; padding:5px; height:34px; font-size:0.85rem;">${p}</th>`;
-        });
-        html += `</tr></thead><tbody>`;
-
-        tempSwapSchedule.forEach((row, dayIdx) => {
-            const isW = row.date.isW;
-            const weekendClass = isW ? 'weekend-row' : '';
-            html += `<tr class="${weekendClass}" style="height:28px;">
-                <td style="text-align:center; font-weight:bold; vertical-align:middle; padding:3px 8px; font-size:0.82rem;">${row.date.full} (${row.date.wd})</td>`;
-
-            allP.forEach(p => {
-                const doc = row.assign[p];
-                if (!doc) {
-                    html += `<td style="text-align:center; color:#94a3b8; vertical-align:middle; padding:3px 8px;">-</td>`;
-                    return;
-                }
-
-                const shiftKey = `${dayIdx}_${p}`;
-                const isSource = selectedShiftSource && selectedShiftSource.key === shiftKey;
-                const isTarget = selectedShiftTarget && selectedShiftTarget.key === shiftKey;
-                const isModified = modifiedSwapKeys.has(shiftKey);
-
-                let isEligible = false;
-                if (selectedShiftSource && !isSource) {
-                    isEligible = checkSwapEligibility(selectedShiftSource, { dayIdx, place: p, doc });
-                }
-
-                let cellStyle = "cursor:pointer; padding:3px 10px; vertical-align:middle; height:28px; font-size:0.88rem; transition:background-color 0.15s ease; border:none;";
-                let statusBadge = "";
-
-                if (isSource) {
-                    cellStyle += "background:#eff6ff !important; font-weight:bold; color:#1e40af;";
-                    statusBadge = `<span class="badge" style="background:#3b82f6; color:#fff; font-size:0.7rem; padding:2px 6px; margin-left:6px;">Seçilen</span>`;
-                } else if (isTarget) {
-                    cellStyle += "background:#f3e8ff !important; font-weight:bold; color:#6b21a8;";
-                    statusBadge = `<span class="badge" style="background:#7c3aed; color:#fff; font-size:0.7rem; padding:2px 6px; margin-left:6px;">Hedef</span>`;
-                } else if (selectedShiftSource) {
-                    if (isEligible) {
-                        cellStyle += "background:#dcfce7 !important; color:#14532d !important; font-weight:bold;";
-                        statusBadge = `<span class="badge" style="background:#16a34a; color:#fff; font-size:0.7rem; padding:2px 6px; margin-left:6px;">Uygun</span>`;
-                    } else {
-                        cellStyle += "opacity:0.25; pointer-events:none;";
-                    }
-                }
-
-                if (isModified && !isSource && !isTarget) {
-                    statusBadge += `<span class="badge" style="background:#f97316; color:#fff; font-size:0.7rem; padding:2px 6px; margin-left:6px;">Değiştirildi</span>`;
-                }
-
-                html += `<td style="${cellStyle}" onclick="handleShiftClick(${dayIdx}, '${p}')">
-                    <div style="display:flex; align-items:center; justify-content:space-between; width:100%; overflow:hidden; white-space:nowrap;">
-                        <span style="overflow:hidden; text-overflow:ellipsis; font-weight:600;">${doc.name}</span>
-                        ${statusBadge}
-                    </div>
-                </td>`;
-            });
-
-            html += `</tr>`;
-        });
-
-        html += `</tbody></table>`;
-        cont.innerHTML = html;
-
-        const btn = document.getElementById('btnExecuteSwap');
-        if (btn) btn.disabled = !(selectedShiftSource && selectedShiftTarget);
-
-        const statusInfo = document.getElementById('swapStatusInfo');
-        if (statusInfo) {
-            if (!selectedShiftSource) statusInfo.innerHTML = "Lütfen takas yapmak istediğiniz ilk nöbeti seçin.";
-            else if (!selectedShiftTarget) statusInfo.innerHTML = `<strong>${selectedShiftSource.doc.name}</strong> (${dates[selectedShiftSource.dayIdx].full}) seçildi. Değiştirilebilecek uygun bir nöbet seçin.`;
-            else statusInfo.innerHTML = `<strong>${selectedShiftSource.doc.name}</strong> ile <strong>${selectedShiftTarget.doc.name}</strong> nöbetleri değiştirilmeye hazır.`;
-        }
-    }
-
-    function handleShiftClick(dayIdx, place) {
-        const shiftKey = `${dayIdx}_${place}`;
-        const doc = tempSwapSchedule[dayIdx].assign[place];
-
+        // Normal Takas Modu
         if (!selectedShiftSource) {
-            selectedShiftSource = { dayIdx, place, doc, key: shiftKey };
-            selectedShiftTarget = null;
+            selectedShiftSource = { dayIdx, place, doc: currentDoc, key: shiftKey };
         } else if (selectedShiftSource.key === shiftKey) {
             selectedShiftSource = null;
-            selectedShiftTarget = null;
-        } else if (selectedShiftTarget && selectedShiftTarget.key === shiftKey) {
-            selectedShiftTarget = null;
         } else {
-            if (checkSwapEligibility(selectedShiftSource, { dayIdx, place, doc })) {
-                selectedShiftTarget = { dayIdx, place, doc, key: shiftKey };
+            if (checkSwapEligibility(selectedShiftSource, { dayIdx, place, doc: currentDoc })) {
+                selectedShiftTarget = { dayIdx, place, doc: currentDoc, key: shiftKey };
+                
+            } else {
+                selectedShiftSource = { dayIdx, place, doc: currentDoc, key: shiftKey };
             }
         }
         renderSwapGrid();
     }
 
-    function checkSwapEligibility(src, tgt) {
-        if (src.doc.name === tgt.doc.name) return false;
+function checkSwapEligibility(src, tgt) {
+        // "Bana Bırak" modu aktifse TÜM KURALLARI ES GEÇ!
+        if (typeof banaBirakMode !== 'undefined' && banaBirakMode) {
+            // Sadece aynı hücrenin kendisiyle değişmesini engelle
+            if (src.dayIdx === tgt.dayIdx && src.place === tgt.place) return false;
+            return true;
+        }
+
+        // KURAL 1: Birimler Arası Takas Engeli (Servisçi Yoğun Bakımcıyla, Refakatçi YBÜ ile takas yapamaz)
+        if (src.place !== tgt.place) return false;
+
+        // İki tane boş gün kendi arasında değiştirilemez
+        if (!src.doc && !tgt.doc) return false;
+        
+        // Aynı asistan kendi nöbetiyle değiştirilemez
+        if (src.doc && tgt.doc && src.doc.name === tgt.doc.name) return false;
 
         const isSrcW = dates[src.dayIdx].isW;
         const isTgtW = dates[tgt.dayIdx].isW;
         if (!allowCrossSwap && (isSrcW !== isTgtW)) return false;
 
-        const docA = docs.find(d => d.name === src.doc.name);
-        const docB = docs.find(d => d.name === tgt.doc.name);
-        if (!docA || !docB) return false;
+        const docA = src.doc ? (docs.find(d => d.name.toLocaleLowerCase('tr-TR') === src.doc.name.toLocaleLowerCase('tr-TR')) || { name: src.doc.name, allowed: [...activePlaces, "Refakatçi"], avail: {} }) : null;
+        const docB = tgt.doc ? (docs.find(d => d.name.toLocaleLowerCase('tr-TR') === tgt.doc.name.toLocaleLowerCase('tr-TR')) || { name: tgt.doc.name, allowed: [...activePlaces, "Refakatçi"], avail: {} }) : null;
 
-        if (!docA.allowed.includes(tgt.place)) return false;
-        if (!docB.allowed.includes(src.place)) return false;
+        // A Kişisinin yeni güne/birime uygunluk kontrolü
+        if (docA) {
+            if (!docA.allowed.includes(tgt.place)) return false;
+            if (docA.avail && docA.avail[dates[tgt.dayIdx].str] && (docA.avail[dates[tgt.dayIdx].str][tgt.place] === 'unwanted' || docA.avail[dates[tgt.dayIdx].str][tgt.place] === 'permit')) return false;
+            if (!checkSwapGapAndConstraints(docA, tgt.dayIdx, src.dayIdx)) return false;
+        }
 
-        if (docA.avail[dates[tgt.dayIdx].str] && (docA.avail[dates[tgt.dayIdx].str][tgt.place] === 'unwanted' || docA.avail[dates[tgt.dayIdx].str][tgt.place] === 'permit')) return false;
-        if (docB.avail[dates[src.dayIdx].str] && (docB.avail[dates[src.dayIdx].str][src.place] === 'unwanted' || docB.avail[dates[src.dayIdx].str][src.place] === 'permit')) return false;
-
-        if (!checkSwapGapAndConstraints(docA, tgt.dayIdx, src.dayIdx)) return false;
-        if (!checkSwapGapAndConstraints(docB, src.dayIdx, tgt.dayIdx)) return false;
+        // B Kişisinin yeni güne/birime uygunluk kontrolü
+        if (docB) {
+            if (!docB.allowed.includes(src.place)) return false;
+            if (docB.avail && docB.avail[dates[src.dayIdx].str] && (docB.avail[dates[src.dayIdx].str][src.place] === 'unwanted' || docB.avail[dates[src.dayIdx].str][src.place] === 'permit')) return false;
+            if (!checkSwapGapAndConstraints(docB, src.dayIdx, tgt.dayIdx)) return false;
+        }
 
         return true;
     }
@@ -4785,7 +5194,7 @@ function exportWorkplacesPNG() {
         const isSrcW = dates[selectedShiftSource.dayIdx].isW;
         const isTgtW = dates[selectedShiftTarget.dayIdx].isW;
 
-        if (isSrcW !== isTgtW) {
+        if (!banaBirakMode && isSrcW !== isTgtW && selectedShiftSource.doc && selectedShiftTarget.doc) {
             const srcType = isSrcW ? "Hafta sonu" : "Hafta içi";
             const tgtType = isTgtW ? "Hafta sonu" : "Hafta içi";
             const msg = `${selectedShiftSource.doc.name} kişisinin ${srcType} nöbeti, ${selectedShiftTarget.doc.name} kişisinin ${tgtType} nöbeti ile değiştirilecektir. Onaylıyor musunuz?`;
@@ -4832,30 +5241,81 @@ function exportWorkplacesPNG() {
         renderSwapGrid();
     }
 
+// Becayiş Listesini Kaydetme
 function saveSwapChanges() {
-        schedule = JSON.parse(JSON.stringify(tempSwapSchedule));
-        
-        jokerSchedule = [];
-        jokerWarnings = [];
 
-        syncActiveHistoryState();
-        saveData();
+    // Kaydedilecek liste yoksa işlemi durdur
+    if (!tempSwapSchedule || tempSwapSchedule.length === 0) {
+        if (typeof showModernAlert === 'function') {
+            showModernAlert('Uyarı', 'Kaydedilecek nöbet listesi bulunamadı.');
+        } else {
+            alert('Kaydedilecek nöbet listesi bulunamadı.');
+        }
+        return;
+    }
 
-        renderRes();
-        renderFinalPage();
+    // 1. Yüklenen Word listesindeki ilk tarihi ana tarihe aktar
+    if (tempSwapSchedule[0] && tempSwapSchedule[0].date) {
 
-        const jokerPreviewDiv = document.getElementById('finalJokerPreview');
-        if (jokerPreviewDiv) {
-            jokerPreviewDiv.innerHTML = `
-                <div id="jokerCalcPromptBox" style="background:#fffbeb; border:1px solid #fcd34d; padding:20px; border-radius:8px; text-align:center; margin-top:10px;">
-                    <div style="font-weight:700; color:#92400e; margin-bottom:10px;"><i class="fas fa-exclamation-triangle"></i> Yeni nöbet listesine göre Joker listesinin hesaplanması gerekiyor.</div>
-                    <button id="btnCalcJokerStep6" class="btn btn-joker" onclick="recalculateJokerInStep6()"><i class="fas fa-magic"></i> Joker Listesini Hesapla</button>
-                </div>`;
+        const dObj = tempSwapSchedule[0].date;
+
+        let isoDateStr = dObj.str || "";
+
+        if (!isoDateStr && dObj.full) {
+            const p = dObj.full.split('.');
+            if (p.length === 3) {
+                isoDateStr = `${p[2]}-${p[1]}-${p[0]}`;
+            }
         }
 
-        closeModal('modalSwap');
-        showModernAlert("Başarılı", "Nöbet listesi güncellendi. Joker listesini hesaplayabilirsiniz.");
+        const startDateInput = document.getElementById('startDate');
+
+        if (startDateInput && isoDateStr) {
+            startDateInput.value = isoDateStr;
+        }
     }
+
+    // 2. Becayişteki son listeyi ana nöbet listesine aktar
+    schedule = JSON.parse(JSON.stringify(tempSwapSchedule));
+
+    // 3. Sistem verisini de güncelle
+    if (!window.currentScheduleData) {
+        window.currentScheduleData = {};
+    }
+
+    window.currentScheduleData.schedule =
+        JSON.parse(JSON.stringify(tempSwapSchedule));
+
+    // 4. Dışarıdan yüklenen İcapçı bilgilerini koru
+    if (window.preservedIcapciMap) {
+        window.currentScheduleData.icapciMap =
+            JSON.parse(JSON.stringify(window.preservedIcapciMap));
+    }
+
+    // 5. Önce normal nöbet tablosunu yeniden oluştur
+    //    Böylece 6. sayfadaki önizleme boş kalmaz
+    if (typeof renderRes === 'function') {
+        renderRes();
+    }
+
+    // 6. VAR OLAN 6. SONUÇ SAYFASINA GEÇ VE ÖNİZLEMEYİ YENİLE
+    nav(6);
+
+    // 7. Becayiş penceresini kapat
+    closeModal('modalSwap');
+
+    // 8. Kullanıcıya bilgi ver
+    if (typeof showModernAlert === 'function') {
+        showModernAlert(
+            'Başarılı',
+            'Becayiş listesi kaydedildi ve 6. sonuç sayfasındaki önizleme güncellendi.'
+        );
+    } else if (typeof showToast === 'function') {
+        showToast('Nöbet listesi önizlemeye yansıtıldı!', 'success');
+    } else {
+        alert('Nöbet listesi önizlemeye yansıtıldı.');
+    }
+}
 
     function recalculateJokerInStep6() {
         calculateJokerSchedule(true);
@@ -4863,6 +5323,263 @@ function saveSwapChanges() {
         const fJoker = document.getElementById('finalJokerPreview');
         if (fJoker) fJoker.innerHTML = generateReadOnlyJokerTable();
     }
+// "Bana Bırak" Modu Değişkenleri
+    let banaBirakMode = false;
+    let originalLoadedSwapSchedule = null;
+
+    // Word Yüklendiğinde Orijinal Halini Saklama
+    const oldParseDocx = parseDocxTableAndSetSchedule;
+    parseDocxTableAndSetSchedule = function(xmlStr) {
+        oldParseDocx(xmlStr);
+        if (tempSwapSchedule && tempSwapSchedule.length > 0) {
+            originalLoadedSwapSchedule = JSON.parse(JSON.stringify(tempSwapSchedule));
+        }
+    };
+
+    // "Bana Bırak"
+    function toggleBanaBirakMode() {
+        banaBirakMode = !banaBirakMode;
+        selectedShiftSource = null;
+        selectedShiftTarget = null;
+        const btn = document.getElementById('btnBanaBirakToggle');
+        if (btn) {
+            btn.style.background = banaBirakMode ? '#d97706' : '#f59e0b';
+            btn.style.color = banaBirakMode ? '#ffffff' : '#000000';
+            btn.innerHTML = banaBirakMode ? '<i class="fas fa-unlock-alt"></i> Bana Bırak (Aktif)' : '<i class="fas fa-user-edit"></i> Bana Bırak';
+        }
+        const mc = document.getElementById('swapModalContent');
+        if (mc) mc.style.maxWidth = banaBirakMode ? '1400px' : '1080px';
+        renderSwapGrid();
+    }
+
+    function renderBanaBirakPanel() {
+        const panel = document.getElementById('banaBirakSidePanel');
+        if (!panel) return;
+        if (!banaBirakMode) { panel.style.display = 'none'; return; }
+        panel.style.display = 'block';
+        const stats = {};
+        const st = n => stats[n] || (stats[n] = { hi: 0, hs: 0 });
+        
+        (tempSwapSchedule || []).forEach(row => {
+            Object.values(row.assign || {}).forEach(o => { if (o && o.name) { if (row.date.isW) st(o.name).hs++; else st(o.name).hi++; } });
+        });
+        const days = (doc, status) => {
+            const set = new Set();
+            Object.keys(doc.avail || {}).forEach(k => {
+                const v = doc.avail[k];
+                const list = (v && typeof v === 'object') ? Object.values(v) : [v];
+                if (list.includes(status)) set.add(parseInt(k.split('-')[2], 10));
+            });
+            return [...set].sort((x, y) => x - y);
+        };
+        const fmt = a => a.length ? a.join(' ') : '—';
+        let html = `<div style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:8px; padding:12px; max-height:calc(96vh - 190px); overflow-y:auto;">
+            <div style="font-weight:700; font-size:0.9rem; color:#1e293b; margin-bottom:10px; border-bottom:2px solid #e2e8f0; padding-bottom:6px;"><i class="fas fa-user-clock" style="color:#d97706;"></i> İstek / İzin / Nöbet Özeti</div>`;
+        Object.keys(stats).sort((x, y) => x.localeCompare(y, 'tr')).forEach(n => {
+            const d = docs.find(x => x.name === n) || {};
+            const s2 = stats[n];
+            html += `<div style="background:#fff; border:1px solid #cbd5e1; border-radius:6px; padding:7px 10px; margin-bottom:7px; font-size:0.78rem;">
+                <div style="display:flex; justify-content:space-between; align-items:center; font-weight:700; color:#0f172a; margin-bottom:3px;"><span>${n}</span><span style="background:#e0f2fe; color:#0369a1; padding:1px 7px; border-radius:10px; font-size:0.72rem;">${s2.hi} h.içi, ${s2.hs} h.sonu</span></div>
+                <div style="color:#16a34a;"><b>İstiyor:</b> ${fmt(days(d, 'wanted'))}</div>
+                <div style="color:#dc2626;"><b>İstemiyor:</b> ${fmt(days(d, 'unwanted'))}</div>
+                <div style="color:#d97706;"><b>İzinli:</b> ${fmt(days(d, 'permit'))}</div>
+            </div>`;
+        });
+        panel.innerHTML = html + '</div>';
+    }
+
+    function openDirectAssignModal(dayIdx, place) {
+        const d = dates[dayIdx];
+        const cur = tempSwapSchedule[dayIdx].assign ? tempSwapSchedule[dayIdx].assign[place] : null;
+        const opts = docs.map(x => `<option value="${x.name}">`).join('');
+        showCustomModal("Manuel Nöbet Atama", `<div style="padding:10px;">
+            <p style="margin-bottom:10px; font-weight:600; font-size:0.9rem;">${d.full} (${d.wd}) - ${place}</p>
+            <input id="directAssignInput" list="directAssignList" value="${cur && cur.name ? cur.name : ''}" placeholder="İsim seçin veya yazın" style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:6px; margin-bottom:15px;">
+            <datalist id="directAssignList">${opts}</datalist>
+            <div style="display:flex; justify-content:space-between; gap:8px;">
+                <button class="btn btn-danger btn-sm" onclick="confirmDirectAssign(${dayIdx}, '${place}', true)">Boş Bırak</button>
+                <div style="display:flex; gap:8px;">
+                    <button class="btn btn-ghost btn-sm" onclick="closeCustomModal()">İptal</button>
+                    <button class="btn btn-primary btn-sm" onclick="confirmDirectAssign(${dayIdx}, '${place}')">Kaydet</button>
+                </div>
+            </div></div>`);
+    }
+
+    function confirmDirectAssign(dayIdx, place, blank) {
+        const inp = document.getElementById('directAssignInput');
+        const v = blank ? '' : (inp ? inp.value.trim() : '');
+        swapUndoStack.push(JSON.parse(JSON.stringify(tempSwapSchedule)));
+        const row = tempSwapSchedule[dayIdx];
+        if (!row.assign) row.assign = {};
+        row.assign[place] = v ? (docs.find(d => d.name.toLocaleLowerCase('tr-TR') === v.toLocaleLowerCase('tr-TR')) || { id: Date.now(), name: titleCase(v) }) : null;
+        modifiedSwapKeys.add(`${dayIdx}_${place}`);
+        closeCustomModal();
+        renderSwapGrid();
+    }
+function showCustomModal(title, contentHtml) {
+    let modal = document.getElementById('generalCustomModal');
+    if(!modal) {
+        modal = document.createElement('div');
+        modal.id = 'generalCustomModal';
+        modal.className = 'modal-overlay';
+        modal.innerHTML = `
+            <div class="modal-content" style="max-width:450px;">
+                <div class="modal-header">
+                    <h2 id="customModalTitle" style="font-size:1.1rem;"></h2>
+                    <span class="close-modal" onclick="closeCustomModal()">&times;</span>
+                </div>
+                <div id="customModalBody"></div>
+            </div>`;
+        document.body.appendChild(modal);
+    }
+    document.getElementById('customModalTitle').innerText = title;
+    document.getElementById('customModalBody').innerHTML = contentHtml;
+    modal.style.display = 'flex';
+}
+
+function closeCustomModal() {
+    const modal = document.getElementById('generalCustomModal');
+    if(modal) modal.style.display = 'none';
+}
+
+// İcapçı Öğretim Üyesi Verisini Global Koruma Mekanizması
+window.icapciProtector = {
+    backup: function() {
+        if (window.appState && window.appState.icapci) {
+            window.savedIcapciData = JSON.parse(JSON.stringify(window.appState.icapci));
+        }
+    },
+    restore: function() {
+        if (window.savedIcapciData && window.appState) {
+            window.appState.icapci = JSON.parse(JSON.stringify(window.savedIcapciData));
+            if (window.appState.schedule) {
+                window.appState.schedule.icapci = JSON.parse(JSON.stringify(window.savedIcapciData));
+            }
+        }
+    }
+};
+
+// Word Yükleme veya Kaydetme İşlemlerinde Otomatik Çalıştır
+document.addEventListener('change', function(e) {
+    if (e.target && e.target.type === 'file') {
+        window.icapciProtector.backup();
+    }
+});
+
+
+// Eksik Dışa Aktar (Export) Fonksiyonları
+
+function saveBecayisSchedule() {
+    if (!window.becayisState || !window.becayisState.currentSchedule) {
+        alert("Kaydedilecek nöbet listesi bulunamadı.");
+        return;
+    }
+    
+    // Mevcut İcapçı Öğretim Üyesi Verisini Muhafaza Et
+    const currentIcapci = window.icapciOgretimUyesi || 
+                         (window.currentScheduleData && window.currentScheduleData.icapci) || 
+                         document.getElementById('icapciOgretimUyesiInput')?.value || "";
+
+    // Yeni Becayiş Listesini Ana Sistem Verisine Aktar
+    window.currentScheduleData = Object.assign({}, window.currentScheduleData, {
+        schedule: window.becayisState.currentSchedule,
+        icapci: currentIcapci
+    });
+
+    window.icapciOgretimUyesi = currentIcapci;
+
+    if (typeof renderMainScheduleTable === 'function') {
+        renderMainScheduleTable(window.currentScheduleData.schedule);
+    }
+
+    closeModal('modalSwap');
+    alert("Becayiş değişikliği ve İcapçı Öğretim Üyesi bilgileri başarıyla kaydedildi.");
+}
+
+// Modern Ekranı Temizle Modalını Açma
+function openModernClearConfirmModal() {
+    const modal = document.getElementById('modernClearConfirmModal');
+    if (modal) {
+        modal.style.display = 'flex';
+    }
+}
+
+// Modern Ekranı Temizle Modalını Kapatma
+function closeModernClearConfirmModal() {
+    const modal = document.getElementById('modernClearConfirmModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+// EKRANI TEMİZLE: Becayiş ekranını tamamen ilk açılış haline döndürür
+function clearBecayisScreenConfirmed() {
+
+    // Uyarı penceresini kapat
+    closeModernClearConfirmModal();
+
+    // Becayişteki geçici listeyi tamamen temizle
+    tempSwapSchedule = [];
+
+    // Takas geçmişini temizle
+    swapUndoStack = [];
+    modifiedSwapKeys = new Set();
+
+    // Seçimleri temizle
+    selectedShiftSource = null;
+    selectedShiftTarget = null;
+
+    // Hafta içi / hafta sonu takasını kapat
+    allowCrossSwap = false;
+
+    // Bana Bırak modunu kapat
+    banaBirakMode = false;
+
+    // Orijinal yüklenen listeyi temizle
+    originalLoadedSwapSchedule = null;
+    window.originalLoadedSchedule = null;
+
+    // Dosya kutusunu temizle
+    const fileInput = document.getElementById('docxImportInput');
+    if (fileInput) {
+        fileInput.value = '';
+    }
+
+    // Durum yazısını ilk haline döndür
+    const statusInfo = document.getElementById('swapStatusInfo');
+    if (statusInfo) {
+        statusInfo.innerHTML =
+            'Lütfen takas yapmak istediğiniz ilk nöbeti seçin.';
+    }
+
+    // Butonu başlangıç görünümüne döndür
+    const crossBtn = document.getElementById('btnAllowCrossSwap');
+    if (crossBtn) {
+        crossBtn.style.backgroundColor = '';
+        crossBtn.style.color = '';
+        crossBtn.style.borderColor = '';
+        crossBtn.style.fontWeight = '';
+    }
+
+    // Becayiş alanını gerçek ilk açılış görünümüne geri çiz
+    renderSwapGrid();
+
+    // Temizleme işlemi sırasında İcapçı verisine dokunmuyoruz.
+}
+
+// Modern Alert (Uyarı/Bilgi Pop-Up)
+function showModernAlert(title, message) {
+    const alertModal = document.getElementById('generalAlertModal');
+    if (alertModal) {
+        const titleEl = alertModal.querySelector('.modal-title') || alertModal.querySelector('h3') || alertModal.querySelector('h5');
+        const bodyEl = alertModal.querySelector('.modal-body') || alertModal.querySelector('p');
+        if (titleEl) titleEl.innerText = title;
+        if (bodyEl) bodyEl.innerText = message;
+        alertModal.style.display = 'flex';
+    } else {
+        alert(`${title}: ${message}`);
+    }
+}
 </script>
 
 <!-- EKSTRA SERVİS TÜM ASİSTANLARI SEÇME MODAL'I -->
@@ -4882,6 +5599,23 @@ function saveSwapChanges() {
         </div>
     </div>
 </div>
-
+<!-- Modern Ekranı Temizle Onay Modalı (Düzgün Overlay Yapısı) -->
+<div id="modernClearConfirmModal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.5); z-index: 9999; align-items: center; justify-content: center;">
+    <div style="background: #ffffff; border-radius: 16px; padding: 25px; max-width: 400px; width: 90%; text-align: center; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04);">
+        <div style="color: #ef4444; margin-bottom: 15px;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="56" height="56" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/>
+            </svg>
+        </div>
+        <h3 style="margin: 0 0 10px 0; font-size: 1.25rem; font-weight: 700; color: #1e293b;">Ekran Temizlensin mi?</h3>
+        <p style="margin: 0 0 20px 0; font-size: 0.88rem; color: #64748b; line-height: 1.4;">
+            Becayiş ekranındaki aktarılmış liste ve tüm seçimler temizlenecektir. Bu işlem geri alınamaz.
+        </p>
+        <div style="display: flex; gap: 10px; justify-content: center;">
+            <button type="button" style="padding: 10px 20px; border-radius: 8px; border: 1px solid #cbd5e1; background: #f8fafc; font-weight: 600; cursor: pointer; color: #475569;" onclick="closeModernClearConfirmModal()">Vazgeç</button>
+            <button type="button" style="padding: 10px 20px; border-radius: 8px; border: none; background: #ef4444; font-weight: 600; cursor: pointer; color: #ffffff;" onclick="clearBecayisScreenConfirmed()">Evet, Temizle</button>
+        </div>
+    </div>
+</div>
 </body>
 </html>
