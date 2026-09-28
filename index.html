@@ -4272,14 +4272,14 @@ function exportNobetPNG() {
             widths: [65, '*', 70, 70],
             body: [
                 [
-                    { rowSpan: 5, image: NOBET_LOGO_PNG, width: 55, alignment: 'center', margin: [0, 2, 0, 0] },
-                    { text: 'SELÇUK ÜNİVERSİTESİ\nTIP FAKÜLTESİ HASTANESİ', bold: true, fontSize: 8.5, alignment: 'center' },
+                    { rowSpan: 5, image: NOBET_LOGO_PNG, width: 55, alignment: 'center', margin: [0, 4, 0, 0] },
+                    { rowSpan: 2, text: 'SELÇUK ÜNİVERSİTESİ\nTIP FAKÜLTESİ HASTANESİ', bold: true, fontSize: 8.5, alignment: 'center', margin: [0, 4, 0, 0] },
                     { text: 'Dok.Kodu', bold: true, fontSize: 8 },
                     { text: 'STH-F-98', bold: true, fontSize: 8 }
                 ],
                 [
                     {},
-                    { text: '', margin: [0,0] },
+                    {},
                     { text: 'Yayın Tarihi', bold: true, fontSize: 8 },
                     { text: '10.02.2018', bold: true, fontSize: 8 }
                 ],
@@ -4291,13 +4291,13 @@ function exportNobetPNG() {
                 ],
                 [
                     {},
-                    { text: ayAdi + ' AYI NÖBET LİSTESİ', bold: true, fontSize: 9.5, color: '#dc2626', alignment: 'center' },
+                    { rowSpan: 2, text: ayAdi + ' AYI NÖBET LİSTESİ', bold: true, fontSize: 9.5, color: '#dc2626', alignment: 'center', margin: [0, 6, 0, 6] },
                     { text: 'Rev. Tarihi', bold: true, fontSize: 8 },
                     { text: '', fontSize: 8 }
                 ],
                 [
                     {},
-                    { text: '', margin: [0,0] },
+                    {},
                     { text: 'Sayfa No', bold: true, fontSize: 8 },
                     { text: '1/1', bold: true, fontSize: 8 }
                 ]
@@ -4308,8 +4308,8 @@ function exportNobetPNG() {
             vLineWidth: () => 0.8,
             hLineColor: () => '#000000',
             vLineColor: () => '#000000',
-            paddingTop: () => 1,
-            paddingBottom: () => 1
+            paddingTop: () => 2,
+            paddingBottom: () => 2
         },
         margin: [0, 0, 0, 8]
     };
