@@ -242,6 +242,62 @@
         .joker-select { padding: 6px; border:1px solid #d1d5db; border-radius:4px; font-size:0.85rem; width:100%; box-sizing:border-box; }
         .hidden-el { display: none !important; }
 
+        /* SERVİSTE AKTİF ÇALIŞAN ASİSTANLAR */
+        .servis-aktif-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 10px;
+            max-height: 55vh;
+            overflow-y: auto;
+            padding: 4px;
+        }
+        .servis-aktif-item {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 10px 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .servis-aktif-item:hover {
+            border-color: #c29b38;
+            background: #fffbeb;
+        }
+        .servis-aktif-item.active {
+            border-color: #c29b38;
+            background: #fffbeb;
+            box-shadow: 0 2px 8px rgba(194,155,56,0.12);
+        }
+        .servis-aktif-item.special-default {
+            border-style: dashed;
+        }
+        .servis-aktif-name {
+            font-weight: 700;
+            color: #334155;
+            line-height: 1.25;
+        }
+        .servis-aktif-place {
+            display: inline-block;
+            margin-top: 4px;
+            padding: 2px 7px;
+            border-radius: 10px;
+            background: #f1f5f9;
+            color: #64748b;
+            font-size: 0.72rem;
+            font-weight: 600;
+        }
+        .servis-aktif-switch {
+            width: 18px;
+            height: 18px;
+            flex: 0 0 auto;
+            accent-color: #c29b38;
+            cursor: pointer;
+        }
+
         /* WP TAGS */
         .wp-tag { display: inline-flex; align-items: center; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; font-weight: 600; margin: 2px;}
         .wp-tag-auto { background: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; }
@@ -1059,6 +1115,10 @@ div[id*="becayis"] .modal-content {
         </div>
 
         <div style="text-align:right; margin-bottom:15px; display:flex; gap:10px; justify-content:flex-end;">
+<button type="button" class="btn" style="background-color:#c29b38; color:#ffffff; font-weight:600;" onclick="openServisAktifModal()">
+    <i class="fas fa-users"></i> Serviste Aktif Çalışan Asistanlar
+    <span id="servisAktifSayiButon" style="background:rgba(255,255,255,0.18); padding:2px 7px; border-radius:12px; min-width:24px; text-align:center;">0</span>
+</button>
             <button class="btn btn-joker" onclick="calculateJokerSchedule()"><i class="fas fa-magic"></i> Joker Listesini Hesapla</button>
             <button class="btn btn-primary" style="background:#4f46e5" onclick="nav(6)">Kaydet ve İlerle <i class="fas fa-chevron-right"></i></button>
         </div>
@@ -1439,6 +1499,92 @@ div[id*="becayis"] .modal-content {
         </div>
     </div>
 </div>
+<div id="modalServisAktif" class="modal-overlay">
+    <div class="modal-content" style="max-width:600px;">
+        <div class="modal-header">
+            <h2><i class="fas fa-users" style="color:#c29b38"></i> Serviste Aktif Çalışan Asistanlar</h2>
+            <span class="close-modal" onclick="closeModal('modalServisAktif')">&times;</span>
+        </div>
+        <p style="font-size:0.85rem; color:#64748b; margin-bottom:15px;">
+            Serviste aktif çalışan asistanları işaretleyiniz. İşaretlenen asistanlar serviste aktif kabul edilecektir.
+        </p>
+        <div id="servisAktifAsistanListesi" class="servis-aktif-list"></div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:20px; border-top:1px solid #eee; padding-top:15px;">
+            <span style="font-size:0.9rem; font-weight:600; color:#475569;">
+                Seçili Asistan Sayısı: <span id="servisAktifSecimSayisi" style="color:#c29b38; font-weight:800;">0</span>
+            </span>
+            <div style="display:flex; gap:10px;">
+                <button type="button" class="btn btn-ghost" onclick="closeModal('modalServisAktif')">İptal</button>
+                <button type="button" class="btn" style="background-color:#c29b38; color:#ffffff; font-weight:600;" onclick="kaydetServisAktif()">Kaydet</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Günlük Servis Aktif Asistanlar Modalı -->
+<div id="modalGunlukServis" class="modal-overlay" style="display:none;">
+    <div class="modal-content" style="max-width:650px; position:relative;">
+        <div class="modal-header" style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #eee; padding-bottom:10px; margin-bottom:15px;">
+            <h2><i class="fas fa-calendar-day" style="color:#c29b38"></i> <span id="gunlukServisTarihBaslik">Tarih</span> - Serviste Çalışanlar</h2>
+            <span class="close-modal" style="cursor:pointer; font-size:1.5rem;" onclick="closeModal('modalGunlukServis')">&times;</span>
+        </div>
+
+        <!-- Tüm Asistanlardan Ekle Butonu -->
+        <div id="gunlukTumAsistanBar" style="display:flex; gap:10px; margin-bottom:15px; align-items:center; background:#f8fafc; padding:10px; border-radius:8px; border:1px solid #e2e8f0;">
+            <button type="button" class="btn" style="background:#22c55e; color:#fff; font-weight:600; padding:8px 15px; border-radius:6px; border:none; cursor:pointer;" onclick="acGunlukTumAsistanPaneli()">
+                <i class="fas fa-plus"></i> Tüm Asistanlardan Ekle
+            </button>
+        </div>
+
+        <!-- Tüm Asistanlar Paneli -->
+        <div id="gunlukTumAsistanPanel" style="display:none; margin-bottom:15px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                <span style="font-size:0.9rem; font-weight:700; color:#475569;">Eklemek istediğiniz asistana tıklayın</span>
+                <button type="button" class="btn btn-ghost" style="padding:4px 12px;" onclick="kapatGunlukTumAsistanPaneli()">Kapat</button>
+            </div>
+            <div id="gunlukTumAsistanListe" style="display:grid; grid-template-columns:1fr 1fr; gap:8px; max-height:350px; overflow-y:auto; padding:5px;"></div>
+            <div id="gunlukTumAsistanSecilen" style="display:none; text-align:center; padding:20px; border:1.5px solid #fde68a; background:#fffbeb; border-radius:10px;">
+                <div id="gunlukTumAsistanSecilenAd" style="font-weight:800; font-size:1.05rem; color:#1e293b; margin-bottom:15px;"></div>
+                <div style="display:flex; justify-content:center; gap:10px;">
+                    <button type="button" class="btn btn-ghost" onclick="geriGunlukTumAsistanListesi()">Geri</button>
+                    <button type="button" class="btn" style="background:#22c55e; color:#fff; font-weight:600; padding:8px 20px; border:none; border-radius:6px; cursor:pointer;" onclick="ekleGunlukServisAsistan()">
+                        <i class="fas fa-plus"></i> Ekle
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <p id="gunlukServisAciklama" style="font-size:0.85rem; color:#64748b; margin-bottom:10px;">
+            Serviste aktif çalışanlar işaretlidir. Mazeretli/Joker/Nöbet ertesi kişiler silik görünmektedir; tıklayarak servise ekleyebilirsiniz.
+        </p>
+
+        <!-- Asistan Kartları Listesi -->
+        <div id="gunlukServisAsistanListesi" class="servis-aktif-list" style="display:grid; grid-template-columns:1fr 1fr; gap:10px; max-height:350px; overflow-y:auto; padding:5px;"></div>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:20px; border-top:1px solid #eee; padding-top:15px;">
+            <span style="font-size:0.9rem; font-weight:600; color:#475569;">
+                O Günkü Servis Sayısı: <span id="gunlukServisSecimSayisi" style="color:#c29b38; font-weight:800; font-size:1.1rem;">0</span>
+            </span>
+            <div style="display:flex; gap:10px;">
+                <button type="button" class="btn btn-ghost" onclick="closeModal('modalGunlukServis')">İptal</button>
+                <button type="button" class="btn" style="background-color:#c29b38; color:#ffffff; font-weight:600;" onclick="kaydetGunlukServis()">Kaydet</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modern Onay Uyarısı Modalı -->
+<div id="modalGunlukUyari" class="modal-overlay" style="display:none; z-index:99999;">
+    <div class="modal-content" style="max-width:420px; text-align:center; padding:25px; border-radius:12px; background:#fff; box-shadow:0 10px 25px rgba(0,0,0,0.2);">
+        <div style="font-size:3rem; color:#f59e0b; margin-bottom:10px;"><i class="fas fa-exclamation-triangle"></i></div>
+        <h3 style="margin-bottom:10px; color:#1e293b; font-weight:700;">Görev Durumu Uyarısı</h3>
+        <p id="gunlukUyariMetni" style="font-size:0.95rem; color:#475569; margin-bottom:20px; line-height:1.4;"></p>
+        <div style="display:flex; justify-content:center; gap:12px;">
+            <button type="button" class="btn btn-ghost" style="padding:8px 20px;" onclick="closeModal('modalGunlukUyari')">Vazgeç</button>
+            <button type="button" id="btnGunlukUyariOnay" class="btn" style="background:#22c55e; color:#fff; font-weight:600; padding:8px 20px; border:none; border-radius:6px; cursor:pointer;">Evet, Ekleyin</button>
+        </div>
+    </div>
+</div>
 
 <div id="modalEditSpecialUnits" class="modal-overlay">
     <div class="modal-content" style="max-width: 500px;">
@@ -1726,6 +1872,14 @@ let extraServisAssignments = {}; // { "2026-07-01": ["Ahmet Yılmaz","Ayşe Kaya
     // --- ONLOAD & KAYIT ---
     window.onload = () => {
         loadData();
+setTimeout(() => {
+    guncelleServisAktifAsistanListesi();
+
+    const btnCount = document.getElementById("servisAktifSayiButon");
+    if (btnCount) {
+        btnCount.textContent = getServisAktifSeciliSayisi();
+    }
+}, 100);
         if(!document.getElementById('startDate').value) { document.getElementById('startDate').valueAsDate = new Date(); }
         if(document.getElementById('weDifferentDaysToggle')) document.getElementById('weDifferentDaysToggle').checked = weDifferentDaysRule;
 if(!localStorage.getItem(STORAGE_KEY)) { onStartChange(); } else { init(); }
@@ -1757,6 +1911,7 @@ weDifferentDays: weDifferentDaysRule,
 specialUnits: specialUnits,
             workplaceUnits: workplaceUnits,
             extraServis: extraServisAssignments,
+            servisAktifSecimler: JSON.parse(JSON.stringify(servisAktifSecimler || {})),
             jokerSchedule: JSON.parse(JSON.stringify(jokerSchedule || [])),
             jokerConfig: {
                 j1: document.getElementById('joker1Select')?document.getElementById('joker1Select').value:"",
@@ -1824,6 +1979,17 @@ document.getElementById('fridayAbsoluteToggle').checked = fridayAbsoluteRule;
 activePlaces = data.activePlaces || ["Yoğun Bakım", "Servis"];
         specialUnits = data.specialUnits || ["Pol-1", "Pol-2", "Pol-3", "MS Merkezi", "Servis Kıdemlisi", "Konsültan", "Yoğun Bakım 1", "Yoğun Bakım 2"];
         extraServisAssignments = data.extraServis || {};
+        const servisAktifKayit = localStorage.getItem(STORAGE_KEY + "_servisAktif");
+
+if (servisAktifKayit) {
+    try {
+        servisAktifSecimler = JSON.parse(servisAktifKayit) || {};
+    } catch (e) {
+        servisAktifSecimler = data.servisAktifSecimler || {};
+    }
+} else {
+    servisAktifSecimler = data.servisAktifSecimler || {};
+}
         jokerSchedule = Array.isArray(data.jokerSchedule) ? data.jokerSchedule : [];
 weDifferentDaysRule = data.weDifferentDays !== undefined ? data.weDifferentDays : false;
 if(document.getElementById('weDifferentDaysToggle')) document.getElementById('weDifferentDaysToggle').checked = weDifferentDaysRule;        
@@ -2429,6 +2595,9 @@ if (actionVal === null) {
             `;
             grid.appendChild(div);
         });
+
+        // Servis görev yerindeki değişiklikler aktif servis listesini de anında günceller.
+        guncelleServisAktifAsistanListesi();
     }
 
 function addNewWorkplaceUnit() {
@@ -3213,49 +3382,6 @@ function deleteSpecialUnit(name) {
         });
     }
 
-// İlgili mesai gününde Servis'te (Servis Kıdemlisi HARİÇ) kaç asistan çalıştığını hesaplar
-// İlgili mesai gününde Servis'te (Servis Kıdemlisi ve Konsültan HARİÇ) çalışan toplam asistan sayısını hesaplar
-function getServisCountForDay(dayIdx) {
-    const today = dates[dayIdx];
-    if (today.isW) return 0; // Hafta sonu ve resmi tatillerde sayma
-
-    const konsultan = jokerConfig.owners ? jokerConfig.owners["Konsültan"] : "";
-    const servisKidemlisi = jokerConfig.owners ? jokerConfig.owners["Servis Kıdemlisi"] : "";
-
-    // 1. Görev Yerlerinde "Servis" başlığı altındaki tüm asistanları al
-    const data = getWorkplacePeople("Servis");
-    
-    // Servis Kıdemlisini ve Konsültanı HARİÇ tut
-    let activeServisPeople = data.combined.filter(p => p && p !== servisKidemlisi && p !== konsultan);
-
-    // 2. O gün Nöbet Ertesi veya İzinli olanları düş
-    const prevVals = jokerConfig.prevDuty || { d1:{}, d2:{} };
-    let resting = [];
-    if (dayIdx > 0) {
-        [...activePlaces, "Refakatçi"].forEach(p => { 
-            if (schedule[dayIdx - 1] && schedule[dayIdx - 1].assign[p]) {
-                resting.push(schedule[dayIdx - 1].assign[p].name); 
-            }
-        });
-    } else {
-        for (let p in prevVals.d1) resting.push(prevVals.d1[p]);
-    }
-
-    let count = 0;
-    activeServisPeople.forEach(personName => {
-        const pDoc = docs.find(d => d.name === personName);
-        const isResting = resting.includes(personName);
-        const isPermit = pDoc && pDoc.avail[today.str] && Object.values(pDoc.avail[today.str]).includes('permit');
-
-        // Nöbet ertesi veya izinli değilse çalışıyordur
-        if (!isResting && !isPermit) {
-            count++;
-        }
-    });
-
-return count;
-}
-
 // Bir tarihte manuel eklenmiş ekstra kişi sayısı
 function getExtraServisCountForDay(dayIdx) {
     const dateStr = dates[dayIdx].str;
@@ -3531,6 +3657,523 @@ function removeExtraServisPerson(dateStr, name) {
     renderServisCountWarnings();
     renderJokerTable(); // Joker tablosunu anlık tazele
 }
+// Serviste Aktif Çalışan Asistanlar Seçim Durumu Storage
+let servisAktifSecimler = {};
+
+function getServisAktifAdaylari() {
+    const servisPeople = getWorkplacePeople("Servis").combined || [];
+    const owners = jokerConfig.owners || {};
+    const result = [...servisPeople];
+
+    // Konsültan ve Servis Kıdemlisi Servis alanında otomatik görünmese bile aday listesinde yer alsın.
+    [owners["Servis Kıdemlisi"], owners["Konsültan"]].forEach(name => {
+        if (name && !result.includes(name)) result.push(name);
+    });
+
+    return result.filter(name => docs.some(d => d.name === name));
+}
+
+function isServisAktifIzinli(name, tarihStr) {
+    const doc = docs.find(d => d.name === name);
+    return !!(doc && doc.avail && doc.avail[tarihStr] && Object.values(doc.avail[tarihStr]).includes("permit"));
+}
+
+function isServisAktifNobetErtesi(name, gunIndex) {
+    if (gunIndex > 0) {
+        const prevRow = schedule[gunIndex - 1];
+        if (!prevRow) return false;
+        const places = [...activePlaces];
+        if (refakatciMode) places.push("Refakatçi");
+        return places.some(place => prevRow.assign && prevRow.assign[place] && prevRow.assign[place].name === name);
+    }
+
+    // Dönemin ilk günü: önceki dönem 1. gün nöbetçileri nöbet ertesi kabul edilir.
+    const prevVals = jokerConfig.prevDuty || { d1:{}, d2:{} };
+    return Object.values(prevVals.d1 || {}).includes(name);
+}
+
+function isServisAktifJokerleBaskaYereCekildi(name, gunIndex) {
+    const row = jokerSchedule && jokerSchedule[gunIndex];
+    if (!row || !row.assignments) return false;
+
+    for (let jokerId = 1; jokerId <= 5; jokerId++) {
+        const el = document.getElementById(`joker${jokerId}Select`);
+        const jokerName = el ? el.value : "";
+        if (!jokerName || jokerName !== name) continue;
+
+        const task = row.assignments[jokerId] || "";
+        // Joker hâlâ Servis'te ise sayılır; başka bir görev aldıysa o gün Servis'te sayılmaz.
+        if (task && !["Servis", "İzinli", "Nöbet Ertesi", "-", ""].includes(task)) return true;
+    }
+
+    return false;
+}
+
+function getServisAktifCalisanSayisi(gunIndex, tarihStr) {
+    const adaylar = getServisAktifAdaylari();
+    let aktifSayi = 0;
+
+    adaylar.forEach(name => {
+        // Kullanıcı seçmediyse hiçbir gün sayma.
+        if (servisAktifSecimler[name] !== true) return;
+
+        // İzinli ise sayma.
+        if (isServisAktifIzinli(name, tarihStr)) return;
+
+        // Nöbet ertesi ise sayma.
+        if (isServisAktifNobetErtesi(name, gunIndex)) return;
+
+        // Joker ile başka bir yere çekildiyse sayma.
+        if (isServisAktifJokerleBaskaYereCekildi(name, gunIndex)) return;
+
+        aktifSayi++;
+    });
+
+    return aktifSayi;
+}
+
+// Mevcut Joker / Word / PDF kodunun kullandığı ortak sayı fonksiyonu.
+function getServisCountForDay(dayIdx) {
+    if (!dates[dayIdx]) return 0;
+    return getServisAktifCalisanSayisi(dayIdx, dates[dayIdx].str);
+}
+
+function getServisAktifSeciliSayisi() {
+    return getServisAktifAdaylari().filter(name => servisAktifSecimler[name] === true).length;
+}
+
+// Günlük servis özel seçimlerinin saklandığı değişken
+let gunlukServisAktifMap = JSON.parse(localStorage.getItem((typeof STORAGE_KEY !== 'undefined' ? STORAGE_KEY : 'nobet') + "_gunlukServisAktif") || "{}");
+let mevcutAktifGunlukTarih = "";
+let gunlukServisEkstraMap = JSON.parse(localStorage.getItem((typeof STORAGE_KEY !== 'undefined' ? STORAGE_KEY : 'nobet') + "_gunlukServisEkstra") || "{}");
+let gunlukTumAsistanCache = [];
+let gunlukSecilenAsistan = "";
+
+function gunlukHtmlTemizle(text) {
+    return String(text).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+function hesaplaVarsayilanGunlukAktif(tarihTR) {
+    return Object.keys(servisAktifSecimler || {}).filter(k => {
+        if (servisAktifSecimler[k] !== true) return false;
+        return getAsistanGunlukDurum(k, tarihTR) === "Servis";
+    });
+}
+
+function getGunlukAktifListe(tarihTR) {
+    if (!gunlukServisAktifMap[tarihTR]) {
+        gunlukServisAktifMap[tarihTR] = hesaplaVarsayilanGunlukAktif(tarihTR);
+    }
+    return gunlukServisAktifMap[tarihTR];
+}
+
+function gunlukServisSessizKaydet() {
+    const storagePrefix = typeof STORAGE_KEY !== 'undefined' ? STORAGE_KEY : 'nobet';
+    localStorage.setItem(storagePrefix + "_gunlukServisAktif", JSON.stringify(gunlukServisAktifMap));
+    localStorage.setItem(storagePrefix + "_gunlukServisEkstra", JSON.stringify(gunlukServisEkstraMap));
+    const onizleme = document.getElementById("finalJokerPreview");
+    if (onizleme && typeof generateReadOnlyJokerTable === 'function') onizleme.innerHTML = generateReadOnlyJokerTable();
+}
+
+function acGunlukTumAsistanPaneli() {
+    const tarihTR = mevcutAktifGunlukTarih;
+    gunlukSecilenAsistan = "";
+    gunlukTumAsistanCache = get2SayfaTumAsistanlar();
+
+    const liste = document.getElementById("gunlukTumAsistanListe");
+    liste.innerHTML = "";
+    if (gunlukTumAsistanCache.length === 0) {
+        liste.innerHTML = '<div style="color:#64748b; font-size:0.9rem;">2. sayfada kayıtlı asistan yok.</div>';
+    }
+    gunlukTumAsistanCache.forEach((name, idx) => {
+        const yer = getAsistanGunlukDurum(name, tarihTR);
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.style.cssText = "padding:10px 12px; border:1.5px solid #e2e8f0; background:#f8fafc; border-radius:8px; cursor:pointer; font-weight:600; font-size:0.9rem; color:#1e293b; text-align:left;";
+        btn.textContent = name + " (" + yer + ")";
+        btn.onclick = function() { secGunlukTumAsistan(idx); };
+        liste.appendChild(btn);
+    });
+
+    document.getElementById("gunlukTumAsistanSecilen").style.display = "none";
+    liste.style.display = "grid";
+    document.getElementById("gunlukTumAsistanPanel").style.display = "block";
+    document.getElementById("gunlukTumAsistanBar").style.display = "none";
+    document.getElementById("gunlukServisAciklama").style.display = "none";
+    document.getElementById("gunlukServisAsistanListesi").style.display = "none";
+}
+
+function secGunlukTumAsistan(idx) {
+    const name = gunlukTumAsistanCache[idx];
+    if (!name) return;
+    gunlukSecilenAsistan = name;
+    const yer = getAsistanGunlukDurum(name, mevcutAktifGunlukTarih);
+    document.getElementById("gunlukTumAsistanSecilenAd").textContent = name + " (" + yer + ")";
+    document.getElementById("gunlukTumAsistanListe").style.display = "none";
+    document.getElementById("gunlukTumAsistanSecilen").style.display = "block";
+}
+
+function geriGunlukTumAsistanListesi() {
+    gunlukSecilenAsistan = "";
+    document.getElementById("gunlukTumAsistanSecilen").style.display = "none";
+    document.getElementById("gunlukTumAsistanListe").style.display = "grid";
+}
+
+function kapatGunlukTumAsistanPaneli() {
+    gunlukSecilenAsistan = "";
+    document.getElementById("gunlukTumAsistanPanel").style.display = "none";
+    document.getElementById("gunlukTumAsistanSecilen").style.display = "none";
+    document.getElementById("gunlukTumAsistanListe").style.display = "grid";
+    document.getElementById("gunlukTumAsistanBar").style.display = "flex";
+    document.getElementById("gunlukServisAciklama").style.display = "block";
+    document.getElementById("gunlukServisAsistanListesi").style.display = "grid";
+}
+
+function get2SayfaTumAsistanlar() {
+    const benzersiz = [];
+    docs.forEach(d => {
+        if (d && d.name && !benzersiz.includes(d.name)) benzersiz.push(d.name);
+    });
+    return benzersiz;
+}
+
+function getAsistanGunlukDurum(name, tarihStr) {
+    const tarihTR = formatTarihTR ? formatTarihTR(tarihStr) : tarihStr;
+    const dayIdx = dates.findIndex(d => d && (formatTarihTR(d.str) === tarihTR || d.str === tarihStr));
+
+    // 1. Joker Tablosundaki Görevi (Poliklinik, Joker, Nöbet Ertesi vb.)
+    if (dayIdx !== -1 && Array.isArray(jokerSchedule) && jokerSchedule[dayIdx]) {
+        const row = jokerSchedule[dayIdx];
+        if (row && row.assignments) {
+            const aj = (typeof getActiveJokersWithTasks === 'function') ? getActiveJokersWithTasks(false) : [];
+            for (let j of aj) {
+                if (j && j.name && j.name.trim() === name.trim()) {
+                    let task = row.assignments[j.id] || row.assignments[j.name] || row.assignments[name];
+                    if (task && task !== "-" && task !== "") return task;
+                }
+            }
+            if (row.assignments[name] && row.assignments[name] !== "-" && row.assignments[name] !== "") {
+                return row.assignments[name];
+            }
+        }
+    }
+
+    // 2. İzinli Durumu
+    const doc = docs.find(d => d.name === name);
+    const isoTarih = dayIdx !== -1 ? dates[dayIdx].str : tarihTR.split(".").reverse().join("-");
+    if (doc && doc.avail && doc.avail[isoTarih] && Object.values(doc.avail[isoTarih]).includes("permit")) {
+        return "İzinli";
+    }
+
+    // 3. Nöbet Ertesi Durumu
+    if (dayIdx !== -1 && isServisAktifNobetErtesi(name, dayIdx)) return "Nöbet Ertesi";
+
+    // 4. Özel Unvanlar
+    const owners = (typeof jokerConfig !== 'undefined' && jokerConfig.owners) ? jokerConfig.owners : {};
+    if (owners["Servis Kıdemlisi"] === name) return "Servis Kıdemlisi";
+    if (owners["Konsültan"] === name) return "Konsültan";
+
+    // 5. 2. Asistanlar Sayfasındaki Görev Yeri
+    let servisteMi = false;
+    for (const unit of workplaceUnits) {
+        const kisiler = getWorkplacePeople(unit).combined || [];
+        if (!kisiler.includes(name)) continue;
+        if (unit === "Servis") { servisteMi = true; continue; }
+        return unit;
+    }
+
+    return servisteMi ? "Servis" : "Yer Yok";
+}
+
+function openGunlukServisModal(tarihStr) {
+    const tarihTR = formatTarihTR ? formatTarihTR(tarihStr) : tarihStr;
+    mevcutAktifGunlukTarih = tarihTR;
+
+    const baslikEl = document.getElementById("gunlukServisTarihBaslik");
+    if (baslikEl) baslikEl.textContent = tarihTR;
+
+    kapatGunlukTumAsistanPaneli();
+    renderGunlukServisListesi();
+
+    const modalEl = document.getElementById("modalGunlukServis");
+    if (modalEl) modalEl.style.display = "flex";
+}
+
+function renderGunlukServisListesi() {
+    const container = document.getElementById("gunlukServisAsistanListesi");
+    if (!container) return;
+    container.innerHTML = "";
+
+    const tarihTR = mevcutAktifGunlukTarih;
+    const aktifListe = gunlukServisAktifMap[tarihTR] || hesaplaVarsayilanGunlukAktif(tarihTR);
+    const aktifSet = new Set(aktifListe);
+
+    const gorunenler = [];
+    [...getServisAktifAdaylari(), ...(gunlukServisEkstraMap[tarihTR] || []), ...aktifListe].forEach(n => {
+        if (n && !gorunenler.includes(n)) gorunenler.push(n);
+    });
+
+    gorunenler.forEach(name => {
+        const isAktif = aktifSet.has(name);
+        const gorevDurumu = getAsistanGunlukDurum(name, tarihTR);
+
+        const card = document.createElement("div");
+        card.style.cssText = `
+            position: relative;
+            padding: 10px 12px;
+            border-radius: 8px;
+            border: 1.5px solid ${isAktif ? '#fde68a' : '#e2e8f0'};
+            background: ${isAktif ? '#fffbeb' : '#f8fafc'};
+            opacity: ${isAktif ? '1' : '0.65'};
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        `;
+
+        card.onclick = function(e) {
+            if (e.target.closest('button')) return;
+            toggleGunlukServisAsistan(name, !isAktif, gorevDurumu);
+        };
+
+        card.innerHTML = `
+            <div style="min-width:0; flex:1; padding-right:25px;">
+                <div style="font-weight:700; color:#1e293b; font-size:0.9rem;">${gunlukHtmlTemizle(name)}</div>
+                <span style="font-size:0.75rem; color:${isAktif ? '#92400e' : '#475569'}; background:${isAktif ? '#fef08a' : '#e2e8f0'}; padding:2px 6px; border-radius:4px; font-weight:600; display:inline-block; margin-top:3px;">
+                    ${gunlukHtmlTemizle(gorevDurumu)}
+                </span>
+            </div>
+            <input type="checkbox" ${isAktif ? "checked" : ""} style="width:18px; height:18px; cursor:pointer; pointer-events:none;">
+        `;
+
+        const silBtn = document.createElement("button");
+        silBtn.type = "button";
+        silBtn.innerHTML = "&times;";
+        silBtn.title = "Sadece bu gün için listeden çıkar";
+        silBtn.style.cssText = "position:absolute; top:4px; right:6px; background:#fee2e2; border:none; color:#dc2626; border-radius:50%; width:20px; height:20px; font-size:12px; font-weight:bold; cursor:pointer; display:flex; align-items:center; justify-content:center;";
+        silBtn.onclick = function(e) {
+            e.stopPropagation();
+            silGunlukServisAsistan(name);
+        };
+        card.appendChild(silBtn);
+
+        container.appendChild(card);
+    });
+
+    const countEl = document.getElementById("gunlukServisSecimSayisi");
+    if (countEl) countEl.textContent = aktifListe.length;
+}
+
+function toggleGunlukServisAsistan(name, isChecked, gorevDurumu) {
+    const tarihTR = mevcutAktifGunlukTarih;
+    const liste = getGunlukAktifListe(tarihTR);
+
+    if (isChecked) {
+        if (gorevDurumu && gorevDurumu !== "Servis" && gorevDurumu !== "Yer Yok") {
+            let nedenMetni;
+            if (gorevDurumu === "İzinli") nedenMetni = "<strong>izinli</strong>";
+            else if (gorevDurumu === "Nöbet Ertesi") nedenMetni = "<strong>nöbet ertesi</strong>";
+            else nedenMetni = `<strong>${gunlukHtmlTemizle(gorevDurumu)}</strong> yerinde`;
+
+            const uyariMetni = `<strong>${gunlukHtmlTemizle(name)}</strong> kişisi <strong>${tarihTR}</strong> gününde ${nedenMetni}.<br><br>Yine de serviste aktif çalışanlar listesine eklensin mi?`;
+            const metinEl = document.getElementById("gunlukUyariMetni");
+            if (metinEl) metinEl.innerHTML = uyariMetni;
+
+            const btnOnay = document.getElementById("btnGunlukUyariOnay");
+            if (btnOnay) {
+                btnOnay.onclick = function() {
+                    const guncelListe = getGunlukAktifListe(tarihTR);
+                    if (!guncelListe.includes(name)) guncelListe.push(name);
+                    closeModal("modalGunlukUyari");
+                    gunlukServisSessizKaydet();
+                    renderGunlukServisListesi();
+                };
+            }
+
+            const modalUyari = document.getElementById("modalGunlukUyari");
+            if (modalUyari) modalUyari.style.display = "flex";
+            return;
+        }
+
+        if (!liste.includes(name)) liste.push(name);
+    } else {
+        gunlukServisAktifMap[tarihTR] = liste.filter(n => n !== name);
+    }
+
+    gunlukServisSessizKaydet();
+    renderGunlukServisListesi();
+}
+
+function silGunlukServisAsistan(name) {
+    const tarihTR = mevcutAktifGunlukTarih;
+    const liste = getGunlukAktifListe(tarihTR);
+    gunlukServisAktifMap[tarihTR] = liste.filter(n => n !== name);
+    if (gunlukServisEkstraMap[tarihTR]) {
+        gunlukServisEkstraMap[tarihTR] = gunlukServisEkstraMap[tarihTR].filter(n => n !== name);
+    }
+    gunlukServisSessizKaydet();
+    renderGunlukServisListesi();
+}
+
+function ekleGunlukServisAsistan() {
+    const name = gunlukSecilenAsistan;
+    if (!name) return;
+
+    const tarihTR = mevcutAktifGunlukTarih;
+    if (!gunlukServisEkstraMap[tarihTR]) gunlukServisEkstraMap[tarihTR] = [];
+    if (!gunlukServisEkstraMap[tarihTR].includes(name) && !getServisAktifAdaylari().includes(name)) {
+        gunlukServisEkstraMap[tarihTR].push(name);
+    }
+
+    gunlukServisSessizKaydet();
+    kapatGunlukTumAsistanPaneli();
+    renderGunlukServisListesi();
+}
+
+function kaydetGunlukServis() {
+    const storagePrefix = typeof STORAGE_KEY !== 'undefined' ? STORAGE_KEY : 'nobet';
+    localStorage.setItem(storagePrefix + "_gunlukServisAktif", JSON.stringify(gunlukServisAktifMap));
+    
+    if (typeof saveData === 'function') saveData();
+    if (typeof renderFinalPage === 'function') renderFinalPage();
+    if (typeof renderJokerPreviewTable === 'function') renderJokerPreviewTable();
+    if (typeof renderJokerTable === 'function') renderJokerTable();
+
+    closeModal("modalGunlukServis");
+}
+
+function openServisAktifModal() {
+    guncelleServisAktifAsistanListesi();
+    const modalEl = document.getElementById("modalServisAktif");
+    if (modalEl) modalEl.style.display = "flex";
+}
+
+function guncelleServisAktifAsistanListesi() {
+    const container = document.getElementById("servisAktifAsistanListesi");
+    if (!container) return;
+
+    const servisAdaylari = getServisAktifAdaylari();
+    const owners = jokerConfig.owners || {};
+    const specialNames = new Set([owners["Konsültan"], owners["Servis Kıdemlisi"]].filter(Boolean));
+    const adaySet = new Set(servisAdaylari);
+
+    Object.keys(servisAktifSecimler).forEach(name => {
+        if (!adaySet.has(name)) delete servisAktifSecimler[name];
+    });
+
+    servisAdaylari.forEach(name => {
+        if (servisAktifSecimler[name] === undefined) {
+            servisAktifSecimler[name] = !specialNames.has(name);
+        }
+    });
+
+    container.innerHTML = "";
+
+    if (servisAdaylari.length === 0) {
+        container.innerHTML = `
+            <div style="padding:15px; border-radius:8px; background:#fffbeb; color:#92400e; border:1px solid #fde68a;">
+                Görev yeri <strong>Servis</strong> olan asistan bulunamadı.
+            </div>`;
+    } else {
+        servisAdaylari.forEach(name => {
+            const isChecked = servisAktifSecimler[name] === true;
+            const isSK = owners["Servis Kıdemlisi"] === name;
+            const isKons = owners["Konsültan"] === name;
+            const placeLabel = isKons ? "Konsültan" : isSK ? "Servis Kıdemlisi" : "Servis";
+            const safeId = "chk_servis_" + name.replace(/[^a-zA-Z0-9_-]/g, "_");
+
+            const item = document.createElement("label");
+            item.className = `servis-aktif-item${isChecked ? " active" : ""}${(isSK || isKons) ? " special-default" : ""}`;
+            item.innerHTML = `
+                <div style="min-width:0; flex:1;">
+                    <div class="servis-aktif-name">${name}</div>
+                    <span class="servis-aktif-place">${placeLabel}</span>
+                </div>
+                <input class="servis-aktif-switch" type="checkbox" id="${safeId}" data-name="${name}" ${isChecked ? "checked" : ""} onchange="toggleServisAktifAsistan('${name}', this.checked)">
+            `;
+            container.appendChild(item);
+        });
+    }
+
+    const secimSayisi = getServisAktifSeciliSayisi();
+    const countEl = document.getElementById("servisAktifSecimSayisi");
+    if (countEl) countEl.textContent = secimSayisi;
+    const buttonCountEl = document.getElementById("servisAktifSayiButon");
+    if (buttonCountEl) buttonCountEl.textContent = secimSayisi;
+}
+
+function saveServisAktifSecimleri() {
+    if (typeof jokerConfig !== 'undefined') {
+        jokerConfig.servisAktifSecimler = servisAktifSecimler;
+    }
+    localStorage.setItem(
+        STORAGE_KEY + "_servisAktif",
+        JSON.stringify(servisAktifSecimler || {})
+    );
+
+    if (typeof saveData === 'function') saveData();
+
+    const seciliSayi = getServisAktifSeciliSayisi();
+    
+    const btnCount = document.getElementById("servisAktifSayiButon");
+    if (btnCount) btnCount.textContent = seciliSayi;
+
+    const modalCount = document.getElementById("servisAktifSecimSayisi");
+    if (modalCount) modalCount.textContent = seciliSayi;
+}
+
+function toggleServisAktifAsistan(name, isChecked) {
+    if (!getServisAktifAdaylari().includes(name)) return;
+
+    servisAktifSecimler[name] = !!isChecked;
+
+    const safeId = "chk_servis_" + name.replace(/[^a-zA-Z0-9_-]/g, "_");
+    const chk = document.getElementById(safeId);
+    if (chk) {
+        const itemLabel = chk.closest('.servis-aktif-item');
+        if (itemLabel) {
+            if (isChecked) itemLabel.classList.add('active');
+            else itemLabel.classList.remove('active');
+        }
+    }
+
+    saveServisAktifSecimleri();
+
+    if (typeof renderServisCountWarnings === 'function') renderServisCountWarnings();
+    if (typeof renderJokerTable === 'function') renderJokerTable();
+    if (document.getElementById("p6") && document.getElementById("p6").classList.contains("active")) {
+        if (typeof renderFinalPage === 'function') renderFinalPage();
+    }
+}
+
+function kaydetServisAktif() {
+    const checkboxes = document.querySelectorAll("#servisAktifAsistanListesi .servis-aktif-switch");
+    checkboxes.forEach(chk => {
+        const name = chk.getAttribute("data-name");
+        if (name) {
+            servisAktifSecimler[name] = chk.checked;
+        }
+    });
+
+    saveServisAktifSecimleri();
+
+    if (typeof renderServisCountWarnings === 'function') renderServisCountWarnings();
+    if (typeof renderJokerTable === 'function') renderJokerTable();
+    if (document.getElementById("p6") && document.getElementById("p6").classList.contains("active")) {
+        if (typeof renderFinalPage === 'function') renderFinalPage();
+    }
+
+    closeModal("modalServisAktif");
+}
+function hesaplaVeGuncelleServisAktifSayilari() {
+    saveServisAktifSecimleri();
+
+    if (typeof renderServisCountWarnings === 'function') renderServisCountWarnings();
+    if (typeof renderJokerTable === 'function') renderJokerTable();
+    const btnCount = document.getElementById("servisAktifSayiButon");
+    if (btnCount) btnCount.textContent = getServisAktifSeciliSayisi();
+}
 
     function calculateJokerSchedule(isForced = true) {
         if(schedule.length === 0) return;
@@ -3779,6 +4422,16 @@ displayJokerWarnings(jokerWarnings);
 
 
 // 3. 6. Sayfadaki Önizleme Tablosu (Yonca Toplam Sayı & Kritik Sınır Kontrolü)
+function formatTarihTR(tarihStr) {
+    if (!tarihStr) return "";
+    if (tarihStr.includes(".")) return tarihStr;
+    const parts = tarihStr.split("-");
+    if (parts.length === 3) {
+        return `${parts[2]}.${parts[1]}.${parts[0]}`;
+    }
+    return tarihStr;
+}
+
 function generateReadOnlyJokerTable() {
     const aj = getActiveJokersWithTasks(false); 
     if (aj.length === 0) return '';
@@ -3786,7 +4439,11 @@ function generateReadOnlyJokerTable() {
     let h = `<table class="joker-table"><thead><tr><th>Tarih</th>`; 
     aj.forEach(j => h += `<th style="font-weight:normal;">${j.id===5?`İzin Jokeri<br>${j.name}`:`${j.id}. Joker<br>${j.name}`}</th>`); 
     
-    h += `<th style="width:50px; text-align:center; font-weight:bold;" title="Serviste aktif çalışan asistan sayısı (Servis Kıdemlisi ve Konsültan hariç)">Sayı</th></tr></thead><tbody>`;
+    h += `<th style="width:70px; text-align:center; font-weight:bold; background:#fef08a; padding:0;" title="Serviste aktif çalışan asistan sayısı">
+        <button type="button" onclick="openServisAktifModal()" style="background:transparent; border:none; font-weight:800; cursor:pointer; color:inherit; width:100%; height:100%; padding:8px 5px;" title="Serviste Aktif Çalışan Asistanları Düzenle">
+            Sayı ⚙️
+        </button>
+    </th></tr></thead><tbody>`;
     
     jokerSchedule.forEach((row, i) => { 
         const bgStyle = row.isW ? 'background-color: #ffe4e6;' : '';
@@ -3802,20 +4459,31 @@ function generateReadOnlyJokerTable() {
                 h += `<td style="${isSpecialTask ? 'color:#7c3aed; font-weight:bold;' : 'color:#334155;'}">${v}</td>`; 
             });
             
-            // Taban + Ekstra Toplam Sayısı
-            const baseCount = getServisCountForDay(i);
-            const extraCount = getValidExtraServisForDay(i).length;
-            const totalCount = baseCount + extraCount;
+            const tarihISO = dates[i] ? dates[i].str : "";
+            const tarihTR = dates[i] ? (dates[i].dateDisplay || formatTarihTR(tarihISO)) : "";
 
-            // Eğer toplam sayı 0, 1 veya 2 ise kritik uyarı ver. 3 veya daha fazla ise uyarıyı tamamen kaldır.
-            if (totalCount <= 2) {
-                const cloverPart = extraCount > 0 ? ` <span style="color:#16a34a; font-weight:bold;">🍀${totalCount}</span>` : '';
-                h += `<td style="text-align:center; font-weight:800; color:#dc2626; background-color:#fef2f2;" title="Kritik asistan sayısı!">⚠️ ${totalCount}${cloverPart}</td>`;
+            let totalCount = 0;
+            if (typeof gunlukServisAktifMap !== 'undefined' && (gunlukServisAktifMap[tarihTR] || gunlukServisAktifMap[tarihISO])) {
+                const liste = gunlukServisAktifMap[tarihTR] || gunlukServisAktifMap[tarihISO];
+                totalCount = liste.length;
             } else {
-                // Sınır geçildi: Ünlem ve kırmızı renk yok. Ekstra kişi varsa yonca içinde toplam sayı gösterilir.
-                const displayVal = extraCount > 0 ? `<span style="color:#16a34a; font-weight:600;">🍀${totalCount}</span>` : `${totalCount}`;
-                h += `<td style="text-align:center; font-weight:normal; color:#475569;">${displayVal}</td>`;
+                const defaultAktif = Object.keys(servisAktifSecimler || {}).filter(k => {
+                    if (servisAktifSecimler[k] !== true) return false;
+                    const dur = getAsistanGunlukDurum(k, tarihTR);
+                    return dur === "Servis";
+                });
+                totalCount = defaultAktif.length;
             }
+
+            let displayContent = totalCount <= 2 ? `⚠️ ${totalCount}` : `${totalCount}`;
+            const cellBg = totalCount <= 2 ? '#fef2f2' : '#fef08a';
+            const textColor = totalCount <= 2 ? '#dc2626' : '#1e293b';
+
+            h += `<td style="text-align:center; background:${cellBg}; padding:0;">
+                <button type="button" onclick="openGunlukServisModal('${tarihTR}')" style="background:transparent; border:none; font-weight:800; cursor:pointer; color:${textColor}; width:100%; height:100%; padding:6px; text-decoration:underline;" title="${tarihTR} Tarihindeki Servis Çalışanlarını Gör / Düzenle">
+                    ${displayContent}
+                </button>
+            </td>`;
         }
         h += `</tr>`; 
     }); 
@@ -4108,7 +4776,13 @@ dataRows += `
         }).download(getSafeFilename('pdf')); 
     }
 
-
+function getJokerCiktiServisSayisi(i) {
+    const tarihISO = dates[i] ? dates[i].str : "";
+    const tarihTR = dates[i] ? (dates[i].dateDisplay || formatTarihTR(tarihISO)) : "";
+    const liste = gunlukServisAktifMap[tarihTR] || gunlukServisAktifMap[tarihISO];
+    if (liste) return liste.length;
+    return hesaplaVarsayilanGunlukAktif(tarihTR).length;
+}
 
 // 4. Joker Word Çıktısı (Güncellenmiş Toplam Sayı)
 function exportJokerWord() {
@@ -4127,7 +4801,8 @@ function exportJokerWord() {
             aj.forEach(j => { 
                 let v = row.assignments[j.id] || ''; 
                 let isSpecial = !["Servis", "İzinli", "Nöbet Ertesi", "-", ""].includes(v);
-                html += `<td style="${isSpecial ? 'color:#7c3aed; font-weight:bold;' : ''}">${v}</td>`; 
+                                const vGoster = (j.id !== 1 && (v === "İzinli" || v === "Nöbet Ertesi")) ? '' : v;
+                html += `<td style="${isSpecial ? 'color:#7c3aed; font-weight:bold;' : ''}">${vGoster}</td>`; 
             }); 
 
             extraPeople.forEach(name => {
@@ -4135,7 +4810,7 @@ function exportJokerWord() {
                 html += `<td style="text-align:center;">${assigned ? 'Servis' : ''}</td>`;
             });
             
-            const totalCount = getServisCountForDay(i) + getExtraServisCountForDay(i);
+                        const totalCount = getJokerCiktiServisSayisi(i);
             html += `<td style="text-align:center; font-weight:normal; color:#475569;">${totalCount}</td></tr>`; 
         } 
     });
@@ -4417,7 +5092,8 @@ function getJokerPdfDocDefinition() {
             aj.forEach(j => { 
                 let v = row.assignments[j.id] || ''; 
                 let isSpecial = !["Servis", "İzinli", "Nöbet Ertesi", "-", ""].includes(v);
-                rowCells.push({text: v, fontSize: baseFontSize, bold: isSpecial, color: (isSpecial ? '#7c3aed' : '#334155'), alignment: 'center'}); 
+                                const vGoster = (j.id !== 1 && (v === "İzinli" || v === "Nöbet Ertesi")) ? '' : v;
+                rowCells.push({text: vGoster, fontSize: baseFontSize, bold: isSpecial, color: (isSpecial ? '#7c3aed' : '#334155'), alignment: 'center'});
             }); 
 
             extraPeople.forEach(name => {
@@ -4425,7 +5101,7 @@ function getJokerPdfDocDefinition() {
                 rowCells.push({text: assigned ? 'Servis' : '', fontSize: baseFontSize, alignment: 'center'});
             });
 
-            const totalCount = getServisCountForDay(i) + getExtraServisCountForDay(i);
+            const totalCount = getJokerCiktiServisSayisi(i);
             rowCells.push({text: String(totalCount), fontSize: baseFontSize, bold: false, color: '#475569', alignment: 'center'});
 
             body.push(rowCells); 
@@ -5614,6 +6290,34 @@ function showModernAlert(title, message) {
         <div style="display: flex; gap: 10px; justify-content: center;">
             <button type="button" style="padding: 10px 20px; border-radius: 8px; border: 1px solid #cbd5e1; background: #f8fafc; font-weight: 600; cursor: pointer; color: #475569;" onclick="closeModernClearConfirmModal()">Vazgeç</button>
             <button type="button" style="padding: 10px 20px; border-radius: 8px; border: none; background: #ef4444; font-weight: 600; cursor: pointer; color: #ffffff;" onclick="clearBecayisScreenConfirmed()">Evet, Temizle</button>
+        </div>
+    </div>
+</div>
+<!-- Serviste Aktif Çalışan Asistanlar Modal Penceresi -->
+<div id="modalServisAktif" class="modal-overlay">
+    <div class="modal-content" style="max-width:820px;">
+        <div class="modal-header" style="background:#c29b38; color:#ffffff; border-radius:10px; padding:15px 18px; margin:-30px -30px 20px -30px; border-bottom:none;">
+            <h2 style="color:#ffffff; font-size:1.1rem; margin:0;"><i class="fas fa-users"></i> Serviste Aktif Çalışan Asistan Seçimi</h2>
+            <span class="close-modal" style="color:#ffffff;" onclick="closeModal('modalServisAktif')">&times;</span>
+        </div>
+
+        <div style="background:#fffbeb; border:1px solid #fde68a; color:#78350f; border-radius:8px; padding:12px 14px; margin-bottom:15px; font-size:0.86rem; line-height:1.45;">
+            <strong>Servis</strong> görev yerindeki asistanlar otomatik seçilir.
+            <strong>Konsültan</strong> ve <strong>Servis Kıdemlisi</strong> listede görünür ama otomatik seçilmez; isterseniz seçerek sayıya dahil edebilirsiniz.
+            İzinli, nöbet ertesi veya o gün joker olarak başka bir yere çekilen kişi, seçili olsa bile o günün sayısına dahil edilmez.
+        </div>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:12px;">
+            <div style="font-weight:800; color:#334155;">Hesaba dahil edilen seçili kişi: <span id="servisAktifSecimSayisi">0</span></div>
+            <div style="font-size:0.75rem; color:#64748b;">Tüm satır tıklanabilir</div>
+        </div>
+
+        <div id="servisAktifAsistanListesi" class="servis-aktif-list"></div>
+
+        <div style="text-align:right; margin-top:20px; border-top:1px solid #e2e8f0; padding-top:15px;">
+            <button type="button" class="btn btn-primary" style="background:#c29b38;" onclick="hesaplaVeGuncelleServisAktifSayilari(); closeModal('modalServisAktif');">
+                Kaydet ve Kapat
+            </button>
         </div>
     </div>
 </div>
