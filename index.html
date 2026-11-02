@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nöbet Listesi Pro v1.2.8</title>
+    <title>Nöbet Listesi Pro v1.3</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%230f172a'/><g stroke='%2338bdf8' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round' fill='none'><path d='M11 6.5 V3.5 M9.5 4.5 L11 6.5 L12.5 4.5'/><path d='M7 8 L4.5 5.5 M4.5 7.5 L4.5 5.5 L6.5 4.5'/><path d='M6.5 11 H3.5 M4.5 9.5 L6.5 11 L4.5 12.5'/><path d='M8 14 L5.5 16.5 M5.5 14.5 L5.5 16.5 L7.5 16.5'/><path d='M14 8 L16.5 5.5 M14.5 5.5 L16.5 5.5 L16.5 7.5'/><path d='M13.5 13.5 L24 24'/><path d='M24 24 L27.5 27.5 M25.5 28.5 L27.5 27.5 L28.5 25.5'/></g><circle cx='11' cy='11' r='4.5' fill='%2338bdf8'/><circle cx='11' cy='11' r='1.8' fill='%230f172a'/><rect x='13.5' y='13.5' width='4' height='2.2' rx='1' transform='rotate(45 15.5 14.6)' fill='%23818cf8'/><rect x='17.5' y='17.5' width='4' height='2.2' rx='1' transform='rotate(45 19.5 18.6)' fill='%23818cf8'/></svg>" type="image/svg+xml">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -234,6 +234,8 @@
 
         /* JOKER STYLES */
         .joker-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; margin-bottom: 20px; }
+        #pTasks .joker-card { height:100%; box-sizing:border-box; }
+        @media (max-width: 760px) { #p3 #prevDutyContainer { min-width:0 !important; width:100%; } #p3 > div:first-child > div:last-child { width:100%; flex:1 1 100% !important; } }
         .joker-card { background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; border-left: 4px solid var(--joker); }
         .joker-card h3 { margin: 0 0 10px 0; font-size: 1rem; color: #475569; }
         .joker-card.prev-card { border-left-color: #64748b; background: #f8fafc; }
@@ -731,7 +733,7 @@ div[id*="becayis"] .modal-content {
 <!-- NÖROLOJİ AÇILIŞ (SPLASH SCREEN) ANİMASYONU -->
 <div id="appSplashScreen">
     <div id="splashAnimContainer" class="pupil-stage"></div>
-    <div style="font-size:1.4rem; font-weight:700; color:#ffffff; letter-spacing:0.5px; margin-top:10px;">Nöbet Listesi Pro v1.2.8</div>
+    <div style="font-size:1.4rem; font-weight:700; color:#ffffff; letter-spacing:0.5px; margin-top:10px;">Nöbet Listesi Pro v1.3</div>
     <div style="font-size:0.95rem; color:#cbd5e1; margin-top:6px; font-weight:600;">Selçuk Nöroloji Nöbet Planlama Sistemi</div>
     <div style="font-size:0.75rem; color:#94a3b8; margin-top:5px; font-style:italic; font-weight:500; opacity:0.8;">Dr. Kadir GÜLŞEN</div>
 </div>    
@@ -942,10 +944,11 @@ div[id*="becayis"] .modal-content {
     <div class="stepper">
         <div class="step active" id="tab1" onclick="nav(1)">1. Ayarlar</div>
         <div class="step" id="tab2" onclick="nav(2)">2. Asistanlar</div>
-        <div class="step" id="tab3" onclick="nav(3)">3. İstekler</div>
-        <div class="step" id="tab4" onclick="nav(4)">4. Nöbet Listesi</div>
-        <div class="step" id="tab5" onclick="nav(5)">5. Joker & Görevler</div>
-        <div class="step" id="tab6" onclick="nav(6)">6. Sonuç</div>
+        <div class="step" id="tab3" onclick="nav(3)">3. Görevler</div>
+        <div class="step" id="tab4" onclick="nav(4)">4. İstekler</div>
+        <div class="step" id="tab5" onclick="nav(5)">5. Nöbet Listesi</div>
+        <div class="step" id="tab6" onclick="nav(6)">6. Jokerler & Görevler</div>
+        <div class="step" id="tab7" onclick="nav(7)">7. Sonuç</div>
     </div>
 
     <div class="content active" id="p1">
@@ -957,7 +960,7 @@ div[id*="becayis"] .modal-content {
         <div style="margin-top:30px; display:flex; justify-content:space-between; align-items:center;">
             <div style="display:flex; align-items:center; gap:10px;">
                  <button class="btn btn-ghost btn-danger" onclick="confirmAction('Sıfırla', 'Tüm veriler silinecek ve başlangıç ayarlarına dönülecek. Onaylıyor musunuz?', clearData)"><i class="fas fa-trash"></i> Sıfırla</button>
-                 <span style="color:#cbd5e1; font-size:0.75rem; font-weight:600;">v.1.2.8</span>
+                 <span style="color:#cbd5e1; font-size:0.75rem; font-weight:600;">v.1.3</span>
             </div>
             <div style="display:flex; gap:10px; align-items:center;">
                  <button class="btn btn-purple" onclick="openHolidayModal()"><i class="fas fa-calendar-check"></i> Resmi Tatilleri Düzenle</button>
@@ -980,7 +983,6 @@ div[id*="becayis"] .modal-content {
             <div style="display:flex; flex-direction:column; align-items:flex-end; gap:10px;">
                 <div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end;">
                       <button class="btn btn-danger" onclick="confirmAction('Tümünü Sil', 'Listedeki tüm asistanlar silinecek. Bu işlem geri alınamaz.', deleteAllPersonnel)"><i class="fas fa-trash"></i> Tümünü Sil</button>
-                      <button class="btn btn-warning" onclick="openConstraintModal()"><i class="fas fa-ban"></i> Kişi Bazlı Kısıtlamalar</button>
                       <button class="btn btn-purple" onclick="openSelectModal()"><i class="fas fa-list-ul"></i> Seç</button>
                 </div>
                 <div style="display:flex; align-items:center; gap:15px;">
@@ -989,9 +991,6 @@ div[id*="becayis"] .modal-content {
                         <div class="toggle-switch"></div>
                         <span class="toggle-label">Refakatçi Modu (Eğitim)</span>
                     </label>
-                   <button class="btn btn-ghost" style="border:1px solid #cbd5e1; color:#475569; font-weight:600; padding:8px 15px; border-radius:20px; background:#f1f5f9;" onclick="openFridayModal()">
-    <i class="fas fa-calendar-times" style="color:#3b82f6;"></i> Gün Bazlı Kısıtlamalar
-</button>
                     <button class="btn btn-primary" onclick="nav(3)">İleri <i class="fas fa-arrow-right"></i></button>
                 </div>
             </div>
@@ -1009,10 +1008,32 @@ div[id*="becayis"] .modal-content {
         </div>
     </div>
 
+    <div class="content" id="pTasks">
+        <div style="margin-bottom:18px;">
+            <h2 style="margin:0 0 6px 0; color:#1e293b; font-size:1.2rem;"><i class="fas fa-tasks" style="color:#7c3aed;"></i> Görevler</h2>
+            <div style="color:#64748b; font-size:0.9rem;"></div>
+        </div>
+        <div style="display:flex; justify-content:flex-end; margin-bottom:12px;" id="taskServisAktifButtonTarget"></div>
+        <div class="task-page-grid" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(320px, 1fr)); gap:15px; align-items:start;">
+            <div id="taskSpecialUnitsTarget"></div>
+            <div id="taskWorkplaceTarget"></div>
+        </div>
+        <div style="display:flex; justify-content:space-between; margin-top:24px;">
+            <button class="btn btn-ghost" onclick="nav(2)">Geri</button>
+            <button class="btn btn-primary" onclick="nav(4)">İsteklere Geç <i class="fas fa-arrow-right"></i></button>
+        </div>
+    </div>
+
     <div class="content" id="p3">
-        <div id="prevDutyContainer" style="background: #f8fafc; border: 2px solid #cbd5e1; border-radius: 12px; padding: 20px; margin-bottom: 25px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; width: fit-content; margin-left: auto; margin-right: auto; min-width: 650px;">
-            <div style="font-size: 1rem; font-weight: 800; color: #1e293b; margin-bottom: 5px;"><i class="fas fa-history"></i> ÖNCEKİ DÖNEM NÖBETÇİLERİ</div>
-            <div id="dynamicPrevDutyArea" style="width: 100%;"></div>
+        <div style="display:flex; justify-content:center; align-items:center; gap:28px; margin-bottom:25px; flex-wrap:wrap;">
+            <div id="prevDutyContainer" style="background:#f8fafc; border:2px solid #cbd5e1; border-radius:12px; padding:20px; margin:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; flex:1 1 650px; max-width:870px; min-width:650px; box-sizing:border-box;">
+                <div style="font-size:1rem; font-weight:800; color:#1e293b; margin-bottom:5px;"><i class="fas fa-history"></i> ÖNCEKİ DÖNEM NÖBETÇİLERİ</div>
+                <div id="dynamicPrevDutyArea" style="width:100%;"></div>
+            </div>
+            <div style="display:flex; flex-direction:column; align-items:stretch; justify-content:center; gap:12px; flex:0 0 260px; min-width:240px;">
+                <button class="btn btn-warning" style="width:100%; min-height:44px;" onclick="openConstraintModal()"><i class="fas fa-ban"></i> Kişi Bazlı Kısıtlamalar</button>
+                <button class="btn btn-ghost" style="width:100%; min-height:44px; border:1px solid #cbd5e1; color:#475569; font-weight:600; padding:8px 15px; border-radius:20px; background:#f1f5f9;" onclick="openFridayModal()"><i class="fas fa-calendar-times" style="color:#3b82f6;"></i> Gün Bazlı Kısıtlamalar</button>
+            </div>
         </div>
 
         <div style="display:flex; justify-content:center; gap:10px; margin-bottom:15px; flex-wrap:wrap;">
@@ -1028,7 +1049,7 @@ div[id*="becayis"] .modal-content {
         </div>
         <div class="cal-wrapper"><div id="calContainer"></div></div>
         <div style="display:flex; justify-content:space-between; margin-top:20px;">
-            <button class="btn btn-ghost" onclick="nav(2)">Geri</button>
+            <button class="btn btn-ghost" onclick="nav(3)">Geri</button>
             <button class="btn btn-success" onclick="startSolve()">Listeyi Oluştur <i class="fas fa-cogs"></i></button>
         </div>
     </div>
@@ -1041,13 +1062,14 @@ div[id*="becayis"] .modal-content {
         <div class="history-bar" id="historyBar"></div>
         <div id="alertBox"></div>
         <div style="display:flex; justify-content:flex-end; gap:10px; margin-bottom:15px; flex-wrap:wrap;">
+            <button class="btn btn-info" onclick="openOldDutyListUpload()"><i class="fas fa-file-upload"></i> Eski Nöbet Listesini Yükle</button>
             <button class="btn btn-retry" onclick="startSolve()"><i class="fas fa-sync"></i> Yeniden Oluştur</button>
-            <button class="btn btn-joker" onclick="nav(5)">Joker Yerleri <i class="fas fa-arrow-right"></i></button>
+            <button class="btn btn-joker" onclick="nav(6)">Joker Yerleri <i class="fas fa-arrow-right"></i></button>
         </div>
         <div style="overflow-x:auto;"><table class="res-table" id="resTable"></table></div>
         <div style="display:flex; justify-content:space-between; margin-top:20px;">
-            <button class="btn btn-ghost" onclick="nav(3)">Geri</button>
-            <button class="btn btn-joker" onclick="nav(5)">Joker Yerleri <i class="fas fa-arrow-right"></i></button>
+            <button class="btn btn-ghost" onclick="nav(4)">Geri</button>
+            <button class="btn btn-joker" onclick="nav(6)">Joker Yerleri <i class="fas fa-arrow-right"></i></button>
         </div>
     </div>
 
@@ -1057,7 +1079,8 @@ div[id*="becayis"] .modal-content {
         </div>
 
         <div class="joker-grid" style="grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));">
-            <div class="joker-card">
+            <div id="sharedSpecialUnitsHomeAnchor" style="display:none;"></div>
+            <div class="joker-card" id="sharedSpecialUnitsCard">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
                     <h3 style="margin:0;"><i class="fas fa-building"></i> Birim Sorumlu Asistanı</h3>
                     <div style="display:flex; gap:8px;">
@@ -1066,6 +1089,7 @@ div[id*="becayis"] .modal-content {
                     </div>
                 </div>
                 <div id="specialUnitsGrid" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;"></div>
+                <div id="emptyOwnerWarningBox" style="margin-top:12px;"></div>
             </div>
 
             <div class="joker-card">
@@ -1104,7 +1128,8 @@ div[id*="becayis"] .modal-content {
                 </div>
             </div>
 
-            <div class="joker-card" style="border-left-color: #0ea5e9;">
+            <div id="sharedWorkplaceHomeAnchor" style="display:none;"></div>
+            <div class="joker-card" id="sharedWorkplaceCard" style="border-left-color: #0ea5e9;">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
                     <h3 style="margin:0;"><i class="fas fa-map-signs"></i> Görev Yerleri</h3>
                     <button class="btn btn-success btn-sm" onclick="addNewWorkplaceUnit()"><i class="fas fa-plus"></i> Birim Ekle</button>
@@ -1115,22 +1140,22 @@ div[id*="becayis"] .modal-content {
         </div>
 
         <div style="text-align:right; margin-bottom:15px; display:flex; gap:10px; justify-content:flex-end;">
-<button type="button" class="btn" style="background-color:#c29b38; color:#ffffff; font-weight:600;" onclick="openServisAktifModal()">
+<span id="sharedServisAktifButtonHomeAnchor" style="display:none;"></span>
+<button type="button" id="sharedServisAktifButton" class="btn" style="background-color:#c29b38; color:#ffffff; font-weight:600;" onclick="openServisAktifModal()">
     <i class="fas fa-users"></i> Serviste Aktif Çalışan Asistanlar
     <span id="servisAktifSayiButon" style="background:rgba(255,255,255,0.18); padding:2px 7px; border-radius:12px; min-width:24px; text-align:center;">0</span>
 </button>
             <button class="btn btn-joker" onclick="calculateJokerSchedule()"><i class="fas fa-magic"></i> Joker Listesini Hesapla</button>
-            <button class="btn btn-primary" style="background:#4f46e5" onclick="nav(6)">Kaydet ve İlerle <i class="fas fa-chevron-right"></i></button>
+            <button class="btn btn-primary" style="background:#4f46e5" onclick="nav(7)">Kaydet ve İlerle <i class="fas fa-chevron-right"></i></button>
         </div>
         
 <div id="jokerWarningBox"></div>
-<div id="emptyOwnerWarningBox"></div>
 <div id="servisCountWarningBox"></div>
         <div id="jokerResults"></div>
         
         <div style="display:flex; justify-content:space-between; margin-top:30px; border-top:1px solid #e2e8f0; padding-top:20px; align-items:center;">
-            <button class="btn btn-ghost" onclick="nav(4)">Geri</button>
-            <button class="btn btn-primary" style="background:#4f46e5; padding:10px 25px; font-size:1rem;" onclick="nav(6)">Kaydet ve İlerle <i class="fas fa-chevron-right"></i></button>
+            <button class="btn btn-ghost" onclick="nav(5)">Geri</button>
+            <button class="btn btn-primary" style="background:#4f46e5; padding:10px 25px; font-size:1rem;" onclick="nav(7)">Kaydet ve İlerle <i class="fas fa-chevron-right"></i></button>
         </div>
     </div>
 
@@ -1170,7 +1195,7 @@ div[id*="becayis"] .modal-content {
          </div>
          
          <div style="display:flex; justify-content:space-between; margin-top:30px;">
-            <button class="btn btn-ghost" onclick="nav(5)">Geri</button>
+            <button class="btn btn-ghost" onclick="nav(6)">Geri</button>
          </div>
     </div>
 </div>
@@ -1227,8 +1252,8 @@ div[id*="becayis"] .modal-content {
         </div>
     </div>
 </div>
-<div id="modalSwap" class="modal-overlay">
     <input type="file" id="docxImportInput" accept=".docx" style="display:none;" onchange="handleDocxFileUpload(event)">
+<div id="modalSwap" class="modal-overlay">
     <div class="modal-content" id="swapModalContent" style="max-width:1150px; width:88%; max-height:82vh; display:flex; flex-direction:column; padding:18px 24px; position:relative;" ondragenter="handleSwapDragEnter(event)" ondragover="handleSwapDragOver(event)" ondragleave="handleSwapDragLeave(event)" ondrop="handleSwapFileDrop(event)">
         
         <div id="swapDropZoneOverlay" style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(59,130,246,0.94); z-index:100; border-radius:16px; flex-direction:column; align-items:center; justify-content:center; color:white; pointer-events:none;">
@@ -1241,7 +1266,7 @@ div[id*="becayis"] .modal-content {
             <h2 style="font-size:1.25rem; margin:0;"><i class="fas fa-exchange-alt" style="color:#7c3aed"></i> Akıllı Nöbet Takası (Becayiş) Aracı</h2>
             <div style="display:flex; align-items:center; gap:10px;">
                 <button class="btn btn-ghost btn-sm" style="border:1px solid #cbd5e1; color:#1e293b; background:#f8fafc;" onclick="document.getElementById('docxImportInput').click()">
-                    <i class="fas fa-file-upload" style="color:#2563eb;"></i> Dosya Yükle (.docx)
+                    <i class="fas fa-file-upload" style="color:#2563eb;"></i> Eski Nöbet Listesini Yükle
                 </button>
                 <span class="close-modal" onclick="closeModal('modalSwap')">&times;</span>
             </div>
@@ -1344,7 +1369,7 @@ div[id*="becayis"] .modal-content {
 </div>
 
 <div id="modalEdit" class="modal-overlay"><div class="modal-content"><div class="modal-header"><h2><i class="fas fa-edit" style="color:#f59e0b"></i> Havuzu Düzenle</h2><span class="close-modal" onclick="closeModal('modalEdit')">&times;</span></div><div style="display:flex; gap:10px; margin-bottom:15px;"><input type="text" id="newMasterName" placeholder="Yeni isim ekle..." style="flex:1"><button class="btn btn-success" onclick="addToMasterList()"><i class="fas fa-plus"></i> Ekle</button></div><div id="editList" class="pool-grid"></div><div style="text-align:right; margin-top:20px;"><button class="btn btn-primary" onclick="closeModal('modalEdit')">Tamam</button></div></div></div>
-<div id="modalConstraints" class="modal-overlay"><div class="modal-content"><div class="modal-header"><h2><i class="fas fa-ban" style="color:#ef4444"></i> Kişi Bazlı Kısıtlamalar</h2><span class="close-modal" onclick="closeModal('modalConstraints')">&times;</span></div><div style="display:flex; gap:10px; margin-bottom:15px;"><select id="conP1" style="flex:1" onchange="updateConstraintDropdowns('left')"></select><i class="fas fa-arrows-alt-h" style="color:#cbd5e1"></i><select id="conP2" style="flex:1" onchange="updateConstraintDropdowns('right')"></select><button class="btn btn-success" onclick="addConstraint()">Ekle</button></div><div id="constraintList" class="constraint-list"></div><div style="text-align:right; margin-top:15px;"><button class="btn btn-primary" onclick="closeModal('modalConstraints')">Tamam</button></div></div></div>
+<div id="modalConstraints" class="modal-overlay"><div class="modal-content"><div class="modal-header"><h2><i class="fas fa-ban" style="color:#ef4444"></i> Kişi Bazlı Kısıtlamalar</h2><span class="close-modal" onclick="closeModal('modalConstraints')">&times;</span></div><div id="autoConstraintSuggestions" style="margin-bottom:18px;"></div><div style="font-weight:700; color:#334155; margin-bottom:8px;">Elle kısıtlama ekle</div><div style="display:flex; gap:10px; margin-bottom:15px;"><select id="conP1" style="flex:1" onchange="updateConstraintDropdowns('left')"></select><i class="fas fa-arrows-alt-h" style="color:#cbd5e1"></i><select id="conP2" style="flex:1" onchange="updateConstraintDropdowns('right')"></select><button class="btn btn-success" onclick="addConstraint()">Ekle</button></div><div id="constraintList" class="constraint-list"></div><div style="text-align:right; margin-top:15px;"><button class="btn btn-primary" onclick="closeModal('modalConstraints')">Tamam</button></div></div></div>
 <div id="modalFriday" class="modal-overlay">
     <div class="modal-content" style="max-width:780px; max-height:90vh; overflow-y:auto; padding:20px 25px;">
         <div class="modal-header" style="margin-bottom:15px; padding-bottom:12px;">
@@ -1640,6 +1665,100 @@ function clearBecayisScreenConfirmed() {
 }
 const STORAGE_KEY = 'nobetData';
 (function () { try { if (!localStorage.getItem(STORAGE_KEY)) { const o = localStorage.getItem('nobetData_v1_2_3'); if (o) localStorage.setItem(STORAGE_KEY, o); } } catch (e) {} })();
+
+// Kalıcı yedekleme: localStorage hızlı kayıt için, IndexedDB daha geniş ve dayanıklı yedek için kullanılır.
+const NOBET_DB_NAME = 'NobetListesiPro_DurableStore';
+const NOBET_DB_VERSION = 1;
+let nobetDbPromise = null;
+
+function openNobetDatabase() {
+    if (!('indexedDB' in window)) return Promise.resolve(null);
+    if (!nobetDbPromise) {
+        nobetDbPromise = new Promise((resolve) => {
+            try {
+                const request = window.indexedDB.open(NOBET_DB_NAME, NOBET_DB_VERSION);
+                request.onupgradeneeded = function () {
+                    const db = request.result;
+                    if (!db.objectStoreNames.contains('snapshots')) {
+                        db.createObjectStore('snapshots', { keyPath: 'id' });
+                    }
+                };
+                request.onsuccess = () => resolve(request.result);
+                request.onerror = () => resolve(null);
+                request.onblocked = () => resolve(null);
+            } catch (error) {
+                resolve(null);
+            }
+        });
+    }
+    return nobetDbPromise;
+}
+
+async function saveNobetSnapshotToIndexedDB(data) {
+    const db = await openNobetDatabase();
+    if (!db) return false;
+    return new Promise((resolve) => {
+        try {
+            const tx = db.transaction('snapshots', 'readwrite');
+            tx.objectStore('snapshots').put({ id: 'main', savedAt: data.savedAt || Date.now(), payload: data });
+            tx.oncomplete = () => resolve(true);
+            tx.onerror = () => resolve(false);
+            tx.onabort = () => resolve(false);
+        } catch (error) {
+            resolve(false);
+        }
+    });
+}
+
+async function readNobetSnapshotFromIndexedDB() {
+    const db = await openNobetDatabase();
+    if (!db) return null;
+    return new Promise((resolve) => {
+        try {
+            const tx = db.transaction('snapshots', 'readonly');
+            const request = tx.objectStore('snapshots').get('main');
+            request.onsuccess = () => resolve(request.result || null);
+            request.onerror = () => resolve(null);
+        } catch (error) {
+            resolve(null);
+        }
+    });
+}
+
+async function loadBestSavedNobetData() {
+    let localData = null;
+    try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) localData = JSON.parse(raw);
+    } catch (error) {
+        console.warn('localStorage kaydı okunamadı:', error);
+    }
+
+    const durableRecord = await readNobetSnapshotFromIndexedDB();
+    const durableData = durableRecord && durableRecord.payload ? durableRecord.payload : null;
+
+    if (durableData && (!localData || Number(durableData.savedAt || durableRecord.savedAt || 0) > Number(localData.savedAt || 0))) {
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(durableData)); } catch (error) {}
+        return durableData;
+    }
+    return localData;
+}
+
+async function deleteNobetSnapshotFromIndexedDB() {
+    const db = await openNobetDatabase();
+    if (!db) return;
+    return new Promise((resolve) => {
+        try {
+            const tx = db.transaction('snapshots', 'readwrite');
+            tx.objectStore('snapshots').delete('main');
+            tx.oncomplete = () => resolve();
+            tx.onerror = () => resolve();
+            tx.onabort = () => resolve();
+        } catch (error) {
+            resolve();
+        }
+    });
+}
 const NOBET_LOGO_PNG = 'data:image/png;base64,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';
 const FRIDAY_CONFLICTS = {
     fridayRuleToggle: ['fridayWeMaxOneToggle', 'fridayMaxOneToggle'],
@@ -1870,75 +1989,130 @@ let extraServisAssignments = {}; // { "2026-07-01": ["Ahmet Yılmaz","Ayşe Kaya
     };
 
     // --- ONLOAD & KAYIT ---
-    window.onload = () => {
-        loadData();
-setTimeout(() => {
-    guncelleServisAktifAsistanListesi();
+    window.onload = async () => {
+        // Önce localStorage ve IndexedDB içinden en güncel kayıt aranır.
+        const recoveredData = await loadBestSavedNobetData();
+        loadData(recoveredData);
 
-    const btnCount = document.getElementById("servisAktifSayiButon");
-    if (btnCount) {
-        btnCount.textContent = getServisAktifSeciliSayisi();
-    }
-}, 100);
-        if(!document.getElementById('startDate').value) { document.getElementById('startDate').valueAsDate = new Date(); }
-        if(document.getElementById('weDifferentDaysToggle')) document.getElementById('weDifferentDaysToggle').checked = weDifferentDaysRule;
-if(!localStorage.getItem(STORAGE_KEY)) { onStartChange(); } else { init(); }
+        setTimeout(() => {
+            guncelleServisAktifAsistanListesi();
+            const btnCount = document.getElementById("servisAktifSayiButon");
+            if (btnCount) btnCount.textContent = getServisAktifSeciliSayisi();
+        }, 100);
+
+        if (!document.getElementById('startDate').value) {
+            document.getElementById('startDate').valueAsDate = new Date();
+        }
+        if (document.getElementById('weDifferentDaysToggle')) {
+            document.getElementById('weDifferentDaysToggle').checked = weDifferentDaysRule;
+        }
+
+        // ÖNEMLİ: Kayıtlı nöbet/ geçmiş varsa açılışta silinmeden korunur.
+        const hasSavedResults = (schedule && schedule.length > 0) || (history && history.length > 0);
+        if (!recoveredData) onStartChange();
+        else init(hasSavedResults);
+
         document.getElementById('fridayRuleToggle').checked = fridayRuleEnabled;
-document.getElementById('fridayMaxOneToggle').checked = fridayMaxOneRule;
-document.getElementById('fridayAbsoluteToggle').checked = fridayAbsoluteRule;
-document.getElementById('fridayWeMaxOneToggle').checked = fridayWeMaxOneRule; // Yeni kuralın butonu 
-initFridayTooltips();
+        document.getElementById('fridayMaxOneToggle').checked = fridayMaxOneRule;
+        document.getElementById('fridayAbsoluteToggle').checked = fridayAbsoluteRule;
+        document.getElementById('fridayWeMaxOneToggle').checked = fridayWeMaxOneRule;
+        initFridayTooltips();
         document.addEventListener('mouseup', () => { lastToggle = null; });
+
+        // Kaydedilmiş ana liste ve geçmiş tablolarını tekrar ekrana çiz.
+        renderHistoryButtons();
+        if (schedule && schedule.length > 0) renderRes();
+        if (jokerSchedule && jokerSchedule.length > 0) calculateJokerSchedule(false);
+
+        let savedPage = Number(window.__restoredActivePage || 1);
+        // Eski sürümde 3-6 adımları bir sıra erkendi; eski kayıtları yeni 7 adımlı düzene taşı.
+        if (Number(window.__restoredNavigationVersion || 1) < 3 && savedPage >= 3) savedPage += 1;
+        if (savedPage >= 1 && savedPage <= 7) nav(savedPage);
     };
 
     function saveData() {
-        const data = { 
-            sDate: document.getElementById('startDate').value, 
-            eDate: document.getElementById('endDate').value, 
-            hols: Array.from(holidays), 
-            docs: docs, 
-            masterList: masterList, 
-            constraints: constraints,
+        const activeContent = document.querySelector('.content.active');
+        const activePage = Number(window.__currentNavigationStep || (activeContent ? (parseInt(activeContent.id.replace('p', ''), 10) || 1) : 1));
+        const clone = value => JSON.parse(JSON.stringify(value === undefined ? null : value));
+
+        const data = {
+            savedAt: Date.now(),
+            navigationVersion: 3,
+            activePage: activePage,
+            sDate: document.getElementById('startDate').value,
+            eDate: document.getElementById('endDate').value,
+            hols: Array.from(holidays),
+            docs: clone(docs || []),
+            masterList: clone(masterList || []),
+            constraints: clone(constraints || []),
             refMode: refakatciMode,
-placeFridayRules: placeFridayRules,
+            placeFridayRules: clone(placeFridayRules || {}),
             fridayRule: fridayRuleEnabled,
-fridayMaxOne: fridayMaxOneRule,
-fridayAbsolute: fridayAbsoluteRule,
-fridayWeMaxOne: fridayWeMaxOneRule,
-fridayWe1MaxOne: fridayWe1MaxOneRule,
-weDifferentDays: weDifferentDaysRule,
-            activePlaces: activePlaces,
-specialUnits: specialUnits,
-            workplaceUnits: workplaceUnits,
-            extraServis: extraServisAssignments,
-            servisAktifSecimler: JSON.parse(JSON.stringify(servisAktifSecimler || {})),
-            jokerSchedule: JSON.parse(JSON.stringify(jokerSchedule || [])),
+            fridayMaxOne: fridayMaxOneRule,
+            fridayAbsolute: fridayAbsoluteRule,
+            fridayWeMaxOne: fridayWeMaxOneRule,
+            fridayWe1MaxOne: fridayWe1MaxOneRule,
+            weDifferentDays: weDifferentDaysRule,
+            activePlaces: clone(activePlaces || []),
+            specialUnits: clone(specialUnits || []),
+            workplaceUnits: clone(workplaceUnits || []),
+            schedule: clone(schedule || []),
+            history: clone(history || []),
+            activeHistoryIndex: activeHistoryIndex,
+            jokerWarnings: clone(jokerWarnings || []),
+            extraServis: clone(extraServisAssignments || {}),
+            servisAktifSecimler: clone(servisAktifSecimler || {}),
+            jokerSchedule: clone(jokerSchedule || []),
+            preservedIcapciMap: clone(window.preservedIcapciMap || null),
+            tempSwapSchedule: (typeof tempSwapSchedule !== 'undefined') ? clone(tempSwapSchedule || []) : [],
+            swapUndoStack: (typeof swapUndoStack !== 'undefined') ? clone(swapUndoStack || []) : [],
+            modifiedSwapKeys: (typeof modifiedSwapKeys !== 'undefined') ? Array.from(modifiedSwapKeys) : [],
+            originalLoadedSchedule: clone(window.originalLoadedSchedule || null),
             jokerConfig: {
-                j1: document.getElementById('joker1Select')?document.getElementById('joker1Select').value:"",
-                j2: document.getElementById('joker2Select')?document.getElementById('joker2Select').value:"",
-                j3: document.getElementById('joker3Select')?document.getElementById('joker3Select').value:"",
-                j4: document.getElementById('joker4Select')?document.getElementById('joker4Select').value:"",
-                j5: document.getElementById('joker5Select')?document.getElementById('joker5Select').value:"",
-                j2Enabled: document.getElementById('joker2Toggle')?document.getElementById('joker2Toggle').checked:false,
-                j3Enabled: document.getElementById('joker3Toggle')?document.getElementById('joker3Toggle').checked:false,
-                j4Enabled: document.getElementById('joker4Toggle')?document.getElementById('joker4Toggle').checked:false,
-                j5Enabled: document.getElementById('joker5Toggle')?document.getElementById('joker5Toggle').checked:false,
+                j1: document.getElementById('joker1Select') ? document.getElementById('joker1Select').value : "",
+                j2: document.getElementById('joker2Select') ? document.getElementById('joker2Select').value : "",
+                j3: document.getElementById('joker3Select') ? document.getElementById('joker3Select').value : "",
+                j4: document.getElementById('joker4Select') ? document.getElementById('joker4Select').value : "",
+                j5: document.getElementById('joker5Select') ? document.getElementById('joker5Select').value : "",
+                j2Enabled: document.getElementById('joker2Toggle') ? document.getElementById('joker2Toggle').checked : false,
+                j3Enabled: document.getElementById('joker3Toggle') ? document.getElementById('joker3Toggle').checked : false,
+                j4Enabled: document.getElementById('joker4Toggle') ? document.getElementById('joker4Toggle').checked : false,
+                j5Enabled: document.getElementById('joker5Toggle') ? document.getElementById('joker5Toggle').checked : false,
                 owners: {},
                 prevDuty: getCurrentPrevDutyValues(),
-                workplaceAssignments: jokerConfig.workplaceAssignments || {}
+                workplaceAssignments: clone((jokerConfig && jokerConfig.workplaceAssignments) || {})
             }
         };
+
         specialUnits.forEach(u => {
             const el = document.getElementById('owner_' + u.replace(/\s+/g, '_'));
-            if(el) data.jokerConfig.owners[u] = el.value;
-            else if(jokerConfig.owners[u]) data.jokerConfig.owners[u] = jokerConfig.owners[u];
+            if (el) data.jokerConfig.owners[u] = el.value;
+            else if (jokerConfig && jokerConfig.owners && jokerConfig.owners[u]) data.jokerConfig.owners[u] = jokerConfig.owners[u];
         });
 
         jokerConfig.owners = data.jokerConfig.owners;
         jokerConfig.prevDuty = data.jokerConfig.prevDuty;
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-        const el = document.getElementById('saveStatus');
-        el.innerHTML = '<i class="fas fa-sync fa-spin"></i>'; setTimeout(() => el.innerHTML = '<i class="fas fa-check"></i> Kayıtlı', 500);
+
+        let localSaved = false;
+        try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+            localSaved = true;
+        } catch (error) {
+            console.warn('localStorage kaydı yapılamadı; IndexedDB yedeği denenecek:', error);
+        }
+
+        const statusEl = document.getElementById('saveStatus');
+        if (statusEl && localSaved) statusEl.innerHTML = '<i class="fas fa-check"></i> Kayıtlı';
+
+        // IndexedDB kaydı localStorage limitinden bağımsız ikinci bir kopya oluşturur.
+        saveNobetSnapshotToIndexedDB(data).then(durableSaved => {
+            if (!statusEl) return;
+            if (durableSaved || localSaved) {
+                statusEl.innerHTML = '<i class="fas fa-check"></i> Güvenli Kayıtlı';
+            } else {
+                statusEl.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Kayıt yapılamadı';
+            }
+        });
     }
 
     function getCurrentPrevDutyValues() {
@@ -1951,74 +2125,132 @@ specialUnits: specialUnits,
         return res;
     }
 
-    function loadData() {
-    const raw = localStorage.getItem(STORAGE_KEY); 
-    if(raw) {
-        const data = JSON.parse(raw);
-        document.getElementById('startDate').value = data.sDate;
-        document.getElementById('endDate').value = data.eDate;
-        holidays = new Set(data.hols);
+    function loadData(savedDataOverride = null) {
+    let data = null;
+    if (savedDataOverride && typeof savedDataOverride === 'object') {
+        data = savedDataOverride;
+    } else {
+        try {
+            const raw = localStorage.getItem(STORAGE_KEY);
+            if (raw) data = JSON.parse(raw);
+        } catch (error) {
+            console.warn('Kayıtlı ayarlar okunamadı:', error);
+        }
+    }
+
+    if (data) {
+        document.getElementById('startDate').value = data.sDate || '';
+        document.getElementById('endDate').value = data.eDate || '';
+        holidays = new Set(data.hols || []);
         docs = data.docs || [];
-        docs.forEach(d => { if(!d.avail) d.avail = {}; });
+        docs.forEach(d => { if (!d.avail) d.avail = {}; });
         masterList = data.masterList || DEFAULT_MASTER;
         constraints = data.constraints || [];
-        refakatciMode = data.refMode || false;
-placeFridayRules = data.placeFridayRules || {};
+        refakatciMode = !!data.refMode;
+        placeFridayRules = data.placeFridayRules || {};
         fridayRuleEnabled = data.fridayRule !== undefined ? data.fridayRule : true;
-fridayMaxOneRule = data.fridayMaxOne !== undefined ? data.fridayMaxOne : false;
-fridayAbsoluteRule = data.fridayAbsolute !== undefined ? data.fridayAbsolute : false;
-fridayWeMaxOneRule = data.fridayWeMaxOne !== undefined ? data.fridayWeMaxOne : false;
-fridayWe1MaxOneRule = data.fridayWe1MaxOne !== undefined ? data.fridayWe1MaxOne : false;
-if(document.getElementById('fridayWe1MaxOneToggle')) document.getElementById('fridayWe1MaxOneToggle').checked = fridayWe1MaxOneRule;
-weDifferentDaysRule = data.weDifferentDays !== undefined ? data.weDifferentDays : false;
-if(document.getElementById('weDifferentDaysToggle')) document.getElementById('weDifferentDaysToggle').checked = weDifferentDaysRule;
-document.getElementById('fridayWeMaxOneToggle').checked = fridayWeMaxOneRule;
-document.getElementById('fridayMaxOneToggle').checked = fridayMaxOneRule;
-document.getElementById('fridayAbsoluteToggle').checked = fridayAbsoluteRule;
-        document.getElementById('fridayRuleToggle').checked = fridayRuleEnabled;
-activePlaces = data.activePlaces || ["Yoğun Bakım", "Servis"];
-        specialUnits = data.specialUnits || ["Pol-1", "Pol-2", "Pol-3", "MS Merkezi", "Servis Kıdemlisi", "Konsültan", "Yoğun Bakım 1", "Yoğun Bakım 2"];
-        extraServisAssignments = data.extraServis || {};
-        const servisAktifKayit = localStorage.getItem(STORAGE_KEY + "_servisAktif");
+        fridayMaxOneRule = data.fridayMaxOne !== undefined ? data.fridayMaxOne : false;
+        fridayAbsoluteRule = data.fridayAbsolute !== undefined ? data.fridayAbsolute : false;
+        fridayWeMaxOneRule = data.fridayWeMaxOne !== undefined ? data.fridayWeMaxOne : false;
+        fridayWe1MaxOneRule = data.fridayWe1MaxOne !== undefined ? data.fridayWe1MaxOne : false;
+        weDifferentDaysRule = data.weDifferentDays !== undefined ? data.weDifferentDays : false;
 
-if (servisAktifKayit) {
-    try {
-        servisAktifSecimler = JSON.parse(servisAktifKayit) || {};
-    } catch (e) {
-        servisAktifSecimler = data.servisAktifSecimler || {};
-    }
-} else {
-    servisAktifSecimler = data.servisAktifSecimler || {};
-}
-        jokerSchedule = Array.isArray(data.jokerSchedule) ? data.jokerSchedule : [];
-weDifferentDaysRule = data.weDifferentDays !== undefined ? data.weDifferentDays : false;
-if(document.getElementById('weDifferentDaysToggle')) document.getElementById('weDifferentDaysToggle').checked = weDifferentDaysRule;        
-        // JOKER'i temizleyip güncel listeyi yüklüyoruz
+        const setChecked = (id, value) => {
+            const el = document.getElementById(id);
+            if (el) el.checked = !!value;
+        };
+        setChecked('fridayWe1MaxOneToggle', fridayWe1MaxOneRule);
+        setChecked('weDifferentDaysToggle', weDifferentDaysRule);
+        setChecked('fridayWeMaxOneToggle', fridayWeMaxOneRule);
+        setChecked('fridayMaxOneToggle', fridayMaxOneRule);
+        setChecked('fridayAbsoluteToggle', fridayAbsoluteRule);
+        setChecked('fridayRuleToggle', fridayRuleEnabled);
+
+        activePlaces = data.activePlaces || ["Yoğun Bakım", "Servis"];
+        specialUnits = data.specialUnits || ["Pol-1", "Pol-2", "Pol-3", "MS Merkezi", "Servis Kıdemlisi", "Konsültan", "Yoğun Bakım 1", "Yoğun Bakım 2"];
         workplaceUnits = (data.workplaceUnits || []).filter(u => u !== "Joker");
         if (workplaceUnits.length === 0 || !workplaceUnits.includes("Dahiliye")) {
             workplaceUnits = ["Servis", "Yoğun Bakım", "Pol-1", "Pol-2", "Pol-3", "MS Merkezi", "Uyku", "Anjio", "EMG", "EEG", "Servis Kıdemlisi", "Konsültan", "Radyoloji", "Kardiyoloji", "Dahiliye", "FTR", "Anestezi", "Psikiatri", "Çocuk Nöroloji"];
         }
 
+        extraServisAssignments = data.extraServis || {};
+        const servisAktifKayit = localStorage.getItem(STORAGE_KEY + "_servisAktif");
+        if (servisAktifKayit) {
+            try { servisAktifSecimler = JSON.parse(servisAktifKayit) || {}; }
+            catch (error) { servisAktifSecimler = data.servisAktifSecimler || {}; }
+        } else {
+            servisAktifSecimler = data.servisAktifSecimler || {};
+        }
+
+        // Ana nöbet listesi, geçmiş denemeler ve Joker tablosu kalıcı olarak geri yüklenir.
+        schedule = Array.isArray(data.schedule) ? JSON.parse(JSON.stringify(data.schedule)) : [];
+        history = Array.isArray(data.history) ? JSON.parse(JSON.stringify(data.history)) : [];
+        activeHistoryIndex = Number.isInteger(data.activeHistoryIndex) ? data.activeHistoryIndex : (history.length ? history.length - 1 : -1);
+        if (activeHistoryIndex >= history.length) activeHistoryIndex = history.length - 1;
+        jokerSchedule = Array.isArray(data.jokerSchedule) ? JSON.parse(JSON.stringify(data.jokerSchedule)) : [];
+        jokerWarnings = Array.isArray(data.jokerWarnings) ? JSON.parse(JSON.stringify(data.jokerWarnings)) : [];
+
+        // Eski kayıt biçiminde schedule bulunmuyorsa aktif geçmiş kaydından kurtarmayı dene.
+        if ((!schedule || schedule.length === 0) && activeHistoryIndex >= 0 && history[activeHistoryIndex]) {
+            const activeSnapshot = history[activeHistoryIndex];
+            schedule = Array.isArray(activeSnapshot)
+                ? JSON.parse(JSON.stringify(activeSnapshot))
+                : JSON.parse(JSON.stringify(activeSnapshot.schedule || []));
+            if (jokerSchedule.length === 0 && !Array.isArray(activeSnapshot)) {
+                jokerSchedule = JSON.parse(JSON.stringify(activeSnapshot.jokerSchedule || []));
+                jokerWarnings = JSON.parse(JSON.stringify(activeSnapshot.jokerWarnings || []));
+            }
+        }
+
+        window.preservedIcapciMap = data.preservedIcapciMap || null;
+        window.originalLoadedSchedule = data.originalLoadedSchedule || null;
+        window.__restoredActivePage = Number(data.activePage || 1);
+        window.__restoredNavigationVersion = Number(data.navigationVersion || 1);
+        if (typeof tempSwapSchedule !== 'undefined' && Array.isArray(data.tempSwapSchedule)) {
+            tempSwapSchedule = JSON.parse(JSON.stringify(data.tempSwapSchedule));
+        }
+        if (typeof swapUndoStack !== 'undefined' && Array.isArray(data.swapUndoStack)) {
+            swapUndoStack = JSON.parse(JSON.stringify(data.swapUndoStack));
+        }
+        if (typeof modifiedSwapKeys !== 'undefined' && Array.isArray(data.modifiedSwapKeys)) {
+            modifiedSwapKeys = new Set(data.modifiedSwapKeys);
+        }
+
         document.getElementById('refModeToggle').checked = refakatciMode;
-        if(data.jokerConfig) jokerConfig = data.jokerConfig;
-        
-        if(!jokerConfig.prevDuty) jokerConfig.prevDuty = { d1:{}, d2:{} };
-        if(!jokerConfig.workplaceAssignments) jokerConfig.workplaceAssignments = {};
-        
+        if (data.jokerConfig) jokerConfig = Object.assign({}, jokerConfig, data.jokerConfig);
+        if (!jokerConfig.prevDuty) jokerConfig.prevDuty = { d1:{}, d2:{} };
+        if (!jokerConfig.owners) jokerConfig.owners = {};
+        if (!jokerConfig.workplaceAssignments) jokerConfig.workplaceAssignments = {};
+
         renderSpecialUnitsGrid();
         renderWorkplaceGrid();
         syncAllDropdowns();
-    } else { 
-        masterList = DEFAULT_MASTER; 
-        // İlk açılış için varsayılan liste (Joker hariç)
+    } else {
+        masterList = DEFAULT_MASTER;
+        schedule = [];
+        history = [];
+        activeHistoryIndex = -1;
+        jokerSchedule = [];
+        jokerWarnings = [];
+        extraServisAssignments = {};
         workplaceUnits = ["Servis", "Yoğun Bakım", "Pol-1", "Pol-2", "Pol-3", "MS Merkezi", "Uyku", "Anjio", "EMG", "EEG", "Servis Kıdemlisi", "Konsültan", "Radyoloji", "Kardiyoloji", "Dahiliye", "FTR", "Anestezi", "Psikiatri", "Çocuk Nöroloji"];
-        renderSpecialUnitsGrid(); 
+        renderSpecialUnitsGrid();
         renderWorkplaceGrid();
-        syncAllDropdowns(); 
+        syncAllDropdowns();
+        window.__restoredActivePage = 1;
     }
 }
 
-    function clearData() { localStorage.removeItem(STORAGE_KEY); location.reload(); }
+    async function clearData() {
+        try {
+            localStorage.removeItem(STORAGE_KEY);
+            localStorage.removeItem(STORAGE_KEY + "_servisAktif");
+            localStorage.removeItem(STORAGE_KEY + "_gunlukServisAktif");
+            localStorage.removeItem(STORAGE_KEY + "_gunlukServisEkstra");
+        } catch (error) {}
+        await deleteNobetSnapshotFromIndexedDB();
+        location.reload();
+    }
     
     // --- MODAL & ARAÇLAR ---
     let pendingConfirmAction = null;
@@ -2088,14 +2320,16 @@ if(document.getElementById('weDifferentDaysToggle')) document.getElementById('we
         init(); 
     }
 
-    function init() { 
-        if(!document.getElementById('startDate').value) return; 
-        calcDates(); 
-        renderTableRows(); 
-        updVal(); 
-        saveData(); 
-        invalidateResults(); 
+    function init(preserveResults = false) {
+        if (!document.getElementById('startDate').value) return;
+        calcDates();
+        renderTableRows();
+        updVal();
+        // Tarih/ayar değişikliği normalde eski sonuçları geçersiz kılar.
+        // Ancak sayfa ilk açılırken kayıtlı sonuçları korumak için true gönderilir.
+        if (!preserveResults) invalidateResults();
         syncAllDropdowns();
+        saveData();
     }
 
     function calcDates() { 
@@ -2290,11 +2524,137 @@ function initFridayTooltips() {
     function selectAllModal() { document.querySelectorAll('#selectList .person-check:not(:disabled)').forEach(c => { c.checked = true; c.closest('.person-select-card').classList.add('active'); }); }
     function deselectAllModal() { document.querySelectorAll('#selectList .person-check:not(:disabled)').forEach(c => { c.checked = false; c.closest('.person-select-card').classList.remove('active'); }); }
     function addFromSelection() { document.querySelectorAll('.person-check:checked:not(:disabled)').forEach(c => addQuick(c.value)); closeModal('modalSelect'); syncAllDropdowns(); }
-    function openConstraintModal() { const p1 = document.getElementById('conP1'); const p2 = document.getElementById('conP2'); const asisOpts = '<option value="">Seçiniz...</option>' + docs.map(d=>`<option value="${d.name}">${d.name}</option>`).join(''); p1.innerHTML = asisOpts; p2.innerHTML = asisOpts; renderConstraintList(); document.getElementById('modalConstraints').style.display = 'flex'; }
+    function openConstraintModal() { const p1 = document.getElementById('conP1'); const p2 = document.getElementById('conP2'); const asisOpts = '<option value="">Seçiniz...</option>' + docs.map(d=>`<option value="${d.name}">${d.name}</option>`).join(''); p1.innerHTML = asisOpts; p2.innerHTML = asisOpts; renderSuggestedConstraintPairs(); renderConstraintList(); document.getElementById('modalConstraints').style.display = 'flex'; }
+
+
+    // Aktif birim sorumlularından, kullanıcının isteğine göre öneri listesi oluşturur.
+    // Bu öneriler otomatik olarak kısıtlamaya eklenmez; kullanıcı her birini ayrı ayrı kabul eder.
+    function buildSuggestedConstraintPairs() {
+        // Birim sorumluları ve Görev Yerleri alanlarında aktif olarak bulunan herkes dikkate alınır.
+        const peopleOf = role => (getWorkplacePeople(role).combined || [])
+            .filter(name => name && docs.some(d => d.name === name));
+        const unique = list => [...new Set(list)];
+
+        const polPeople = unique([
+            ...peopleOf("Pol-1"),
+            ...peopleOf("Pol-2"),
+            ...peopleOf("Pol-3")
+        ]);
+        const icuPeople = unique(peopleOf("Yoğun Bakım"));
+        const msPeople = unique(peopleOf("MS Merkezi"));
+        const consultantPeople = unique(peopleOf("Konsültan"));
+        const seniorPeople = unique(peopleOf("Servis Kıdemlisi"));
+
+        const servicePeople = new Set(peopleOf("Servis"));
+        const icuSet = new Set(icuPeople);
+        const dutyFlags = name => ({ service: servicePeople.has(name), icu: icuSet.has(name) });
+        const alreadyListed = (a, b) => constraints.some(c =>
+            (c.p1 === a && c.p2 === b) || (c.p1 === b && c.p2 === a)
+        );
+
+        const suggestions = [];
+        const seen = new Set();
+        const addPair = (a, b, roles) => {
+            if (!a || !b || a === b) return;
+            if (!docs.some(d => d.name === a) || !docs.some(d => d.name === b)) return;
+
+            const flagsA = dutyFlags(a);
+            const flagsB = dutyFlags(b);
+            const bothOnlyService = flagsA.service && !flagsA.icu && flagsB.service && !flagsB.icu;
+            const bothOnlyIcu = flagsA.icu && !flagsA.service && flagsB.icu && !flagsB.service;
+
+            // İkisi de yalnızca Servis'te ya da yalnızca Yoğun Bakım'daysa zaten aynı gün birlikte nöbet tutamaz.
+            // Biri iki yerde birden çalışıyorsa veya biri Servis diğeri Yoğun Bakım'daysa öneriyi koru.
+            if (bothOnlyService || bothOnlyIcu) return;
+
+            const ordered = [a, b].sort((x, y) => x.localeCompare(y, 'tr'));
+            const key = ordered.join('::');
+            if (seen.has(key)) return;
+            seen.add(key);
+            suggestions.push({ p1: ordered[0], p2: ordered[1], roles, added: alreadyListed(a, b) });
+        };
+
+        const addCrossPairs = (listA, listB, roles) => {
+            listA.forEach(a => listB.forEach(b => addPair(a, b, roles)));
+        };
+        const addWithinGroupPairs = (list, roles) => {
+            for (let i = 0; i < list.length; i++) {
+                for (let j = i + 1; j < list.length; j++) addPair(list[i], list[j], roles);
+            }
+        };
+
+        // İki poliklinik çalışanı (Pol-1 / Pol-2 / Pol-3 arasındaki tüm aktif kişiler).
+        addWithinGroupPairs(polPeople, "Poliklinik çalışanları");
+        // İki yoğun bakım çalışanı (Yoğun Bakım 1 / Yoğun Bakım 2 ve elle eklenen aktif kişiler).
+        addWithinGroupPairs(icuPeople, "Yoğun Bakım çalışanları");
+        // MS Merkezi – Poliklinik
+        addCrossPairs(msPeople, polPeople, "MS Merkezi – Poliklinik");
+        // Poliklinik – Konsültan
+        addCrossPairs(polPeople, consultantPeople, "Poliklinik – Konsültan");
+        // MS Merkezi – Konsültan
+        addCrossPairs(msPeople, consultantPeople, "MS Merkezi – Konsültan");
+        // Servis Kıdemlisi – Poliklinik / MS Merkezi / Konsültan
+        addCrossPairs(seniorPeople, polPeople, "Servis Kıdemlisi – Poliklinik");
+        addCrossPairs(seniorPeople, msPeople, "Servis Kıdemlisi – MS Merkezi");
+        addCrossPairs(seniorPeople, consultantPeople, "Servis Kıdemlisi – Konsültan");
+
+        return suggestions;
+    }
+
+    function renderSuggestedConstraintPairs() {
+        const container = document.getElementById('autoConstraintSuggestions');
+        if (!container) return;
+        const suggestions = buildSuggestedConstraintPairs();
+        if (!suggestions.length) {
+            container.innerHTML = `
+                <div style="padding:12px; border:1px solid #e2e8f0; border-radius:8px; background:#f8fafc; color:#64748b; font-size:0.85rem;">
+                    <strong>Otomatik öneriler</strong><br>Şu an tanımlı birim sorumlularına göre önerilebilecek yeni bir kişi çifti bulunamadı.
+                </div>`;
+            return;
+        }
+
+        container.innerHTML = `
+            <div style="padding:12px; border:1px solid #bfdbfe; border-radius:8px; background:#eff6ff;">
+                <div style="font-weight:800; color:#1e40af; margin-bottom:5px;"><i class="fas fa-lightbulb"></i> Otomatik Kısıtlama Önerileri</div>
+                <div style="font-size:0.8rem; color:#475569; margin-bottom:10px;">Sistem görev yeri ve sorumlu atamalarına göre olası çakışmaları listeler. Hiçbiri otomatik eklenmez; yalnızca uygun gördüklerini kabul et.</div>
+                <div id="autoConstraintSuggestionList" style="display:flex; flex-direction:column; gap:7px;"></div>
+            </div>`;
+        const list = document.getElementById('autoConstraintSuggestionList');
+        suggestions.forEach(item => {
+            const row = document.createElement('div');
+            row.style.cssText = 'display:flex; align-items:center; justify-content:space-between; gap:10px; padding:7px 9px; background:#fff; border:1px solid #dbeafe; border-radius:6px;';
+            const label = document.createElement('div');
+            label.style.cssText = 'min-width:0; font-size:0.84rem; color:#334155;';
+            label.innerHTML = `<strong>${item.p1}</strong> <span style="color:#94a3b8;">↔</span> <strong>${item.p2}</strong><div style="font-size:0.72rem; color:#64748b;">${item.roles}</div>`;
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = item.added ? 'btn btn-ghost btn-sm' : 'btn btn-success btn-sm';
+            button.disabled = item.added;
+            button.textContent = item.added ? 'Zaten eklendi' : 'Öneriyi ekle';
+            button.onclick = () => acceptSuggestedConstraint(item.p1, item.p2);
+            row.appendChild(label);
+            row.appendChild(button);
+            list.appendChild(row);
+        });
+    }
+
+    function acceptSuggestedConstraint(p1, p2) {
+        if (!p1 || !p2 || p1 === p2) return;
+        const exists = constraints.some(c =>
+            (c.p1 === p1 && c.p2 === p2) || (c.p1 === p2 && c.p2 === p1)
+        );
+        if (!exists) {
+            constraints.push({ p1, p2 });
+            renderConstraintList();
+            saveData();
+            invalidateResults();
+        }
+        renderSuggestedConstraintPairs();
+    }
     function updateConstraintDropdowns(triggerSide) { const p1 = document.getElementById('conP1'); const p2 = document.getElementById('conP2'); const val1 = p1.value; const val2 = p2.value; const getOptions = (excludeVal) => { let html = '<option value="">Seçiniz...</option>'; docs.forEach(d => { if(d.name !== excludeVal) { html += `<option value="${d.name}">${d.name}</option>`; } }); return html; }; if(triggerSide === 'left') { p2.innerHTML = getOptions(val1); p2.value = val2; } else { p1.innerHTML = getOptions(val2); p1.value = val1; } }
-    function addConstraint() { const p1 = document.getElementById('conP1').value; const p2 = document.getElementById('conP2').value; if(!p1 || !p2 || p1===p2) return; if(!constraints.some(c => (c.p1===p1 && c.p2===p2) || (c.p1===p2 && c.p2===p1))) { constraints.push({p1, p2}); renderConstraintList(); saveData(); invalidateResults(); } }
+    function addConstraint() { const p1 = document.getElementById('conP1').value; const p2 = document.getElementById('conP2').value; if(!p1 || !p2 || p1===p2) return; if(!constraints.some(c => (c.p1===p1 && c.p2===p2) || (c.p1===p2 && c.p2===p1))) { constraints.push({p1, p2}); renderConstraintList(); renderSuggestedConstraintPairs(); saveData(); invalidateResults(); } }
     function renderConstraintList() { const el = document.getElementById('constraintList'); el.innerHTML = constraints.length === 0 ? '<div style="text-align:center; color:#94a3b8; font-style:italic; padding:20px;">Henüz kısıtlama eklenmedi.</div>' : constraints.map((c,i) => `<div class="constraint-card"><div class="constraint-names"><span>${c.p1}</span> <i class="fas fa-link" style="font-size:0.8rem; color:#ef4444; opacity:0.5;"></i> <span>${c.p2}</span></div><button class="btn btn-ghost btn-sm" onclick="removeConstraint(${i})" style="color:#ef4444"><i class="fas fa-trash"></i></button></div>`).join(''); }
-    function removeConstraint(i) { constraints.splice(i,1); renderConstraintList(); saveData(); invalidateResults(); }
+    function removeConstraint(i) { constraints.splice(i,1); renderConstraintList(); renderSuggestedConstraintPairs(); saveData(); invalidateResults(); }
     
     // --- Nöbet Yerleri Yönetimi ---
     function openUnitsModal() { renderUnitsTable(); document.getElementById('modalUnits').style.display = 'flex'; }
@@ -2596,8 +2956,11 @@ if (actionVal === null) {
             grid.appendChild(div);
         });
 
-        // Servis görev yerindeki değişiklikler aktif servis listesini de anında günceller.
+        // Servis görev yerindeki değişiklikler aday listesini, düğme sayısını ve kritik günleri anında yeniler.
         guncelleServisAktifAsistanListesi();
+        if (typeof renderServisCountWarnings === 'function') renderServisCountWarnings();
+        if (typeof renderJokerTable === 'function' && jokerSchedule && jokerSchedule.length > 0) renderJokerTable();
+        if (document.getElementById('p6') && document.getElementById('p6').classList.contains('active') && typeof renderFinalPage === 'function') renderFinalPage();
     }
 
 function addNewWorkplaceUnit() {
@@ -2787,11 +3150,11 @@ function getFridayCount(doc) {
             document.getElementById('alertBox').innerHTML = `⚠️ <strong>HATA:</strong> ${quotaCheck.msg}`;
             document.getElementById('alertBox').style.display='block';
             document.getElementById('loadingOverlay').style.display = 'none';
-            nav(4);
+            nav(5);
             return;
         }
 
-        const conflict = checkGlobalConflicts(); if(conflict.error) { clearTimeout(cancelTimer); document.getElementById('alertBox').innerHTML = conflict.msg; document.getElementById('alertBox').style.display='block'; document.getElementById('loadingOverlay').style.display = 'none'; nav(4); return; }
+        const conflict = checkGlobalConflicts(); if(conflict.error) { clearTimeout(cancelTimer); document.getElementById('alertBox').innerHTML = conflict.msg; document.getElementById('alertBox').style.display='block'; document.getElementById('loadingOverlay').style.display = 'none'; nav(5); return; }
         try {
             assignWantedShifts();
             for(let p of activePlaces) {
@@ -2824,8 +3187,8 @@ function getFridayCount(doc) {
             saveData();
             renderHistoryButtons(); 
             renderRes(); 
-            nav(4);
-        } catch (e) { clearTimeouts(); document.getElementById('loadingOverlay').style.display = 'none'; if(e !== 'cancelled') { document.getElementById('alertBox').innerHTML = `⚠️ <strong>HATA:</strong> ${e}`; document.getElementById('alertBox').style.display='block'; nav(4); } }
+            nav(5);
+        } catch (e) { clearTimeouts(); document.getElementById('loadingOverlay').style.display = 'none'; if(e !== 'cancelled') { document.getElementById('alertBox').innerHTML = `⚠️ <strong>HATA:</strong> ${e}`; document.getElementById('alertBox').style.display='block'; nav(5); } }
     }
     function clearTimeouts() { if(cancelTimer) clearTimeout(cancelTimer); }
     function cancelSolving() { isSolvingCancelled = true; }
@@ -3166,9 +3529,10 @@ function loadHistory(index) {
     if(jokerSchedule.length > 0) calculateJokerSchedule(false);
     else calculateJokerSchedule(true);
 
-    if(document.getElementById('p6').classList.contains('active')) { 
-        renderFinalPage(); 
-    } 
+    if(document.getElementById('p6').classList.contains('active')) {
+        renderFinalPage();
+    }
+    saveData();
 }
 
     function deleteHistoryItem(index) {
@@ -3540,10 +3904,13 @@ function renderServisCountWarnings() {
     const box = document.getElementById('servisCountWarningBox');
     if(!box) return;
     if(!jokerSchedule || jokerSchedule.length === 0) { box.innerHTML = ''; return; }
+    // Açılışta önce kayıtlar yüklenir, tarihler biraz sonra hesaplanır.
+    // Tarih dizisi hazır değilse bu çizimi atla; onload içindeki Joker yenilemesi tekrar çizecektir.
+    if (!Array.isArray(dates) || dates.length === 0) { box.innerHTML = ''; return; }
 
     let rows = '';
     jokerSchedule.forEach((row, i) => {
-        if(row.isW) return;
+        if(row.isW || !dates[i]) return;
         
         const baseCount = getServisCountForDay(i);
         // Sadece aktif listeye uyan takviye kişilerini al
@@ -4057,16 +4424,26 @@ function guncelleServisAktifAsistanListesi() {
     const owners = jokerConfig.owners || {};
     const specialNames = new Set([owners["Konsültan"], owners["Servis Kıdemlisi"]].filter(Boolean));
     const adaySet = new Set(servisAdaylari);
+    let selectionChanged = false;
 
     Object.keys(servisAktifSecimler).forEach(name => {
-        if (!adaySet.has(name)) delete servisAktifSecimler[name];
+        if (!adaySet.has(name)) {
+            delete servisAktifSecimler[name];
+            selectionChanged = true;
+        }
     });
 
     servisAdaylari.forEach(name => {
         if (servisAktifSecimler[name] === undefined) {
             servisAktifSecimler[name] = !specialNames.has(name);
+            selectionChanged = true;
         }
     });
+
+    // Görev yerine yeni kişi eklenmesi/çıkarılması, servis aktif seçim hafızasına da hemen yazılır.
+    if (selectionChanged && typeof saveServisAktifSecimleri === 'function') {
+        saveServisAktifSecimleri();
+    }
 
     container.innerHTML = "";
 
@@ -4344,29 +4721,72 @@ displayJokerWarnings(jokerWarnings);
         return errors;
     }
 
-    function nav(n) { 
-        if(document.getElementById('tab5').classList.contains('active') && n === 6) { 
-            calculateJokerSchedule(false); 
+    function moveSharedTaskPanels(targetStep) {
+        const onTasksPage = targetStep === 3;
+        const specialCard = document.getElementById('sharedSpecialUnitsCard');
+        const workplaceCard = document.getElementById('sharedWorkplaceCard');
+        const serviceButton = document.getElementById('sharedServisAktifButton');
+
+        if (onTasksPage) {
+            const specialTarget = document.getElementById('taskSpecialUnitsTarget');
+            const workplaceTarget = document.getElementById('taskWorkplaceTarget');
+            const serviceTarget = document.getElementById('taskServisAktifButtonTarget');
+            if (specialCard && specialTarget) specialTarget.appendChild(specialCard);
+            if (workplaceCard && workplaceTarget) workplaceTarget.appendChild(workplaceCard);
+            if (serviceButton && serviceTarget) serviceTarget.appendChild(serviceButton);
+        } else {
+            const specialAnchor = document.getElementById('sharedSpecialUnitsHomeAnchor');
+            const workplaceAnchor = document.getElementById('sharedWorkplaceHomeAnchor');
+            const serviceAnchor = document.getElementById('sharedServisAktifButtonHomeAnchor');
+            if (specialCard && specialAnchor && specialAnchor.parentNode) specialAnchor.parentNode.insertBefore(specialCard, specialAnchor.nextSibling);
+            if (workplaceCard && workplaceAnchor && workplaceAnchor.parentNode) workplaceAnchor.parentNode.insertBefore(workplaceCard, workplaceAnchor.nextSibling);
+            if (serviceButton && serviceAnchor && serviceAnchor.parentNode) serviceAnchor.parentNode.insertBefore(serviceButton, serviceAnchor.nextSibling);
+        }
+    }
+
+    function nav(n) {
+        const pageIds = { 1:'p1', 2:'p2', 3:'pTasks', 4:'p3', 5:'p4', 6:'p5', 7:'p6' };
+        const targetPageId = pageIds[n];
+        const targetTab = document.getElementById(`tab${n}`);
+        const targetPage = targetPageId ? document.getElementById(targetPageId) : null;
+        if (!targetTab || !targetPage) return;
+
+        // Jokerler sayfasından Sonuç sayfasına geçerken mevcut doğrulamalar aynen korunur.
+        if (document.getElementById('tab6').classList.contains('active') && n === 7) {
+            calculateJokerSchedule(false);
             const errors = checkJokerAssignmentValidity();
             const box = document.getElementById('jokerWarningBox');
-            if(errors.length > 0) {
+            if (errors.length > 0) {
                 box.style.display = 'block'; box.style.borderLeft = '5px solid #dc2626'; box.style.background = '#fef2f2'; box.style.color = '#991b1b';
                 box.innerHTML = `<div style="font-weight:bold; margin-bottom:5px;"><i class="fas fa-exclamation-circle"></i> Görevlendirme Hataları:</div><ul>${errors.map(e => `<li>${e}</li>`).join('')}</ul>`;
                 window.scrollTo({ top: box.offsetTop - 100, behavior: 'smooth' });
                 return;
             }
         }
-        window.scrollTo({ top: 0, behavior: 'smooth' }); 
-        if(n===3) { renderCal(); }
-        if(n===5) { 
-            renderSpecialUnitsGrid(); 
-            renderWorkplaceGrid(); 
-            calculateJokerSchedule(false); 
-            renderHistoryButtons(); 
-            syncAllDropdowns(); 
-        } 
-        if(n===6) { renderFinalPage(); }
-        document.querySelectorAll('.step').forEach(s=>s.classList.remove('active')); document.querySelectorAll('.content').forEach(c=>c.classList.remove('active')); document.getElementById(`tab${n}`).classList.add('active'); document.getElementById(`p${n}`).classList.add('active'); 
+
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        if (n === 3) {
+            moveSharedTaskPanels(3);
+            renderSpecialUnitsGrid();
+            renderWorkplaceGrid();
+        }
+        if (n === 4) renderCal();
+        if (n === 6) {
+            moveSharedTaskPanels(6);
+            renderSpecialUnitsGrid();
+            renderWorkplaceGrid();
+            calculateJokerSchedule(false);
+            renderHistoryButtons();
+            syncAllDropdowns();
+        }
+        if (n === 7) renderFinalPage();
+
+        document.querySelectorAll('.step').forEach(step => step.classList.remove('active'));
+        document.querySelectorAll('.content').forEach(content => content.classList.remove('active'));
+        targetTab.classList.add('active');
+        targetPage.classList.add('active');
+        window.__currentNavigationStep = n;
+        saveData();
     }
 
     function renderFinalPage() {
@@ -5468,6 +5888,8 @@ function parseDocxTableAndSetSchedule(xmlStr) {
             return;
         }
 
+        // Bu işaret yalnızca Word tablosu başarıyla çözümlendiğinde açılır.
+        window.__docxParseSucceeded = true;
         tempSwapSchedule = newTempSchedule;
         swapUndoStack = [];
         modifiedSwapKeys = new Set();
@@ -5534,63 +5956,14 @@ if (icapciColIdx !== -1) {
     let selectedShiftTarget = null;
     let allowCrossSwap = false;
 
-function saveSwapChanges() {
-    if (!tempSwapSchedule || tempSwapSchedule.length === 0) {
-        if (typeof showModernAlert === 'function') showModernAlert('Uyarı', 'Kaydedilecek nöbet listesi bulunamadı.');
-        else alert('Kaydedilecek nöbet listesi bulunamadı.');
-        return;
-    }
-
-    // 1. Word'deki İlk Nöbet Tarihini Ana Tarih Inputuna Aktar (Önizleme Bağlantısı İçin)
-    if (tempSwapSchedule[0] && tempSwapSchedule[0].date) {
-        const dObj = tempSwapSchedule[0].date;
-        let isoDateStr = dObj.str || "";
-        
-        if (!isoDateStr && dObj.full) {
-            const p = dObj.full.split('.');
-            if (p.length === 3) isoDateStr = `${p[2]}-${p[1]}-${p[0]}`;
-        }
-
-        const startDateInput = document.getElementById('startDate');
-        if (startDateInput && isoDateStr) {
-            startDateInput.value = isoDateStr;
-        }
-    }
-
-    // 2. Global Nöbet Listesini Güncelle
-    schedule = JSON.parse(JSON.stringify(tempSwapSchedule));
-    if (!window.currentScheduleData) window.currentScheduleData = {};
-    window.currentScheduleData.schedule = tempSwapSchedule;
-
-    // 3. İcapçı Verisini Sakla (Word/PNG Çıktıları İçin)
-    if (window.preservedIcapciMap) {
-        window.currentScheduleData.icapciMap = window.preservedIcapciMap;
-    }
-
-    // 4. Ana Önizleme Ekranını Yeniden Çiz/Tetikle
-    if (typeof renderMainScheduleTable === 'function') {
-        renderMainScheduleTable(tempSwapSchedule);
-    } else if (typeof renderSchedule === 'function') {
-        renderSchedule(tempSwapSchedule);
-    } else if (typeof renderTable === 'function') {
-        renderTable();
-    } else if (typeof generateSchedule === 'function') {
-        generateSchedule();
-    }
-
-    // 5. Modalı Kapat ve Bildirim Ver
-    closeModal('modalSwap');
-
-    if (typeof showModernAlert === 'function') {
-        showModernAlert('Başarılı', 'Becayiş/Word listesi başarıyla kaydedildi ve önizleme ekranına aktarıldı.');
-    } else if (typeof showToast === 'function') {
-        showToast('Nöbet listesi önizlemeye yansıtıldı!', 'success');
-    } else {
-        alert('Nöbet listesi önizleme ekranına aktarıldı.');
-    }
-}
+// Eski, yinelenen saveSwapChanges tanımı kaldırıldı; aşağıdaki güncel tek sürüm kullanılır.
 
     function openSwapModal() {
+        window.oldDutyUploadOnly = false;
+        const activeContent = document.querySelector('.content.active');
+        window.swapReturnStep = (activeContent && activeContent.id === 'p4') ? 5 : 7;
+        window.swapFileWasImported = false;
+
         if (schedule && schedule.length > 0) {
             tempSwapSchedule = JSON.parse(JSON.stringify(schedule));
         } else {
@@ -5606,6 +5979,82 @@ function saveSwapChanges() {
         updateCrossSwapBtnUI();
         renderSwapGrid();
         document.getElementById('modalSwap').style.display = 'flex';
+    }
+
+    // 5. Nöbet Listesi sayfasındaki bu düğme yalnızca eski Word nöbet listesini içe aktarır.
+    // Becayiş düzenleyicisi yalnızca 7. Sonuç sayfasındaki Nöbet Takası düğmesinden açılır.
+    function openOldDutyListUpload() {
+        const fileInput = document.getElementById('docxImportInput');
+        if (!fileInput) {
+            showModernAlert('Hata', 'Word dosyası yükleme alanı bulunamadı.');
+            return;
+        }
+        window.oldDutyUploadOnly = true;
+        fileInput.value = '';
+        fileInput.click();
+    }
+
+    function importOldDutyListDirectly() {
+        if (!tempSwapSchedule || !tempSwapSchedule.length) {
+            window.oldDutyUploadOnly = false;
+            showModernAlert('Hata', 'Word dosyasından aktarılabilecek nöbet satırı bulunamadı.');
+            return;
+        }
+
+        const imported = JSON.parse(JSON.stringify(tempSwapSchedule));
+        const toISO = dateObj => {
+            if (!dateObj) return '';
+            if (dateObj.str && /^\d{4}-\d{2}-\d{2}$/.test(dateObj.str)) return dateObj.str;
+            if (dateObj.full && /^\d{2}\.\d{2}\.\d{4}$/.test(dateObj.full)) {
+                const p = dateObj.full.split('.');
+                return `${p[2]}-${p[1]}-${p[0]}`;
+            }
+            return '';
+        };
+        const firstISO = toISO(imported[0].date);
+        const lastISO = toISO(imported[imported.length - 1].date);
+        if (firstISO) document.getElementById('startDate').value = firstISO;
+        if (lastISO) document.getElementById('endDate').value = lastISO;
+        if (firstISO && lastISO) calcDates();
+
+        schedule = imported.map(row => {
+            const dateISO = toISO(row.date);
+            const currentDate = dateISO ? dates.find(d => d.str === dateISO) : null;
+            return {
+                date: currentDate || row.date,
+                assign: JSON.parse(JSON.stringify(row.assign || {}))
+            };
+        });
+
+        if (!window.currentScheduleData) window.currentScheduleData = {};
+        window.currentScheduleData.schedule = JSON.parse(JSON.stringify(schedule));
+        if (window.preservedIcapciMap) {
+            window.currentScheduleData.icapciMap = JSON.parse(JSON.stringify(window.preservedIcapciMap));
+        }
+        window.originalLoadedSchedule = JSON.parse(JSON.stringify(schedule));
+
+        // Eski liste yeni bir ana liste olarak kaydedilir; eski becayiş geçmişi bu içe aktarıma taşınmaz.
+        jokerSchedule = [];
+        jokerWarnings = [];
+        extraServisAssignments = {};
+        if (history.length >= MAX_HISTORY) history.shift();
+        history.push({
+            schedule: JSON.parse(JSON.stringify(schedule)),
+            extraServis: {},
+            jokerSchedule: [],
+            jokerWarnings: []
+        });
+        activeHistoryIndex = history.length - 1;
+        tempSwapSchedule = JSON.parse(JSON.stringify(schedule));
+        swapUndoStack = [];
+        modifiedSwapKeys = new Set();
+
+        renderHistoryButtons();
+        renderRes();
+        saveData();
+        window.oldDutyUploadOnly = false;
+        nav(5);
+        showModernAlert('Başarılı', 'Eski nöbet listesi doğrudan 5. Nöbet Listesi sayfasına aktarıldı. Becayiş ekranı açılmadı.');
     }
 
     function toggleCrossSwap() {
@@ -5919,78 +6368,83 @@ function checkSwapEligibility(src, tgt) {
 
 // Becayiş Listesini Kaydetme
 function saveSwapChanges() {
-
-    // Kaydedilecek liste yoksa işlemi durdur
     if (!tempSwapSchedule || tempSwapSchedule.length === 0) {
-        if (typeof showModernAlert === 'function') {
-            showModernAlert('Uyarı', 'Kaydedilecek nöbet listesi bulunamadı.');
-        } else {
-            alert('Kaydedilecek nöbet listesi bulunamadı.');
-        }
+        if (typeof showModernAlert === 'function') showModernAlert('Uyarı', 'Kaydedilecek nöbet listesi bulunamadı.');
+        else alert('Kaydedilecek nöbet listesi bulunamadı.');
         return;
     }
 
-    // 1. Yüklenen Word listesindeki ilk tarihi ana tarihe aktar
-    if (tempSwapSchedule[0] && tempSwapSchedule[0].date) {
+    const cloneSchedule = JSON.parse(JSON.stringify(tempSwapSchedule));
+    const importedNewList = !!window.swapFileWasImported;
+    const returnStep = Number(window.swapReturnStep) === 5 ? 5 : 7;
 
-        const dObj = tempSwapSchedule[0].date;
-
-        let isoDateStr = dObj.str || "";
-
-        if (!isoDateStr && dObj.full) {
-            const p = dObj.full.split('.');
-            if (p.length === 3) {
-                isoDateStr = `${p[2]}-${p[1]}-${p[0]}`;
-            }
+    // Word listesinin ilk ve son tarihini ana tarih aralığına aktar.
+    const toISO = (dateObj) => {
+        if (!dateObj) return '';
+        if (dateObj.str && /^\d{4}-\d{2}-\d{2}$/.test(dateObj.str)) return dateObj.str;
+        if (dateObj.full && /^\d{2}\.\d{2}\.\d{4}$/.test(dateObj.full)) {
+            const p = dateObj.full.split('.');
+            return `${p[2]}-${p[1]}-${p[0]}`;
         }
+        return '';
+    };
+    const firstISO = toISO(cloneSchedule[0] && cloneSchedule[0].date);
+    const lastISO = toISO(cloneSchedule[cloneSchedule.length - 1] && cloneSchedule[cloneSchedule.length - 1].date);
+    if (firstISO) document.getElementById('startDate').value = firstISO;
+    if (lastISO) document.getElementById('endDate').value = lastISO;
+    if (firstISO && lastISO) calcDates();
 
-        const startDateInput = document.getElementById('startDate');
-
-        if (startDateInput && isoDateStr) {
-            startDateInput.value = isoDateStr;
-        }
-    }
-
-    // 2. Becayişteki son listeyi ana nöbet listesine aktar
-    schedule = JSON.parse(JSON.stringify(tempSwapSchedule));
-
-    // 3. Sistem verisini de güncelle
-    if (!window.currentScheduleData) {
-        window.currentScheduleData = {};
-    }
-
-    window.currentScheduleData.schedule =
-        JSON.parse(JSON.stringify(tempSwapSchedule));
-
-    // 4. Dışarıdan yüklenen İcapçı bilgilerini koru
+    // Becayişteki veya Word'den gelen son listeyi ana nöbet listesine aktar.
+    schedule = cloneSchedule;
+    if (!window.currentScheduleData) window.currentScheduleData = {};
+    window.currentScheduleData.schedule = JSON.parse(JSON.stringify(schedule));
     if (window.preservedIcapciMap) {
-        window.currentScheduleData.icapciMap =
-            JSON.parse(JSON.stringify(window.preservedIcapciMap));
+        window.currentScheduleData.icapciMap = JSON.parse(JSON.stringify(window.preservedIcapciMap));
     }
 
-    // 5. Önce normal nöbet tablosunu yeniden oluştur
-    //    Böylece 6. sayfadaki önizleme boş kalmaz
-    if (typeof renderRes === 'function') {
-        renderRes();
+    // Yeni bir Word listesi geldiyse eski dönemin Joker/servis ekleme satırlarını karıştırma.
+    if (importedNewList) {
+        jokerSchedule = [];
+        jokerWarnings = [];
+        extraServisAssignments = {};
     }
 
-    // 6. VAR OLAN 6. SONUÇ SAYFASINA GEÇ VE ÖNİZLEMEYİ YENİLE
-    nav(6);
-
-    // 7. Becayiş penceresini kapat
-    closeModal('modalSwap');
-
-    // 8. Kullanıcıya bilgi ver
-    if (typeof showModernAlert === 'function') {
-        showModernAlert(
-            'Başarılı',
-            'Becayiş listesi kaydedildi ve 6. sonuç sayfasındaki önizleme güncellendi.'
-        );
-    } else if (typeof showToast === 'function') {
-        showToast('Nöbet listesi önizlemeye yansıtıldı!', 'success');
+    // Yeni içe aktarılan liste ayrı bir geçmiş denemesi olur.
+    if (importedNewList || activeHistoryIndex < 0) {
+        if (history.length >= MAX_HISTORY) history.shift();
+        history.push({
+            schedule: JSON.parse(JSON.stringify(schedule)),
+            extraServis: JSON.parse(JSON.stringify(extraServisAssignments || {})),
+            jokerSchedule: JSON.parse(JSON.stringify(jokerSchedule || [])),
+            jokerWarnings: JSON.parse(JSON.stringify(jokerWarnings || []))
+        });
+        activeHistoryIndex = history.length - 1;
     } else {
-        alert('Nöbet listesi önizlemeye yansıtıldı.');
+        // Mevcut listede yalnızca becayiş yapıldıysa aktif geçmiş kaydını güncelle.
+        syncActiveHistoryState();
     }
+
+    renderHistoryButtons();
+    renderRes();
+
+    // Yeni Word listesinde mevcut Joker seçimi/ayarlarıyla Joker çizelgesini yeniden hesapla.
+    if (importedNewList) calculateJokerSchedule(true);
+    else if (jokerSchedule && jokerSchedule.length > 0) calculateJokerSchedule(false);
+
+    // Sonucu hem hızlı yerel kayda hem de IndexedDB yedeğine yaz.
+    syncActiveHistoryState();
+    saveData();
+
+    closeModal('modalSwap');
+    window.swapFileWasImported = false;
+    nav(returnStep);
+
+    const successMessage = importedNewList
+        ? 'Eski nöbet listesi ana listeye aktarıldı. Geçmişe kaydedildi ve Joker çizelgesi güncellendi.'
+        : 'Becayiş değişiklikleri kaydedildi ve nöbet listesi güncellendi.';
+    if (typeof showModernAlert === 'function') showModernAlert('Başarılı', successMessage);
+    else if (typeof showToast === 'function') showToast(successMessage, 'success');
+    else alert(successMessage);
 }
 
     function recalculateJokerInStep6() {
@@ -6006,9 +6460,16 @@ function saveSwapChanges() {
     // Word Yüklendiğinde Orijinal Halini Saklama
     const oldParseDocx = parseDocxTableAndSetSchedule;
     parseDocxTableAndSetSchedule = function(xmlStr) {
+        window.__docxParseSucceeded = false;
         oldParseDocx(xmlStr);
-        if (tempSwapSchedule && tempSwapSchedule.length > 0) {
+        if (window.__docxParseSucceeded && tempSwapSchedule && tempSwapSchedule.length > 0) {
             originalLoadedSwapSchedule = JSON.parse(JSON.stringify(tempSwapSchedule));
+            if (window.oldDutyUploadOnly) {
+                importOldDutyListDirectly();
+            } else {
+                window.swapFileWasImported = true;
+                saveData();
+            }
         }
     };
 
@@ -6256,6 +6717,36 @@ function showModernAlert(title, message) {
         alert(`${title}: ${message}`);
     }
 }
+// Form alanlarında yapılan değişiklikleri ayrıca otomatik kaydet.
+let nobetAutoSaveTimer = null;
+function queueNobetAutoSave(event) {
+    const target = event && event.target;
+    if (!target || !target.matches || !target.matches('input, select, textarea')) return;
+    if (target.type === 'file') return;
+    if (nobetAutoSaveTimer) clearTimeout(nobetAutoSaveTimer);
+    nobetAutoSaveTimer = setTimeout(() => {
+        nobetAutoSaveTimer = null;
+        saveData();
+    }, 350);
+}
+
+document.addEventListener('input', queueNobetAutoSave);
+document.addEventListener('change', queueNobetAutoSave);
+
+function flushNobetAutoSave() {
+    if (nobetAutoSaveTimer) {
+        clearTimeout(nobetAutoSaveTimer);
+        nobetAutoSaveTimer = null;
+    }
+    saveData();
+}
+
+// Sekme gizlenirken veya tarayıcı kapatılırken son bir senkron kayıt daha yap.
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') flushNobetAutoSave();
+});
+window.addEventListener('pagehide', flushNobetAutoSave);
+
 </script>
 
 <!-- EKSTRA SERVİS TÜM ASİSTANLARI SEÇME MODAL'I -->
@@ -6290,34 +6781,6 @@ function showModernAlert(title, message) {
         <div style="display: flex; gap: 10px; justify-content: center;">
             <button type="button" style="padding: 10px 20px; border-radius: 8px; border: 1px solid #cbd5e1; background: #f8fafc; font-weight: 600; cursor: pointer; color: #475569;" onclick="closeModernClearConfirmModal()">Vazgeç</button>
             <button type="button" style="padding: 10px 20px; border-radius: 8px; border: none; background: #ef4444; font-weight: 600; cursor: pointer; color: #ffffff;" onclick="clearBecayisScreenConfirmed()">Evet, Temizle</button>
-        </div>
-    </div>
-</div>
-<!-- Serviste Aktif Çalışan Asistanlar Modal Penceresi -->
-<div id="modalServisAktif" class="modal-overlay">
-    <div class="modal-content" style="max-width:820px;">
-        <div class="modal-header" style="background:#c29b38; color:#ffffff; border-radius:10px; padding:15px 18px; margin:-30px -30px 20px -30px; border-bottom:none;">
-            <h2 style="color:#ffffff; font-size:1.1rem; margin:0;"><i class="fas fa-users"></i> Serviste Aktif Çalışan Asistan Seçimi</h2>
-            <span class="close-modal" style="color:#ffffff;" onclick="closeModal('modalServisAktif')">&times;</span>
-        </div>
-
-        <div style="background:#fffbeb; border:1px solid #fde68a; color:#78350f; border-radius:8px; padding:12px 14px; margin-bottom:15px; font-size:0.86rem; line-height:1.45;">
-            <strong>Servis</strong> görev yerindeki asistanlar otomatik seçilir.
-            <strong>Konsültan</strong> ve <strong>Servis Kıdemlisi</strong> listede görünür ama otomatik seçilmez; isterseniz seçerek sayıya dahil edebilirsiniz.
-            İzinli, nöbet ertesi veya o gün joker olarak başka bir yere çekilen kişi, seçili olsa bile o günün sayısına dahil edilmez.
-        </div>
-
-        <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:12px;">
-            <div style="font-weight:800; color:#334155;">Hesaba dahil edilen seçili kişi: <span id="servisAktifSecimSayisi">0</span></div>
-            <div style="font-size:0.75rem; color:#64748b;">Tüm satır tıklanabilir</div>
-        </div>
-
-        <div id="servisAktifAsistanListesi" class="servis-aktif-list"></div>
-
-        <div style="text-align:right; margin-top:20px; border-top:1px solid #e2e8f0; padding-top:15px;">
-            <button type="button" class="btn btn-primary" style="background:#c29b38;" onclick="hesaplaVeGuncelleServisAktifSayilari(); closeModal('modalServisAktif');">
-                Kaydet ve Kapat
-            </button>
         </div>
     </div>
 </div>
