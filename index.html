@@ -726,6 +726,185 @@ div[id*="becayis"] .modal-content {
     min-height: 85vh;
     border-radius: 12px;
 }
+
+/* Kişi Bazlı Kısıtlamalar: geniş pencere, solda elle giriş / sağda otomatik öneriler */
+#modalConstraints .constraints-modal-content {
+    width: 96vw;
+    max-width: 1480px;
+    max-height: 92vh;
+    overflow-y: auto;
+    padding: 24px;
+}
+#modalConstraints .constraints-layout {
+    display: grid;
+    grid-template-columns: minmax(340px, 0.9fr) minmax(0, 1.35fr);
+    gap: 20px;
+    align-items: start;
+}
+#modalConstraints .constraint-panel {
+    min-width: 0;
+    padding: 14px;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    background: #fbfdff;
+}
+#modalConstraints #autoConstraintPanel {
+    max-height: 68vh;
+    overflow-y: auto;
+}
+#modalConstraints #autoConstraintSuggestions { margin-bottom: 0 !important; }
+#modalConstraints #autoConstraintSuggestionList {
+    max-height: 58vh;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+#modalConstraints .constraint-manual-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 16px;
+}
+#modalConstraints .constraint-manual-row select { min-width: 0; }
+
+/* Kritik servis günleri ve takviye sayaçları */
+.servis-count-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    margin: 10px 0 15px;
+}
+.servis-count-summary-card {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 9px;
+    padding: 12px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+.servis-count-summary-card span { color: #475569; font-size: 0.85rem; font-weight: 700; }
+.servis-count-summary-card strong { font-size: 1.35rem; color: #0f172a; }
+.servis-count-summary-card.critical { border-left: 4px solid #dc2626; }
+.servis-count-summary-card.support { border-left: 4px solid #d97706; }
+.servis-count-summary-card.total { border-left: 4px solid #0ea5e9; }
+.servis-count-empty {
+    padding: 12px 14px;
+    border: 1px solid #bbf7d0;
+    background: #f0fdf4;
+    color: #166534;
+    border-radius: 8px;
+    font-size: 0.88rem;
+    font-weight: 600;
+}
+.servis-aktif-item.joker-passive:not(.active) {
+    background: #f8fafc;
+    border-style: dashed;
+    opacity: 0.82;
+}
+.servis-aktif-item.joker-passive:not(.active) .servis-aktif-name { color: #64748b; }
+@media (max-width: 900px) {
+    #modalConstraints .constraints-modal-content { width: 96vw; max-width: 96vw; padding: 16px; }
+    #modalConstraints .constraints-layout { grid-template-columns: 1fr; }
+    #modalConstraints #autoConstraintPanel { max-height: 42vh; }
+    #modalConstraints #autoConstraintSuggestionList { max-height: 32vh; }
+}
+@media (max-width: 560px) {
+    #modalConstraints .constraint-manual-row { grid-template-columns: 1fr; }
+    #modalConstraints .constraint-manual-row > i { display: none; }
+    .servis-count-summary-grid { grid-template-columns: 1fr; }
+}
+/* Tek çalışma alanı kontrolü: sayfanın sağ üstünde kompakt görünüm */
+.assignment-rule-bar {
+    display:flex;
+    align-items:center;
+    justify-content:flex-end;
+    gap:9px;
+    width:100%;
+    margin:0 0 10px;
+    padding:0;
+    border:0;
+    border-radius:0;
+    background:transparent;
+    box-sizing:border-box;
+}
+.assignment-rule-bar .toggle-wrapper {
+    width:fit-content;
+    margin:0;
+    padding:3px 7px;
+    gap:8px;
+    border:1px solid #cbd5e1;
+    border-radius:18px;
+    background:#f8fafc;
+}
+.assignment-rule-bar .toggle-switch {
+    width:34px;
+    height:18px;
+    flex:0 0 34px;
+}
+.assignment-rule-bar .toggle-switch::after {
+    width:14px;
+    height:14px;
+}
+.assignment-rule-bar .toggle-input:checked + .toggle-switch::after {
+    transform:translateX(16px);
+}
+.assignment-rule-bar .toggle-label {
+    color:#334155;
+    font-size:0.78rem;
+    font-weight:800;
+    white-space:nowrap;
+}
+.assignment-rule-tooltip {
+    position:relative;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    width:18px;
+    height:18px;
+    flex:0 0 18px;
+    border-radius:50%;
+    background:#64748b;
+    color:#fff;
+    font-size:0.72rem;
+    font-weight:800;
+    line-height:1;
+    cursor:help;
+    user-select:none;
+}
+.assignment-rule-tooltip::after {
+    content:attr(data-tip);
+    position:absolute;
+    top:calc(100% + 9px);
+    right:0;
+    z-index:1500;
+    width:300px;
+    max-width:80vw;
+    padding:10px 12px;
+    border-radius:8px;
+    background:#1e293b;
+    color:#fff;
+    font-size:0.78rem;
+    font-weight:500;
+    line-height:1.45;
+    text-align:left;
+    white-space:normal;
+    box-shadow:0 8px 20px rgba(15,23,42,0.22);
+    opacity:0;
+    visibility:hidden;
+    pointer-events:none;
+    transform:translateY(-3px);
+    transition:opacity .14s ease, transform .14s ease, visibility .14s ease;
+}
+.assignment-rule-tooltip:hover::after {
+    opacity:1;
+    visibility:visible;
+    transform:translateY(0);
+}
+
+
 </style>
 </head>
 <body>
@@ -1009,6 +1188,14 @@ div[id*="becayis"] .modal-content {
     </div>
 
     <div class="content" id="pTasks">
+        <div class="assignment-rule-bar">
+            <label class="toggle-wrapper" title="">
+                <input type="checkbox" class="toggle-input assignment-rule-toggle" id="singleAssignmentToggleTasks" checked onchange="setSingleWorkplaceAssignmentRule(this.checked)">
+                <div class="toggle-switch"></div>
+                <span class="toggle-label">Tek çalışma alanı</span>
+            </label>
+            <span class="assignment-rule-tooltip" data-tip="Bir Asistan sadece tek alanda çalışabilir. Eğer seçeneği kapalı konuma getirirseniz bir asistan birden çok yerde görevlendirilebilir." aria-label="Açıklama">?</span>
+        </div>
         <div style="margin-bottom:18px;">
             <h2 style="margin:0 0 6px 0; color:#1e293b; font-size:1.2rem;"><i class="fas fa-tasks" style="color:#7c3aed;"></i> Görevler</h2>
             <div style="color:#64748b; font-size:0.9rem;"></div>
@@ -1031,7 +1218,7 @@ div[id*="becayis"] .modal-content {
                 <div id="dynamicPrevDutyArea" style="width:100%;"></div>
             </div>
             <div style="display:flex; flex-direction:column; align-items:stretch; justify-content:center; gap:12px; flex:0 0 260px; min-width:240px;">
-                <button class="btn btn-warning" style="width:100%; min-height:44px;" onclick="openConstraintModal()"><i class="fas fa-ban"></i> Kişi Bazlı Kısıtlamalar</button>
+                <button type="button" class="btn btn-warning" style="width:100%; min-height:44px;" onclick="window.openConstraintModal()"><i class="fas fa-ban"></i> Kişi Bazlı Kısıtlamalar</button>
                 <button class="btn btn-ghost" style="width:100%; min-height:44px; border:1px solid #cbd5e1; color:#475569; font-weight:600; padding:8px 15px; border-radius:20px; background:#f1f5f9;" onclick="openFridayModal()"><i class="fas fa-calendar-times" style="color:#3b82f6;"></i> Gün Bazlı Kısıtlamalar</button>
             </div>
         </div>
@@ -1074,6 +1261,14 @@ div[id*="becayis"] .modal-content {
     </div>
 
     <div class="content" id="p5">
+        <div class="assignment-rule-bar">
+            <label class="toggle-wrapper" title="">
+                <input type="checkbox" class="toggle-input assignment-rule-toggle" id="singleAssignmentToggleJokers" checked onchange="setSingleWorkplaceAssignmentRule(this.checked)">
+                <div class="toggle-switch"></div>
+                <span class="toggle-label">Tek çalışma alanı</span>
+            </label>
+            <span class="assignment-rule-tooltip" data-tip="Bir Asistan sadece tek alanda çalışabilir. Eğer seçeneği kapalı konuma getirirseniz bir asistan birden çok yerde görevlendirilebilir." aria-label="Açıklama">?</span>
+        </div>
         <div style="margin-bottom:20px;">
              <div class="history-bar" id="jokerHistoryBar"></div>
         </div>
@@ -1369,7 +1564,33 @@ div[id*="becayis"] .modal-content {
 </div>
 
 <div id="modalEdit" class="modal-overlay"><div class="modal-content"><div class="modal-header"><h2><i class="fas fa-edit" style="color:#f59e0b"></i> Havuzu Düzenle</h2><span class="close-modal" onclick="closeModal('modalEdit')">&times;</span></div><div style="display:flex; gap:10px; margin-bottom:15px;"><input type="text" id="newMasterName" placeholder="Yeni isim ekle..." style="flex:1"><button class="btn btn-success" onclick="addToMasterList()"><i class="fas fa-plus"></i> Ekle</button></div><div id="editList" class="pool-grid"></div><div style="text-align:right; margin-top:20px;"><button class="btn btn-primary" onclick="closeModal('modalEdit')">Tamam</button></div></div></div>
-<div id="modalConstraints" class="modal-overlay"><div class="modal-content"><div class="modal-header"><h2><i class="fas fa-ban" style="color:#ef4444"></i> Kişi Bazlı Kısıtlamalar</h2><span class="close-modal" onclick="closeModal('modalConstraints')">&times;</span></div><div id="autoConstraintSuggestions" style="margin-bottom:18px;"></div><div style="font-weight:700; color:#334155; margin-bottom:8px;">Elle kısıtlama ekle</div><div style="display:flex; gap:10px; margin-bottom:15px;"><select id="conP1" style="flex:1" onchange="updateConstraintDropdowns('left')"></select><i class="fas fa-arrows-alt-h" style="color:#cbd5e1"></i><select id="conP2" style="flex:1" onchange="updateConstraintDropdowns('right')"></select><button class="btn btn-success" onclick="addConstraint()">Ekle</button></div><div id="constraintList" class="constraint-list"></div><div style="text-align:right; margin-top:15px;"><button class="btn btn-primary" onclick="closeModal('modalConstraints')">Tamam</button></div></div></div>
+<div id="modalConstraints" class="modal-overlay">
+    <div class="modal-content constraints-modal-content">
+        <div class="modal-header">
+            <h2><i class="fas fa-ban" style="color:#ef4444"></i> Kişi Bazlı Kısıtlamalar</h2>
+            <span class="close-modal" onclick="closeModal('modalConstraints')">&times;</span>
+        </div>
+        <div class="constraints-layout">
+            <section id="manualConstraintPanel" class="constraint-panel">
+                <div style="font-weight:800; color:#334155; margin-bottom:8px;">Elle kısıtlama ekle</div>
+                <p style="font-size:0.82rem; color:#64748b; margin:0 0 12px;">Birlikte aynı gün nöbet tutmasını istemediğiniz iki kişiyi seçin.</p>
+                <div class="constraint-manual-row">
+                    <select id="conP1" onchange="updateConstraintDropdowns('left')"></select>
+                    <i class="fas fa-arrows-alt-h" style="color:#94a3b8"></i>
+                    <select id="conP2" onchange="updateConstraintDropdowns('right')"></select>
+                    <button class="btn btn-success" onclick="addConstraint()">Ekle</button>
+                </div>
+                <div id="constraintList" class="constraint-list"></div>
+            </section>
+            <section id="autoConstraintPanel" class="constraint-panel">
+                <div id="autoConstraintSuggestions"></div>
+            </section>
+        </div>
+        <div style="text-align:right; margin-top:18px; border-top:1px solid #e2e8f0; padding-top:14px;">
+            <button class="btn btn-primary" onclick="closeModal('modalConstraints')">Tamam</button>
+        </div>
+    </div>
+</div>
 <div id="modalFriday" class="modal-overlay">
     <div class="modal-content" style="max-width:780px; max-height:90vh; overflow-y:auto; padding:20px 25px;">
         <div class="modal-header" style="margin-bottom:15px; padding-bottom:12px;">
@@ -1987,6 +2208,9 @@ let extraServisAssignments = {}; // { "2026-07-01": ["Ahmet Yılmaz","Ayşe Kaya
         prevDuty: { d1:{}, d2:{} },
         workplaceAssignments: {}
     };
+    // Açık olduğunda bir asistan yalnızca tek bir görev yeri/Joker seçeneğinde atanabilir.
+    // Eski kayıtlarda bu ayar yoksa varsayılan olarak açık başlar.
+    let singleWorkplaceAssignmentRule = true;
 
     // --- ONLOAD & KAYIT ---
     window.onload = async () => {
@@ -2045,6 +2269,7 @@ let extraServisAssignments = {}; // { "2026-07-01": ["Ahmet Yılmaz","Ayşe Kaya
             docs: clone(docs || []),
             masterList: clone(masterList || []),
             constraints: clone(constraints || []),
+            singleWorkplaceAssignmentRule: !!singleWorkplaceAssignmentRule,
             refMode: refakatciMode,
             placeFridayRules: clone(placeFridayRules || {}),
             fridayRule: fridayRuleEnabled,
@@ -2062,6 +2287,7 @@ let extraServisAssignments = {}; // { "2026-07-01": ["Ahmet Yılmaz","Ayşe Kaya
             jokerWarnings: clone(jokerWarnings || []),
             extraServis: clone(extraServisAssignments || {}),
             servisAktifSecimler: clone(servisAktifSecimler || {}),
+            servisAktifJokerManuelSecimler: clone(servisAktifJokerManuelSecimler || {}),
             jokerSchedule: clone(jokerSchedule || []),
             preservedIcapciMap: clone(window.preservedIcapciMap || null),
             tempSwapSchedule: (typeof tempSwapSchedule !== 'undefined') ? clone(tempSwapSchedule || []) : [],
@@ -2146,6 +2372,9 @@ let extraServisAssignments = {}; // { "2026-07-01": ["Ahmet Yılmaz","Ayşe Kaya
         docs.forEach(d => { if (!d.avail) d.avail = {}; });
         masterList = data.masterList || DEFAULT_MASTER;
         constraints = data.constraints || [];
+        singleWorkplaceAssignmentRule = data.singleWorkplaceAssignmentRule !== undefined
+            ? !!data.singleWorkplaceAssignmentRule
+            : true;
         refakatciMode = !!data.refMode;
         placeFridayRules = data.placeFridayRules || {};
         fridayRuleEnabled = data.fridayRule !== undefined ? data.fridayRule : true;
@@ -2159,6 +2388,8 @@ let extraServisAssignments = {}; // { "2026-07-01": ["Ahmet Yılmaz","Ayşe Kaya
             const el = document.getElementById(id);
             if (el) el.checked = !!value;
         };
+        setChecked('singleAssignmentToggleTasks', singleWorkplaceAssignmentRule);
+        setChecked('singleAssignmentToggleJokers', singleWorkplaceAssignmentRule);
         setChecked('fridayWe1MaxOneToggle', fridayWe1MaxOneRule);
         setChecked('weDifferentDaysToggle', weDifferentDaysRule);
         setChecked('fridayWeMaxOneToggle', fridayWeMaxOneRule);
@@ -2180,6 +2411,13 @@ let extraServisAssignments = {}; // { "2026-07-01": ["Ahmet Yılmaz","Ayşe Kaya
             catch (error) { servisAktifSecimler = data.servisAktifSecimler || {}; }
         } else {
             servisAktifSecimler = data.servisAktifSecimler || {};
+        }
+        const jokerManuelKey = localStorage.getItem(STORAGE_KEY + "_servisAktifJokerManuel");
+        if (jokerManuelKey !== null) {
+            try { servisAktifJokerManuelSecimler = JSON.parse(jokerManuelKey) || {}; }
+            catch (error) { servisAktifJokerManuelSecimler = data.servisAktifJokerManuelSecimler || {}; }
+        } else {
+            servisAktifJokerManuelSecimler = data.servisAktifJokerManuelSecimler || {};
         }
 
         // Ana nöbet listesi, geçmiş denemeler ve Joker tablosu kalıcı olarak geri yüklenir.
@@ -2226,6 +2464,11 @@ let extraServisAssignments = {}; // { "2026-07-01": ["Ahmet Yılmaz","Ayşe Kaya
         renderWorkplaceGrid();
         syncAllDropdowns();
     } else {
+        singleWorkplaceAssignmentRule = true;
+        const tasksToggle = document.getElementById('singleAssignmentToggleTasks');
+        const jokersToggle = document.getElementById('singleAssignmentToggleJokers');
+        if (tasksToggle) tasksToggle.checked = true;
+        if (jokersToggle) jokersToggle.checked = true;
         masterList = DEFAULT_MASTER;
         schedule = [];
         history = [];
@@ -2245,6 +2488,7 @@ let extraServisAssignments = {}; // { "2026-07-01": ["Ahmet Yılmaz","Ayşe Kaya
         try {
             localStorage.removeItem(STORAGE_KEY);
             localStorage.removeItem(STORAGE_KEY + "_servisAktif");
+            localStorage.removeItem(STORAGE_KEY + "_servisAktifJokerManuel");
             localStorage.removeItem(STORAGE_KEY + "_gunlukServisAktif");
             localStorage.removeItem(STORAGE_KEY + "_gunlukServisEkstra");
         } catch (error) {}
@@ -2524,79 +2768,164 @@ function initFridayTooltips() {
     function selectAllModal() { document.querySelectorAll('#selectList .person-check:not(:disabled)').forEach(c => { c.checked = true; c.closest('.person-select-card').classList.add('active'); }); }
     function deselectAllModal() { document.querySelectorAll('#selectList .person-check:not(:disabled)').forEach(c => { c.checked = false; c.closest('.person-select-card').classList.remove('active'); }); }
     function addFromSelection() { document.querySelectorAll('.person-check:checked:not(:disabled)').forEach(c => addQuick(c.value)); closeModal('modalSelect'); syncAllDropdowns(); }
-    function openConstraintModal() { const p1 = document.getElementById('conP1'); const p2 = document.getElementById('conP2'); const asisOpts = '<option value="">Seçiniz...</option>' + docs.map(d=>`<option value="${d.name}">${d.name}</option>`).join(''); p1.innerHTML = asisOpts; p2.innerHTML = asisOpts; renderSuggestedConstraintPairs(); renderConstraintList(); document.getElementById('modalConstraints').style.display = 'flex'; }
+    // Kişi Bazlı Kısıtlamalar penceresi: önce pencereyi aç, içerikleri güvenli biçimde yükle.
+    // Otomatik önerilerde oluşabilecek bir hata elle kısıtlama ekranının açılmasını engellememelidir.
+    function openConstraintModal() {
+        const modal = document.getElementById('modalConstraints');
+        if (!modal) {
+            alert('Kişi Bazlı Kısıtlamalar penceresi sayfada bulunamadı.');
+            return;
+        }
+
+        // Pencereyi ilk olarak görünür yap; aşağıdaki çizimlerden biri hata verse bile ekran açılır.
+        modal.style.display = 'flex';
+        modal.style.visibility = 'visible';
+        modal.style.opacity = '1';
+
+        const people = Array.isArray(docs) ? docs.filter(d => d && d.name) : [];
+        const p1 = document.getElementById('conP1');
+        const p2 = document.getElementById('conP2');
+        const fillSelect = (select) => {
+            if (!select) return;
+            select.innerHTML = '';
+            const placeholder = document.createElement('option');
+            placeholder.value = '';
+            placeholder.textContent = 'Seçiniz...';
+            select.appendChild(placeholder);
+            people.forEach(person => {
+                const option = document.createElement('option');
+                option.value = person.name;
+                option.textContent = person.name;
+                select.appendChild(option);
+            });
+        };
+        fillSelect(p1);
+        fillSelect(p2);
+
+        // Eski kayıtlarda kısıtlama alanı tanımsız/null ise boş listeyle devam et.
+        if (!Array.isArray(constraints)) constraints = [];
+
+        try {
+            renderConstraintList();
+        } catch (error) {
+            const list = document.getElementById('constraintList');
+            if (list) list.innerHTML = '<div style="color:#b91c1c;padding:10px;">Kayıtlı kısıtlamalar görüntülenemedi. Elle yeni kısıtlama eklemeyi deneyebilirsiniz.</div>';
+            console.error('Kısıtlama listesi çizim hatası:', error);
+        }
+
+        try {
+            renderSuggestedConstraintPairs();
+        } catch (error) {
+            const suggestions = document.getElementById('autoConstraintSuggestions');
+            if (suggestions) suggestions.innerHTML = '<div style="padding:12px;border:1px solid #fecaca;border-radius:8px;background:#fef2f2;color:#991b1b;">Otomatik öneriler şu anda oluşturulamadı. Elle kısıtlama ekleme alanını kullanabilirsiniz.</div>';
+            console.error('Otomatik kısıtlama önerileri çizim hatası:', error);
+        }
+    }
+    window.openConstraintModal = openConstraintModal;
 
 
     // Aktif birim sorumlularından, kullanıcının isteğine göre öneri listesi oluşturur.
     // Bu öneriler otomatik olarak kısıtlamaya eklenmez; kullanıcı her birini ayrı ayrı kabul eder.
     function buildSuggestedConstraintPairs() {
-        // Birim sorumluları ve Görev Yerleri alanlarında aktif olarak bulunan herkes dikkate alınır.
-        const peopleOf = role => (getWorkplacePeople(role).combined || [])
-            .filter(name => name && docs.some(d => d.name === name));
-        const unique = list => [...new Set(list)];
+        const people = (Array.isArray(docs) ? docs : []).filter(d => d && d.name);
+        const peopleNames = new Set(people.map(d => d.name));
+        const places = Array.isArray(activePlaces) ? activePlaces : [];
 
-        const polPeople = unique([
-            ...peopleOf("Pol-1"),
-            ...peopleOf("Pol-2"),
-            ...peopleOf("Pol-3")
-        ]);
-        const icuPeople = unique(peopleOf("Yoğun Bakım"));
-        const msPeople = unique(peopleOf("MS Merkezi"));
-        const consultantPeople = unique(peopleOf("Konsültan"));
-        const seniorPeople = unique(peopleOf("Servis Kıdemlisi"));
+        // 2. Asistanlar sayfası: kişinin nöbet tuttuğu yerler (işaretli olanlar).
+        const dutyByPerson = new Map();
+        const taskByPerson = new Map();
+        people.forEach(p => {
+            dutyByPerson.set(p.name, new Set((Array.isArray(p.allowed) ? p.allowed : []).filter(u => u !== 'Refakatçi' && places.includes(u))));
+            taskByPerson.set(p.name, new Set());
+        });
+        const addTask = (name, unit) => { if (name && peopleNames.has(name)) taskByPerson.get(name).add(unit); };
 
-        const servicePeople = new Set(peopleOf("Servis"));
-        const icuSet = new Set(icuPeople);
-        const dutyFlags = name => ({ service: servicePeople.has(name), icu: icuSet.has(name) });
-        const alreadyListed = (a, b) => constraints.some(c =>
-            (c.p1 === a && c.p2 === b) || (c.p1 === b && c.p2 === a)
-        );
+        // 3. Görevler ve 5. Jokerler/Görevler sayfaları: kişinin görevleri.
+        ["Pol-1", "Pol-2", "Pol-3", "MS Merkezi", "Konsültan", "Servis Kıdemlisi", "EMG", "Yoğun Bakım 1", "Yoğun Bakım 2"].forEach(unit => {
+            let found = { combined: [] };
+            try { found = getWorkplacePeople(unit) || found; } catch (error) { console.warn('Görev yeri okunamadı:', unit, error); }
+            (found.combined || []).forEach(name => addTask(name, unit));
+        });
+        const activeJokers = (typeof getActiveJokersWithTasks === 'function')
+            ? getActiveJokersWithTasks(false).map(j => j && j.name).filter(Boolean) : [];
+        activeJokers.forEach(name => addTask(name, "Joker"));
+        ((((jokerConfig || {}).workplaceAssignments || {}).Joker) || []).forEach(name => addTask(name, "Joker"));
+
+        // Yoğun bakımda nöbeti işaretli olmayan kişi, yoğun bakım görevli gibi gösterilmez.
+        people.forEach(p => {
+            if (!dutyByPerson.get(p.name).has("Yoğun Bakım")) {
+                taskByPerson.get(p.name).delete("Yoğun Bakım 1");
+                taskByPerson.get(p.name).delete("Yoğun Bakım 2");
+            }
+        });
+
+        const groups = {
+            pol: ["Pol-1", "Pol-2", "Pol-3"], ms: ["MS Merkezi"], consultant: ["Konsültan"],
+            senior: ["Servis Kıdemlisi"], joker: ["Joker"], emg: ["EMG"], icu: ["Yoğun Bakım 1", "Yoğun Bakım 2"]
+        };
+        const eligible = name => dutyByPerson.get(name).size > 0;
+        const unitsIn = (name, g) => groups[g].filter(u => taskByPerson.get(name).has(u));
+        const members = g => people.map(p => p.name).filter(n => eligible(n) && unitsIn(n, g).length > 0);
+        const dutyDiffers = (a, b) => {
+            for (const x of dutyByPerson.get(a)) for (const y of dutyByPerson.get(b)) if (x !== y) return true;
+            return false;
+        };
+        const sortTr = list => [...list].sort((x, y) => x.localeCompare(y, 'tr'));
+        const labelsOf = name => {
+            const labels = [];
+            const duty = sortTr(dutyByPerson.get(name));
+            const tasks = sortTr(taskByPerson.get(name));
+            labels.push('Nöbet yeri: ' + (duty.length ? duty.join(', ') : 'işaretli değil'));
+            if (tasks.length) labels.push('Görev: ' + tasks.join(', '));
+            return labels;
+        };
+        const alreadyListed = (a, b) => (Array.isArray(constraints) ? constraints : []).some(c =>
+            (c.p1 === a && c.p2 === b) || (c.p1 === b && c.p2 === a));
 
         const suggestions = [];
         const seen = new Set();
-        const addPair = (a, b, roles) => {
-            if (!a || !b || a === b) return;
-            if (!docs.some(d => d.name === a) || !docs.some(d => d.name === b)) return;
-
-            const flagsA = dutyFlags(a);
-            const flagsB = dutyFlags(b);
-            const bothOnlyService = flagsA.service && !flagsA.icu && flagsB.service && !flagsB.icu;
-            const bothOnlyIcu = flagsA.icu && !flagsA.service && flagsB.icu && !flagsB.service;
-
-            // İkisi de yalnızca Servis'te ya da yalnızca Yoğun Bakım'daysa zaten aynı gün birlikte nöbet tutamaz.
-            // Biri iki yerde birden çalışıyorsa veya biri Servis diğeri Yoğun Bakım'daysa öneriyi koru.
-            if (bothOnlyService || bothOnlyIcu) return;
-
+        const addPair = (a, b, roles, g1, g2) => {
+            if (!a || !b || a === b || !eligible(a) || !eligible(b)) return;
+            if (!dutyDiffers(a, b)) return; // aynı yerde nöbet tutanlar önerilmez
             const ordered = [a, b].sort((x, y) => x.localeCompare(y, 'tr'));
             const key = ordered.join('::');
             if (seen.has(key)) return;
             seen.add(key);
-            suggestions.push({ p1: ordered[0], p2: ordered[1], roles, added: alreadyListed(a, b) });
+            suggestions.push({
+                p1: ordered[0], p2: ordered[1],
+                p1Workplaces: labelsOf(ordered[0]), p2Workplaces: labelsOf(ordered[1]),
+                roles: (g1 && g2) ? (unitsIn(a, g1).join('/') + ' – ' + unitsIn(b, g2).join('/')) : roles, added: alreadyListed(a, b)
+            });
         };
-
-        const addCrossPairs = (listA, listB, roles) => {
-            listA.forEach(a => listB.forEach(b => addPair(a, b, roles)));
-        };
-        const addWithinGroupPairs = (list, roles) => {
+        const addWithin = (g, roles, needDifferentUnit) => {
+            const list = members(g);
             for (let i = 0; i < list.length; i++) {
-                for (let j = i + 1; j < list.length; j++) addPair(list[i], list[j], roles);
+                for (let j = i + 1; j < list.length; j++) {
+                    if (needDifferentUnit) {
+                        const ua = unitsIn(list[i], g), ub = unitsIn(list[j], g);
+                        if (!ua.some(x => ub.some(y => x !== y))) continue;
+                    }
+                    addPair(list[i], list[j], roles, g, g);
+                }
             }
         };
+        const addCross = (g1, g2, roles) => {
+            members(g1).forEach(a => members(g2).forEach(b => addPair(a, b, roles, g1, g2)));
+        };
 
-        // İki poliklinik çalışanı (Pol-1 / Pol-2 / Pol-3 arasındaki tüm aktif kişiler).
-        addWithinGroupPairs(polPeople, "Poliklinik çalışanları");
-        // İki yoğun bakım çalışanı (Yoğun Bakım 1 / Yoğun Bakım 2 ve elle eklenen aktif kişiler).
-        addWithinGroupPairs(icuPeople, "Yoğun Bakım çalışanları");
-        // MS Merkezi – Poliklinik
-        addCrossPairs(msPeople, polPeople, "MS Merkezi – Poliklinik");
-        // Poliklinik – Konsültan
-        addCrossPairs(polPeople, consultantPeople, "Poliklinik – Konsültan");
-        // MS Merkezi – Konsültan
-        addCrossPairs(msPeople, consultantPeople, "MS Merkezi – Konsültan");
-        // Servis Kıdemlisi – Poliklinik / MS Merkezi / Konsültan
-        addCrossPairs(seniorPeople, polPeople, "Servis Kıdemlisi – Poliklinik");
-        addCrossPairs(seniorPeople, msPeople, "Servis Kıdemlisi – MS Merkezi");
-        addCrossPairs(seniorPeople, consultantPeople, "Servis Kıdemlisi – Konsültan");
+        addWithin("pol", "Farklı poliklinik birimlerinde çalışanlar", true);
+        addWithin("icu", "Yoğun bakım ekibi", false);
+        addWithin("emg", "EMG çalışanları", false);
+        addCross("pol", "ms", "Poliklinik – MS Merkezi");
+        addCross("pol", "consultant", "Poliklinik – Konsültan");
+        addCross("pol", "senior", "Poliklinik – Servis Kıdemlisi");
+        addCross("pol", "joker", "Poliklinik – Joker");
+        addCross("consultant", "ms", "Konsültan – MS Merkezi");
+        addCross("consultant", "joker", "Konsültan – Joker");
+        addCross("consultant", "senior", "Konsültan – Servis Kıdemlisi");
+        addCross("ms", "senior", "MS Merkezi – Servis Kıdemlisi");
+        addCross("ms", "joker", "MS Merkezi – Joker");
+        addCross("joker", "senior", "Joker – Servis Kıdemlisi");
 
         return suggestions;
     }
@@ -2608,7 +2937,7 @@ function initFridayTooltips() {
         if (!suggestions.length) {
             container.innerHTML = `
                 <div style="padding:12px; border:1px solid #e2e8f0; border-radius:8px; background:#f8fafc; color:#64748b; font-size:0.85rem;">
-                    <strong>Otomatik öneriler</strong><br>Şu an tanımlı birim sorumlularına göre önerilebilecek yeni bir kişi çifti bulunamadı.
+                    <strong>Otomatik öneriler</strong><br>2. Asistanlar, Görev Yerleri ve birim sorumlusu atamalarına göre önerilebilecek yeni bir kişi çifti bulunamadı.
                 </div>`;
             return;
         }
@@ -2616,7 +2945,7 @@ function initFridayTooltips() {
         container.innerHTML = `
             <div style="padding:12px; border:1px solid #bfdbfe; border-radius:8px; background:#eff6ff;">
                 <div style="font-weight:800; color:#1e40af; margin-bottom:5px;"><i class="fas fa-lightbulb"></i> Otomatik Kısıtlama Önerileri</div>
-                <div style="font-size:0.8rem; color:#475569; margin-bottom:10px;">Sistem görev yeri ve sorumlu atamalarına göre olası çakışmaları listeler. Hiçbiri otomatik eklenmez; yalnızca uygun gördüklerini kabul et.</div>
+                <div style="font-size:0.8rem; color:#475569; margin-bottom:10px;"></div>
                 <div id="autoConstraintSuggestionList" style="display:flex; flex-direction:column; gap:7px;"></div>
             </div>`;
         const list = document.getElementById('autoConstraintSuggestionList');
@@ -2624,8 +2953,59 @@ function initFridayTooltips() {
             const row = document.createElement('div');
             row.style.cssText = 'display:flex; align-items:center; justify-content:space-between; gap:10px; padding:7px 9px; background:#fff; border:1px solid #dbeafe; border-radius:6px;';
             const label = document.createElement('div');
-            label.style.cssText = 'min-width:0; font-size:0.84rem; color:#334155;';
-            label.innerHTML = `<strong>${item.p1}</strong> <span style="color:#94a3b8;">↔</span> <strong>${item.p2}</strong><div style="font-size:0.72rem; color:#64748b;">${item.roles}</div>`;
+            label.style.cssText = 'min-width:0; flex:1; font-size:0.84rem; color:#334155;';
+
+            const pairPeople = document.createElement('div');
+            pairPeople.style.cssText = 'display:flex; align-items:stretch; gap:10px; flex-wrap:wrap;';
+
+            const makePersonInfo = (personName, workplaces) => {
+                const personBox = document.createElement('div');
+                personBox.style.cssText = 'min-width:150px; flex:1; padding:6px 8px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px;';
+                const personTitle = document.createElement('div');
+                personTitle.style.cssText = 'font-weight:800; color:#1e293b;';
+                personTitle.textContent = personName;
+                const personPlace = document.createElement('div');
+                personPlace.style.cssText = 'font-size:0.72rem; color:#64748b; margin-top:3px; line-height:1.4;';
+                const labels = Array.isArray(workplaces) ? workplaces : [];
+                if (!labels.length) { personPlace.textContent = 'Görev yeri tanımlanmamış'; }
+                labels.forEach(lbl => {
+                    const idx = lbl.indexOf(':');
+                    const line = document.createElement('div');
+                    const head = document.createElement('span');
+                    head.textContent = lbl.slice(0, idx + 1) + ' ';
+                    head.style.cssText = 'font-weight:800; color:' + (lbl.startsWith('Nöbet') ? '#2563eb' : '#059669') + ';';
+                    const val = document.createElement('span');
+                    val.textContent = lbl.slice(idx + 1).trim();
+                    val.style.cssText = 'font-weight:600; color:#334155;';
+                    line.appendChild(head);
+                    line.appendChild(val);
+                    personPlace.appendChild(line);
+                });
+                personBox.appendChild(personTitle);
+                personBox.appendChild(personPlace);
+                return personBox;
+            };
+
+            pairPeople.appendChild(makePersonInfo(item.p1, item.p1Workplaces));
+            const separator = document.createElement('div');
+            separator.textContent = '↔';
+            separator.style.cssText = 'align-self:center; color:#94a3b8; font-weight:800;';
+            pairPeople.appendChild(separator);
+            pairPeople.appendChild(makePersonInfo(item.p2, item.p2Workplaces));
+
+            const roleLine = document.createElement('div');
+            roleLine.style.cssText = 'font-size:0.72rem; color:#475569; margin-top:5px;';
+            const roleHead = document.createElement('span');
+            roleHead.textContent = 'Öneri nedeni: ';
+            roleHead.style.cssText = 'font-weight:800; color:#d97706;';
+            const roleVal = document.createElement('span');
+            roleVal.textContent = item.roles;
+            roleVal.style.cssText = 'font-weight:700; color:#334155;';
+            roleLine.appendChild(roleHead);
+            roleLine.appendChild(roleVal);
+            label.appendChild(pairPeople);
+            label.appendChild(roleLine);
+
             const button = document.createElement('button');
             button.type = 'button';
             button.className = item.added ? 'btn btn-ghost btn-sm' : 'btn btn-success btn-sm';
@@ -2950,7 +3330,7 @@ if (actionVal === null) {
                     ${tagsHtml}
                 </div>
                 <div style="display:flex; gap:5px; margin-top:5px;">
-                    <select id="${safeId}" class="joker-select" style="font-size:0.75rem; padding:4px; width:100%;" onchange="addManualWorkplace('${unit}', this.value); this.value='';">${opts}</select>
+                    <select id="${safeId}" class="joker-select workplace-person-select" data-assignment-type="unit" data-unit="${unit}" style="font-size:0.75rem; padding:4px; width:100%;" onchange="addManualWorkplace('${unit}', this.value); this.value='';">${opts}</select>
                 </div>
             `;
             grid.appendChild(div);
@@ -2961,6 +3341,8 @@ if (actionVal === null) {
         if (typeof renderServisCountWarnings === 'function') renderServisCountWarnings();
         if (typeof renderJokerTable === 'function' && jokerSchedule && jokerSchedule.length > 0) renderJokerTable();
         if (document.getElementById('p6') && document.getElementById('p6').classList.contains('active') && typeof renderFinalPage === 'function') renderFinalPage();
+        // Yeni oluşturulan görev yeri seçim kutularına da tek-görev kuralını uygula.
+        if (typeof updateExclusion === 'function') updateExclusion();
     }
 
 function addNewWorkplaceUnit() {
@@ -3602,7 +3984,7 @@ function renderSpecialUnitsGrid() {
 
         const div = document.createElement('div');
         div.innerHTML = `<label style="font-size:0.75rem; font-weight:700; color:#475569;">${u}</label>
-            <select id="${safeId}" class="joker-select" style="margin-top:4px;" onchange="updateExclusion(); calculateJokerSchedule(); saveData(); renderWorkplaceGrid(); renderSpecialUnitsGrid();"></select>`;
+            <select id="${safeId}" class="joker-select" data-assignment-type="unit" data-unit="${u}" style="margin-top:4px;" onchange="updateExclusion(); calculateJokerSchedule(); saveData(); renderWorkplaceGrid(); renderSpecialUnitsGrid();"></select>`;
         grid.appendChild(div);
     });
 
@@ -3726,23 +4108,100 @@ function deleteSpecialUnit(name) {
     function toggleJoker4() { const toggle = document.getElementById('joker4Toggle'); if(!toggle) return; const sel = document.getElementById('joker4Select'); if(sel) sel.classList.toggle('hidden-el', !toggle.checked); updateExclusion(); }
     function toggleJoker5() { const toggle = document.getElementById('joker5Toggle'); if(!toggle) return; const sel = document.getElementById('joker5Select'); if(sel) sel.classList.toggle('hidden-el', !toggle.checked); updateExclusion(); }
     
-    function updateExclusion() {
+    function getSingleAssignmentControls() {
+        const controls = [];
         const jokerIds = ['joker1Select', 'joker2Select', 'joker3Select', 'joker4Select', 'joker5Select'];
-        specialUnits.forEach(u => jokerIds.push('owner_' + u.replace(/\s+/g, '_')));
+        jokerIds.forEach((id, index) => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            const enabled = index === 0 || !!document.getElementById(`joker${index + 1}Toggle`)?.checked;
+            controls.push({ el, type: 'joker', unit: `Joker ${index + 1}`, enabled });
+        });
 
-        const current = {};
-        jokerIds.forEach(id => { const el = document.getElementById(id); if(el) current[id] = el.value; });
-        const asisNames = docs.map(d => d.name);
-        
-        jokerIds.forEach(tid => {
-            const el = document.getElementById(tid); if(!el) return;
-            const myVal = current[tid];
-            let html = '<option value="">Seçiniz...</option>';
-            asisNames.forEach(p => {
-                let takenInJoker = false; 
-                jokerIds.forEach(id => { if(id !== tid && current[id] === p && p !== "") takenInJoker = true; });
-                if(!takenInJoker) html += `<option value="${p}">${p}</option>`;
-            }); el.innerHTML = html; el.value = myVal;
+        (Array.isArray(specialUnits) ? specialUnits : []).forEach(unit => {
+            const el = document.getElementById('owner_' + unit.replace(/\s+/g, '_'));
+            if (el) controls.push({ el, type: 'unit', unit, enabled: true });
+        });
+
+        document.querySelectorAll('.workplace-person-select').forEach(el => {
+            controls.push({ el, type: 'unit', unit: el.dataset.unit || '', enabled: true });
+        });
+        return controls;
+    }
+
+    function collectSingleAssignmentRecords(controls) {
+        const records = [];
+        controls.forEach(control => {
+            if (!control.enabled) return;
+            const name = (control.el.value || '').trim();
+            if (name) records.push({ name, control: control.el, type: control.type, unit: control.unit });
+        });
+
+        // Görev Yerleri kartındaki mevcut manuel atamalar da diğer listelerden gizlenmelidir.
+        const assignments = (jokerConfig && jokerConfig.workplaceAssignments) || {};
+        Object.entries(assignments).forEach(([unit, names]) => {
+            (Array.isArray(names) ? names : []).forEach(name => {
+                if (name) records.push({ name: String(name).trim(), control: null, type: 'unit', unit });
+            });
+        });
+
+        return records;
+    }
+
+    function setSingleWorkplaceAssignmentRule(isEnabled) {
+        singleWorkplaceAssignmentRule = !!isEnabled;
+        ['singleAssignmentToggleTasks', 'singleAssignmentToggleJokers'].forEach(id => {
+            const toggle = document.getElementById(id);
+            if (toggle) toggle.checked = singleWorkplaceAssignmentRule;
+        });
+
+        // Her iki sayfadaki bütün kişi seçim listelerini aynı anda yenile.
+        updateExclusion();
+        saveData();
+    }
+
+    function updateExclusion() {
+        const controls = getSingleAssignmentControls();
+        const records = collectSingleAssignmentRecords(controls);
+        const names = docs.map(d => d.name).filter(Boolean);
+
+        controls.forEach(control => {
+            const el = control.el;
+            const currentValue = el.value || '';
+            const placeholderText = control.type === 'unit' && el.classList.contains('workplace-person-select')
+                ? '+ Kişi Seçin...'
+                : 'Seçiniz...';
+
+            // Anahtar kapalıysa bütün asistanlar tüm listelerde görünür.
+            // Açıkken başka bir görevde/Joker slotunda atanmış kişiler yeni seçimlerde gizlenir.
+            const availableNames = names.filter(name => {
+                if (!singleWorkplaceAssignmentRule) return true;
+                if (name === currentValue) return true; // Var olan kayıtları sessizce silme.
+                const isManualWorkplacePicker = el.classList.contains('workplace-person-select');
+                return !records.some(record => {
+                    if (record.name !== name || record.control === el) return false;
+                    // Aynı birimin sorumlusu ile aynı birimde çalışan kişi aynı kişi olabilir.
+                    // Ancak o kişi başka bir birime veya Joker alanına seçilemez.
+                    const sameUnitOwnerAndTeam = !isManualWorkplacePicker &&
+                        control.type === 'unit' && record.type === 'unit' &&
+                        record.unit === control.unit;
+                    return !sameUnitOwnerAndTeam;
+                });
+            });
+
+            el.innerHTML = '';
+            const placeholder = document.createElement('option');
+            placeholder.value = '';
+            placeholder.textContent = placeholderText;
+            el.appendChild(placeholder);
+
+            availableNames.forEach(name => {
+                const option = document.createElement('option');
+                option.value = name;
+                option.textContent = name;
+                el.appendChild(option);
+            });
+            el.value = currentValue;
         });
     }
 
@@ -3902,64 +4361,75 @@ function getValidExtraServisForDay(dayIdx) {
 
 function renderServisCountWarnings() {
     const box = document.getElementById('servisCountWarningBox');
-    if(!box) return;
-    if(!jokerSchedule || jokerSchedule.length === 0) { box.innerHTML = ''; return; }
-    // Açılışta önce kayıtlar yüklenir, tarihler biraz sonra hesaplanır.
-    // Tarih dizisi hazır değilse bu çizimi atla; onload içindeki Joker yenilemesi tekrar çizecektir.
-    if (!Array.isArray(dates) || dates.length === 0) { box.innerHTML = ''; return; }
+    if (!box) return;
 
+    let criticalDayCount = 0;
+    let supportDayCount = 0;
+    let totalSupportCount = 0;
     let rows = '';
-    jokerSchedule.forEach((row, i) => {
-        if(row.isW || !dates[i]) return;
-        
-        const baseCount = getServisCountForDay(i);
-        // Sadece aktif listeye uyan takviye kişilerini al
-        const validSelected = getValidExtraServisForDay(i);
-        const extraCount = validSelected.length;
-        const totalCount = baseCount + extraCount;
+    let hasCalculatedSchedule = Array.isArray(jokerSchedule) && jokerSchedule.length > 0;
 
-        // KURAL: Eğer Taban Sayı 2 ve altındaysa YA DA bu gün için uyumlu takviye seçilmişse satırı göster.
-        // Eğer Servis sayısı takviyesiz zaten 3 veya daha fazlaysa uyarı/satır üretme!
-        if(baseCount <= 2 || extraCount > 0) {
+    if (hasCalculatedSchedule && Array.isArray(dates) && dates.length > 0) {
+        jokerSchedule.forEach((row, i) => {
+            if (row.isW || !dates[i]) return;
+
             const dateStr = dates[i].str;
+            const baseCount = getServisCountForDay(i);
+            const validSelected = getValidExtraServisForDay(i);
+            const extraCount = validSelected.length;
+            const totalCount = baseCount + extraCount;
 
-            let tags = validSelected.map(name =>
-                `<span class="wp-tag wp-tag-manual">${name} <i class="fas fa-times" style="cursor:pointer;color:#ef4444;margin-left:5px;" onclick="removeExtraServisPerson('${dateStr}','${name}')"></i></span>`
-            ).join('');
+            if (totalCount <= 2) criticalDayCount++;
+            if (extraCount > 0) {
+                supportDayCount++;
+                totalSupportCount += extraCount;
+            }
 
-            const eligibleDocs = getEligibleExtraServisPeople(i, validSelected);
+            // Önceki görünürlük kuralı korunur: 2 veya daha az kişi olan günler
+            // ve takviye eklenmiş günler listelenir.
+            if (baseCount <= 2 || extraCount > 0) {
+                const tags = validSelected.map(name =>
+                    `<span class="wp-tag wp-tag-manual">${name} <i class="fas fa-times" style="cursor:pointer;color:#ef4444;margin-left:5px;" onclick="removeExtraServisPerson('${dateStr}','${name}')"></i></span>`
+                ).join('');
 
-            let opts = '<option value="">+ Kişi Ekle...</option>' +
-                eligibleDocs.map(d => `<option value="${d.name}">${d.name}</option>`).join('');
+                const eligibleDocs = getEligibleExtraServisPeople(i, validSelected);
+                const opts = '<option value="">+ Kişi Ekle...</option>' +
+                    eligibleDocs.map(d => `<option value="${d.name}">${d.name}</option>`).join('');
 
-            const isCritical = totalCount <= 2;
-            const statusBg = isCritical ? '#fef2f2' : '#f0fdf4';
-            const statusBorder = isCritical ? '#dc2626' : '#16a34a';
-            const statusColor = isCritical ? '#7f1d1d' : '#14532d';
+                const isCritical = totalCount <= 2;
+                const statusBg = isCritical ? '#fef2f2' : '#f0fdf4';
+                const statusBorder = isCritical ? '#dc2626' : '#16a34a';
+                const statusColor = isCritical ? '#7f1d1d' : '#14532d';
 
-            rows += `
-            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; background:${statusBg}; padding:10px 15px; border-radius:8px; border-left:4px solid ${statusBorder}; margin-bottom:8px; gap:15px;">
-                <div style="font-weight:700; color:${statusColor}; font-size:0.9rem;">
-                    ${row.dateDisplay}: Serviste aktif çalışan toplam kişi sayısı = ${totalCount} ${extraCount > 0 ? `(Taban: ${baseCount}, Takviye: +${extraCount})` : ''}
-                </div>
-                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:flex-end;">
-                    ${tags}
-                    <select class="joker-select" style="width:160px;" onchange="addExtraServisPerson('${dateStr}', this.value); this.value='';">${opts}</select>
-                    <button class="btn btn-success btn-sm" style="padding: 5px 9px;" title="Tüm asistanlar arasından seç" onclick="openExtraServisSelectModal('${dateStr}')">
-                        <i class="fas fa-plus"></i>
-                    </button>
-                </div>
-            </div>`;
-        }
-    });
+                rows += `
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; background:${statusBg}; padding:10px 15px; border-radius:8px; border-left:4px solid ${statusBorder}; margin-bottom:8px; gap:15px;">
+                    <div style="font-weight:700; color:${statusColor}; font-size:0.9rem;">
+                        ${row.dateDisplay}: Serviste aktif çalışan toplam kişi sayısı = ${totalCount} ${extraCount > 0 ? `(Taban: ${baseCount}, Takviye: +${extraCount})` : ''}
+                    </div>
+                    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:flex-end;">
+                        ${tags}
+                        <select class="joker-select" style="width:160px;" onchange="addExtraServisPerson('${dateStr}', this.value); this.value='';">${opts}</select>
+                        <button class="btn btn-success btn-sm" style="padding:5px 9px;" title="Tüm asistanlar arasından seç" onclick="openExtraServisSelectModal('${dateStr}')">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                    </div>
+                </div>`;
+            }
+        });
+    }
 
-    box.innerHTML = rows ? `
+    box.innerHTML = `
         <div style="margin-top:20px;">
-            <div style="font-weight:700;color:#7f1d1d;margin-bottom:10px;">
+            <div style="font-weight:800;color:#7f1d1d;margin-bottom:8px; font-size:1rem;">
                 <i class="fas fa-user-plus"></i> Kritik Servis Günleri ve Takviyeler
             </div>
-            ${rows}
-        </div>` : '';
+            <div class="servis-count-summary-grid">
+                <div class="servis-count-summary-card critical"><span>Kritik gün (2 veya az kişi)</span><strong>${criticalDayCount}</strong></div>
+                <div class="servis-count-summary-card support"><span>Takviye yapılan gün</span><strong>${supportDayCount}</strong></div>
+                <div class="servis-count-summary-card total"><span>Toplam takviye kişi</span><strong>${totalSupportCount}</strong></div>
+            </div>
+            ${!hasCalculatedSchedule ? '<div class="servis-count-empty">Nöbet ve Joker çizelgesi hesaplandığında kritik gün ve takviye sayaçları burada görünecek.</div>' : (rows || '<div class="servis-count-empty">Kritik servis günü veya takviye gerektiren gün bulunmuyor.</div>')}
+        </div>`;
 }
 
 // Tüm Asistanların Listelendiği Modal Fonksiyonları
@@ -4026,14 +4496,33 @@ function removeExtraServisPerson(dateStr, name) {
 }
 // Serviste Aktif Çalışan Asistanlar Seçim Durumu Storage
 let servisAktifSecimler = {};
+// Joker olarak atanmış kişilerin pasif varsayılanını kullanıcı değiştirdiyse bu tercih korunur.
+let servisAktifJokerManuelSecimler = {};
+
+function getServisAktifJokerRolMap() {
+    const roller = {};
+    const aktifJokerler = (typeof getActiveJokersWithTasks === 'function') ? getActiveJokersWithTasks(false) : [];
+    aktifJokerler.forEach(j => {
+        if (j && j.name && !roller[j.name]) {
+            roller[j.name] = j.id === 5 ? 'İzin Jokeri' : `${j.id}. Joker`;
+        }
+    });
+    return roller;
+}
 
 function getServisAktifAdaylari() {
     const servisPeople = getWorkplacePeople("Servis").combined || [];
     const owners = jokerConfig.owners || {};
+    const jokerRolleri = getServisAktifJokerRolMap();
     const result = [...servisPeople];
 
-    // Konsültan ve Servis Kıdemlisi Servis alanında otomatik görünmese bile aday listesinde yer alsın.
+    // Konsültan ve Servis Kıdemlisi özel unvanlarıyla listede yer alsın.
     [owners["Servis Kıdemlisi"], owners["Konsültan"]].forEach(name => {
+        if (name && !result.includes(name)) result.push(name);
+    });
+
+    // Aktif Joker 1-5 atamaları da listede gösterilsin; varsayılan olarak pasif başlarlar.
+    Object.keys(jokerRolleri).forEach(name => {
         if (name && !result.includes(name)) result.push(name);
     });
 
@@ -4140,6 +4629,7 @@ function gunlukServisSessizKaydet() {
     localStorage.setItem(storagePrefix + "_gunlukServisEkstra", JSON.stringify(gunlukServisEkstraMap));
     const onizleme = document.getElementById("finalJokerPreview");
     if (onizleme && typeof generateReadOnlyJokerTable === 'function') onizleme.innerHTML = generateReadOnlyJokerTable();
+    if (typeof renderServisCountWarnings === 'function') renderServisCountWarnings();
 }
 
 function acGunlukTumAsistanPaneli() {
@@ -4422,7 +4912,9 @@ function guncelleServisAktifAsistanListesi() {
 
     const servisAdaylari = getServisAktifAdaylari();
     const owners = jokerConfig.owners || {};
-    const specialNames = new Set([owners["Konsültan"], owners["Servis Kıdemlisi"]].filter(Boolean));
+    const jokerRolleri = getServisAktifJokerRolMap();
+    const jokerNames = new Set(Object.keys(jokerRolleri));
+    const specialNames = new Set([owners["Konsültan"], owners["Servis Kıdemlisi"], ...jokerNames].filter(Boolean));
     const adaySet = new Set(servisAdaylari);
     let selectionChanged = false;
 
@@ -4434,7 +4926,13 @@ function guncelleServisAktifAsistanListesi() {
     });
 
     servisAdaylari.forEach(name => {
-        if (servisAktifSecimler[name] === undefined) {
+        if (jokerNames.has(name) && !servisAktifJokerManuelSecimler[name]) {
+            // Eski kayıtlarında otomatik seçili kalmış Jokerleri de pasife al.
+            if (servisAktifSecimler[name] !== false) {
+                servisAktifSecimler[name] = false;
+                selectionChanged = true;
+            }
+        } else if (servisAktifSecimler[name] === undefined) {
             servisAktifSecimler[name] = !specialNames.has(name);
             selectionChanged = true;
         }
@@ -4457,11 +4955,13 @@ function guncelleServisAktifAsistanListesi() {
             const isChecked = servisAktifSecimler[name] === true;
             const isSK = owners["Servis Kıdemlisi"] === name;
             const isKons = owners["Konsültan"] === name;
-            const placeLabel = isKons ? "Konsültan" : isSK ? "Servis Kıdemlisi" : "Servis";
+            const isJoker = !!jokerRolleri[name];
+            const placeLabel = isKons ? "Konsültan" : isSK ? "Servis Kıdemlisi" : isJoker ? `${jokerRolleri[name]}${isChecked ? "" : " · Pasif"}` : "Servis";
             const safeId = "chk_servis_" + name.replace(/[^a-zA-Z0-9_-]/g, "_");
 
             const item = document.createElement("label");
-            item.className = `servis-aktif-item${isChecked ? " active" : ""}${(isSK || isKons) ? " special-default" : ""}`;
+            item.title = isJoker ? "Joker görevlisi varsayılan olarak pasiftir. Servis sayısına eklemek için kutucuğu elle işaretleyebilirsiniz." : "";
+            item.className = `servis-aktif-item${isChecked ? " active" : ""}${(isSK || isKons || isJoker) ? " special-default" : ""}${isJoker ? " joker-passive" : ""}`;
             item.innerHTML = `
                 <div style="min-width:0; flex:1;">
                     <div class="servis-aktif-name">${name}</div>
@@ -4488,6 +4988,10 @@ function saveServisAktifSecimleri() {
         STORAGE_KEY + "_servisAktif",
         JSON.stringify(servisAktifSecimler || {})
     );
+    localStorage.setItem(
+        STORAGE_KEY + "_servisAktifJokerManuel",
+        JSON.stringify(servisAktifJokerManuelSecimler || {})
+    );
 
     if (typeof saveData === 'function') saveData();
 
@@ -4504,6 +5008,10 @@ function toggleServisAktifAsistan(name, isChecked) {
     if (!getServisAktifAdaylari().includes(name)) return;
 
     servisAktifSecimler[name] = !!isChecked;
+    if (getServisAktifJokerRolMap()[name]) {
+        // Jokeri kullanıcı elle açtı veya kapattı; bu seçim sonraki açılışlarda korunur.
+        servisAktifJokerManuelSecimler[name] = true;
+    }
 
     const safeId = "chk_servis_" + name.replace(/[^a-zA-Z0-9_-]/g, "_");
     const chk = document.getElementById(safeId);
@@ -4530,6 +5038,7 @@ function kaydetServisAktif() {
         const name = chk.getAttribute("data-name");
         if (name) {
             servisAktifSecimler[name] = chk.checked;
+            if (getServisAktifJokerRolMap()[name]) servisAktifJokerManuelSecimler[name] = true;
         }
     });
 
@@ -4553,7 +5062,18 @@ function hesaplaVeGuncelleServisAktifSayilari() {
 }
 
     function calculateJokerSchedule(isForced = true) {
-        if(schedule.length === 0) return;
+        if (!Array.isArray(schedule) || schedule.length === 0) {
+            jokerSchedule = [];
+            jokerWarnings = [];
+            displayJokerWarnings([]);
+            const jokerTable = document.getElementById('jokerResults');
+            if (jokerTable) jokerTable.innerHTML = '';
+            const finalPreview = document.getElementById('finalJokerPreview');
+            if (finalPreview) finalPreview.innerHTML = '';
+            if (typeof renderServisCountWarnings === 'function') renderServisCountWarnings();
+            if (typeof syncActiveHistoryState === 'function') syncActiveHistoryState();
+            return;
+        }
         const j1 = document.getElementById('joker1Select')?document.getElementById('joker1Select').value:""; 
         const j2 = document.getElementById('joker2Select')?document.getElementById('joker2Select').value:""; 
         const j3 = document.getElementById('joker3Select')?document.getElementById('joker3Select').value:""; 
@@ -4572,6 +5092,7 @@ function hesaplaVeGuncelleServisAktifSayilari() {
         });
 
         const hierarchy = ["Pol-1", "Pol-2", "Pol-3", "Konsültan", "Yoğun Bakım", "MS Merkezi", "Servis Kıdemlisi"];
+        const isValidJokerName = name => !!name && docs.some(person => person.name === name);
         if(isForced) {
             jokerSchedule = []; jokerWarnings = [];
             const prevVals = jokerConfig.prevDuty || { d1:{}, d2:{} };
@@ -4580,7 +5101,9 @@ function hesaplaVeGuncelleServisAktifSayilari() {
                 if(!today.isW) {
                     let resting = []; if(i > 0) { [...activePlaces, "Refakatçi"].forEach(p => { if(schedule[i-1].assign[p]) resting.push(schedule[i-1].assign[p].name); }); } else { for(let p in prevVals.d1) resting.push(prevVals.d1[p]); }
                     [1,2,3,4,5].forEach(jid => {
-                        let name = (jid===1?j1:(jid===2?j2:(jid===3?j3:(jid===4?j4:j5)))); if(!name) return;
+                        let name = (jid===1?j1:(jid===2?j2:(jid===3?j3:(jid===4?j4:j5))));
+                        // Seçili isim personel listesinde yoksa bu Joker için görev üretme.
+                        if (!name || !docs.some(x => x.name === name)) return;
                         if(resting.includes(name)) { rowData.isResting[jid]=true; rowData.assignments[jid]="Nöbet Ertesi"; }
                         let d = docs.find(x => x.name === name); if(d && d.avail[today.str] && Object.values(d.avail[today.str]).includes('permit')) { rowData.isResting[jid]=true; rowData.assignments[jid]="İzinli"; }
                     });
@@ -4596,26 +5119,45 @@ function hesaplaVeGuncelleServisAktifSayilari() {
                     const isYB2Absent = yb2 && (resting.includes(yb2) || (docs.find(d => d.name === yb2)?.avail[today.str] && Object.values(docs.find(d => d.name === yb2).avail[today.str]).includes('permit')));
                     if(isYB1Absent && isYB2Absent) { restingNeeds.push("Yoğun Bakım"); }
                     
-                    if(j5e && j5 && !rowData.isResting[5] && !rowData.isPermit[5]) { let hp = hierarchy.slice().reverse().find(u => permitNeeds.includes(u)); if(hp) { rowData.assignments[5]=hp; permitNeeds=permitNeeds.filter(u=>u!==hp); } }
+                    if(j5e && isValidJokerName(j5) && !rowData.isResting[5] && !rowData.isPermit[5]) { let hp = hierarchy.slice().reverse().find(u => permitNeeds.includes(u)); if(hp) { rowData.assignments[5]=hp; permitNeeds=permitNeeds.filter(u=>u!==hp); } }
                     
                     let pool = [...permitNeeds.map(n=>({u:n})), ...restingNeeds.map(n=>({u:n}))]; let sk = pool.find(t=>t.u==="Servis Kıdemlisi");
                     if(sk) {
-                        if(j4e && j4 && !rowData.isResting[4] && !rowData.isPermit[4]) { if(!rowData.assignments[4]) { rowData.assignments[4]="Servis Kıdemlisi"; pool=pool.filter(t=>t!==sk); } }
-                        else if(j3e && j3 && !rowData.isResting[3] && !rowData.isPermit[3]) { if(!rowData.assignments[3]) { rowData.assignments[3]="Servis Kıdemlisi"; pool=pool.filter(t=>t!==sk); } }
-                        else if(j2e && j2 && !rowData.isResting[2] && !rowData.isPermit[2]) { if(!rowData.assignments[2]) { rowData.assignments[2]="Servis Kıdemlisi"; pool=pool.filter(t=>t!==sk); } }
+                        if(j4e && isValidJokerName(j4) && !rowData.isResting[4] && !rowData.isPermit[4]) { if(!rowData.assignments[4]) { rowData.assignments[4]="Servis Kıdemlisi"; pool=pool.filter(t=>t!==sk); } }
+                        else if(j3e && isValidJokerName(j3) && !rowData.isResting[3] && !rowData.isPermit[3]) { if(!rowData.assignments[3]) { rowData.assignments[3]="Servis Kıdemlisi"; pool=pool.filter(t=>t!==sk); } }
+                        else if(j2e && isValidJokerName(j2) && !rowData.isResting[2] && !rowData.isPermit[2]) { if(!rowData.assignments[2]) { rowData.assignments[2]="Servis Kıdemlisi"; pool=pool.filter(t=>t!==sk); } }
                         else { pool=pool.filter(t=>t!==sk); }
                     }
                     pool.sort((a,b) => hierarchy.indexOf(a.u) - hierarchy.indexOf(b.u));
                     
-                    if(j1 && !rowData.isResting[1] && !rowData.isPermit[1] && rowData.assignments[1] === "") { if(pool.length > 0 && pool[0].u !== "Servis Kıdemlisi") rowData.assignments[1]=pool.shift().u; else rowData.assignments[1]="Servis"; }
-                    if(j2e && j2 && !rowData.isResting[2] && !rowData.isPermit[2] && rowData.assignments[2] === "") if(pool.length > 0) rowData.assignments[2]=pool.shift().u;
-                    if(j3e && j3 && !rowData.isResting[3] && !rowData.isPermit[3] && rowData.assignments[3] === "") if(pool.length > 0) rowData.assignments[3]=pool.shift().u;
-                    if(j4e && j4 && !rowData.isResting[4] && !rowData.isPermit[4] && rowData.assignments[4] === "") if(pool.length > 0) rowData.assignments[4]=pool.shift().u;
+                    if(isValidJokerName(j1) && !rowData.isResting[1] && !rowData.isPermit[1] && rowData.assignments[1] === "") { if(pool.length > 0 && pool[0].u !== "Servis Kıdemlisi") rowData.assignments[1]=pool.shift().u; else rowData.assignments[1]="Servis"; }
+                    if(j2e && isValidJokerName(j2) && !rowData.isResting[2] && !rowData.isPermit[2] && rowData.assignments[2] === "") if(pool.length > 0) rowData.assignments[2]=pool.shift().u;
+                    if(j3e && isValidJokerName(j3) && !rowData.isResting[3] && !rowData.isPermit[3] && rowData.assignments[3] === "") if(pool.length > 0) rowData.assignments[3]=pool.shift().u;
+                    if(j4e && isValidJokerName(j4) && !rowData.isResting[4] && !rowData.isPermit[4] && rowData.assignments[4] === "") if(pool.length > 0) rowData.assignments[4]=pool.shift().u;
                 }
                 jokerSchedule.push(rowData);
             }
         }
         jokerWarnings = [];
+
+        // Zorunlu 1. Joker ve etkinleştirilmiş diğer Jokerler için kişi eksikse
+        // sahte/boş bir görevlendirme oluşturma; Kritik Joker alanında açıkça bildir.
+        const jokerSlotsForWarning = [
+            { id: 1, name: j1, enabled: true, label: '1. Joker (Servis)' },
+            { id: 2, name: j2, enabled: j2e, label: '2. Joker' },
+            { id: 3, name: j3, enabled: j3e, label: '3. Joker' },
+            { id: 4, name: j4, enabled: j4e, label: '4. Joker' },
+            { id: 5, name: j5, enabled: j5e, label: 'İzin Jokeri' }
+        ];
+        jokerSlotsForWarning.forEach(slot => {
+            if (!slot.enabled) return;
+            if (!slot.name) {
+                jokerWarnings.push(`<strong>${slot.label}</strong>: Personel seçilmedi. Bu Joker için görev oluşturulmadı.`);
+            } else if (!docs.some(d => d.name === slot.name)) {
+                jokerWarnings.push(`<strong>${slot.label}</strong>: ${slot.name} personel listesinde bulunamadı. Bu Joker için görev oluşturulmadı.`);
+            }
+        });
+
         const prevVals = jokerConfig.prevDuty || { d1:{}, d2:{} };
         jokerSchedule.forEach((row, i) => {
             if(row.isW) return;
@@ -4634,9 +5176,16 @@ function hesaplaVeGuncelleServisAktifSayilari() {
                 }
             }
         });
-displayJokerWarnings(jokerWarnings); 
+displayJokerWarnings(jokerWarnings);
         renderJokerTable();
         renderServisCountWarnings();
+        const finalJokerPreview = document.getElementById('finalJokerPreview');
+        if (finalJokerPreview && typeof generateReadOnlyJokerTable === 'function') {
+            finalJokerPreview.innerHTML = generateReadOnlyJokerTable();
+        }
+        if (document.getElementById('p6')?.classList.contains('active') && typeof renderJokerSummary === 'function') {
+            renderJokerSummary();
+        }
         if(isForced) {
             syncActiveHistoryState();
             saveData();
@@ -4750,6 +5299,11 @@ displayJokerWarnings(jokerWarnings);
         const targetTab = document.getElementById(`tab${n}`);
         const targetPage = targetPageId ? document.getElementById(targetPageId) : null;
         if (!targetTab || !targetPage) return;
+
+        ['singleAssignmentToggleTasks', 'singleAssignmentToggleJokers'].forEach(id => {
+            const toggle = document.getElementById(id);
+            if (toggle) toggle.checked = !!singleWorkplaceAssignmentRule;
+        });
 
         // Jokerler sayfasından Sonuç sayfasına geçerken mevcut doğrulamalar aynen korunur.
         if (document.getElementById('tab6').classList.contains('active') && n === 7) {
@@ -4882,18 +5436,7 @@ function generateReadOnlyJokerTable() {
             const tarihISO = dates[i] ? dates[i].str : "";
             const tarihTR = dates[i] ? (dates[i].dateDisplay || formatTarihTR(tarihISO)) : "";
 
-            let totalCount = 0;
-            if (typeof gunlukServisAktifMap !== 'undefined' && (gunlukServisAktifMap[tarihTR] || gunlukServisAktifMap[tarihISO])) {
-                const liste = gunlukServisAktifMap[tarihTR] || gunlukServisAktifMap[tarihISO];
-                totalCount = liste.length;
-            } else {
-                const defaultAktif = Object.keys(servisAktifSecimler || {}).filter(k => {
-                    if (servisAktifSecimler[k] !== true) return false;
-                    const dur = getAsistanGunlukDurum(k, tarihTR);
-                    return dur === "Servis";
-                });
-                totalCount = defaultAktif.length;
-            }
+            const totalCount = getJokerCiktiServisSayisi(i);
 
             let displayContent = totalCount <= 2 ? `⚠️ ${totalCount}` : `${totalCount}`;
             const cellBg = totalCount <= 2 ? '#fef2f2' : '#fef08a';
@@ -5197,11 +5740,14 @@ dataRows += `
     }
 
 function getJokerCiktiServisSayisi(i) {
-    const tarihISO = dates[i] ? dates[i].str : "";
-    const tarihTR = dates[i] ? (dates[i].dateDisplay || formatTarihTR(tarihISO)) : "";
+    if (!dates[i]) return 0;
+    const tarihISO = dates[i].str;
+    const tarihTR = dates[i].dateDisplay || formatTarihTR(tarihISO);
     const liste = gunlukServisAktifMap[tarihTR] || gunlukServisAktifMap[tarihISO];
-    if (liste) return liste.length;
-    return hesaplaVarsayilanGunlukAktif(tarihTR).length;
+    // Gün için kullanıcı tarafından ayrı bir liste düzenlenmişse onun sayısı korunur.
+    // Böyle bir liste yoksa ana servis sayacıyla aynı hesaplama kullanılır.
+    if (Array.isArray(liste)) return liste.length;
+    return getServisCountForDay(i);
 }
 
 // 4. Joker Word Çıktısı (Güncellenmiş Toplam Sayı)
@@ -5673,15 +6219,28 @@ function exportWorkplacesPNG() {
         const j5e = document.getElementById('joker5Toggle')?document.getElementById('joker5Toggle').checked:false;
         
         let act = []; const jNames = [j1, j2, j3, j4, j5]; const jEn = [true, j2e, j3e, j4e, j5e];
-        for(let i=0; i<5; i++) if(jEn[i] && jNames[i]) act.push({id:i+1, name:jNames[i]}); return act;
+        for(let i=0; i<5; i++) {
+            if (jEn[i] && jNames[i] && docs.some(d => d.name === jNames[i])) {
+                act.push({id:i+1, name:jNames[i]});
+            }
+        }
+        return act;
     }
 
-    function displayJokerWarnings(w) { 
-        const b = document.getElementById('jokerWarningBox'); if(!b) return; 
-        if(w.length > 0) { 
-            b.style.display = 'block'; b.style.borderLeft = '5px solid #fcd34d'; b.style.background = '#fffbeb'; b.style.color = '#92400e'; 
-            b.innerHTML = `<div style="font-weight:bold; margin-bottom:5px;"><i class="fas fa-exclamation-triangle"></i> Boş Kalan Birimler:</div><ul>${w.map(x => `<li>${x}</li>`).join('')}</ul>`; 
-        } else b.style.display = 'none'; 
+    function displayJokerWarnings(w) {
+        const b = document.getElementById('jokerWarningBox');
+        if (!b) return;
+        const warnings = Array.isArray(w) ? w : [];
+        if (warnings.length > 0) {
+            b.style.display = 'block';
+            b.style.borderLeft = '5px solid #f59e0b';
+            b.style.background = '#fffbeb';
+            b.style.color = '#92400e';
+            b.innerHTML = `<div style="font-weight:bold; margin-bottom:5px;"><i class="fas fa-exclamation-triangle"></i> Kritik Joker Uyarıları:</div><ul>${warnings.map(x => `<li>${x}</li>`).join('')}</ul>`;
+        } else {
+            b.innerHTML = '';
+            b.style.display = 'none';
+        }
     }
 // --- WORD (.DOCX) SÜRÜKLE-BIRAK VE DOSYA YÜKLEME ---
     let swapDragCounter = 0;
@@ -6054,7 +6613,7 @@ if (icapciColIdx !== -1) {
         saveData();
         window.oldDutyUploadOnly = false;
         nav(5);
-        showModernAlert('Başarılı', 'Eski nöbet listesi doğrudan 5. Nöbet Listesi sayfasına aktarıldı. Becayiş ekranı açılmadı.');
+        showModernAlert('Başarılı', 'Eski nöbet listesi doğrudan 5. Nöbet Listesi sayfasına aktarıldı.');
     }
 
     function toggleCrossSwap() {
@@ -6394,7 +6953,7 @@ function saveSwapChanges() {
     if (lastISO) document.getElementById('endDate').value = lastISO;
     if (firstISO && lastISO) calcDates();
 
-    // Becayişteki veya Word'den gelen son listeyi ana nöbet listesine aktar.
+    // Onaylanan yeni nöbet planını ana listeye geçir.
     schedule = cloneSchedule;
     if (!window.currentScheduleData) window.currentScheduleData = {};
     window.currentScheduleData.schedule = JSON.parse(JSON.stringify(schedule));
@@ -6402,34 +6961,63 @@ function saveSwapChanges() {
         window.currentScheduleData.icapciMap = JSON.parse(JSON.stringify(window.preservedIcapciMap));
     }
 
-    // Yeni bir Word listesi geldiyse eski dönemin Joker/servis ekleme satırlarını karıştırma.
-    if (importedNewList) {
-        jokerSchedule = [];
-        jokerWarnings = [];
-        extraServisAssignments = {};
+    // Her becayiş kaydında eski Joker görevlendirmelerini sıfırla.
+    // Yeni nöbet ertesi/izin ve birim sorumlusu durumlarına göre aşağıda yeniden hesaplanacak.
+    jokerSchedule = [];
+    jokerWarnings = [];
+    const jokerTable = document.getElementById('jokerResults');
+    if (jokerTable) jokerTable.innerHTML = '';
+    const jokerWarningBox = document.getElementById('jokerWarningBox');
+    if (jokerWarningBox) {
+        jokerWarningBox.innerHTML = '';
+        jokerWarningBox.style.display = 'none';
     }
+    const finalJokerPreview = document.getElementById('finalJokerPreview');
+    if (finalJokerPreview) finalJokerPreview.innerHTML = '';
 
-    // Yeni içe aktarılan liste ayrı bir geçmiş denemesi olur.
+    // Yalnızca tamamen yeni Word listesinde önceki döneme ait takviye kayıtlarını temizle.
+    // Normal becayişte elle girilmiş takviyeleri koruyup yeni nöbet durumuna göre tekrar say.
+    if (importedNewList) extraServisAssignments = {};
+
+    // Yeni Word listesi ayrı bir geçmiş denemesi olur; becayiş mevcut denemeyi günceller.
     if (importedNewList || activeHistoryIndex < 0) {
         if (history.length >= MAX_HISTORY) history.shift();
         history.push({
             schedule: JSON.parse(JSON.stringify(schedule)),
             extraServis: JSON.parse(JSON.stringify(extraServisAssignments || {})),
-            jokerSchedule: JSON.parse(JSON.stringify(jokerSchedule || [])),
-            jokerWarnings: JSON.parse(JSON.stringify(jokerWarnings || []))
+            jokerSchedule: [],
+            jokerWarnings: []
         });
         activeHistoryIndex = history.length - 1;
     } else {
-        // Mevcut listede yalnızca becayiş yapıldıysa aktif geçmiş kaydını güncelle.
         syncActiveHistoryState();
     }
 
     renderHistoryButtons();
     renderRes();
 
-    // Yeni Word listesinde mevcut Joker seçimi/ayarlarıyla Joker çizelgesini yeniden hesapla.
-    if (importedNewList) calculateJokerSchedule(true);
-    else if (jokerSchedule && jokerSchedule.length > 0) calculateJokerSchedule(false);
+    // Servis aday listesini yeni Joker/çalışma durumuyla yenile.
+    // Kullanıcının manuel aktif/pasif tercihleri korunur; yalnızca sayaçlar yeniden hesaplanır.
+    if (typeof guncelleServisAktifAsistanListesi === 'function') {
+        guncelleServisAktifAsistanListesi();
+    }
+
+    // Becayişte de Word aktarımında da Joker çizelgesini mutlaka sıfırdan oluştur.
+    calculateJokerSchedule(true);
+
+    // Güncel servis çalışanı sayaçları, kritik günler, takviyeler ve önizleme tazelensin.
+    if (typeof hesaplaVeGuncelleServisAktifSayilari === 'function') {
+        hesaplaVeGuncelleServisAktifSayilari();
+    } else {
+        if (typeof renderServisCountWarnings === 'function') renderServisCountWarnings();
+        const countButton = document.getElementById('servisAktifSayiButon');
+        if (countButton && typeof getServisAktifSeciliSayisi === 'function') {
+            countButton.textContent = getServisAktifSeciliSayisi();
+        }
+    }
+    if (finalJokerPreview && typeof generateReadOnlyJokerTable === 'function') {
+        finalJokerPreview.innerHTML = generateReadOnlyJokerTable();
+    }
 
     // Sonucu hem hızlı yerel kayda hem de IndexedDB yedeğine yaz.
     syncActiveHistoryState();
@@ -6439,9 +7027,16 @@ function saveSwapChanges() {
     window.swapFileWasImported = false;
     nav(returnStep);
 
+    // Geri dönülen sayfadan bağımsız olarak kritik uyarıları ve sayacı görünür/güncel tut.
+    displayJokerWarnings(jokerWarnings || []);
+    if (typeof renderServisCountWarnings === 'function') renderServisCountWarnings();
+    if (finalJokerPreview && typeof generateReadOnlyJokerTable === 'function') {
+        finalJokerPreview.innerHTML = generateReadOnlyJokerTable();
+    }
+
     const successMessage = importedNewList
-        ? 'Eski nöbet listesi ana listeye aktarıldı. Geçmişe kaydedildi ve Joker çizelgesi güncellendi.'
-        : 'Becayiş değişiklikleri kaydedildi ve nöbet listesi güncellendi.';
+        ? 'Eski nöbet listesi ana listeye aktarıldı. Joker çizelgesi sıfırdan oluşturuldu; eksik Joker veya görevler Kritik Joker alanında gösterilir.'
+        : 'Becayiş değişiklikleri kaydedildi. Eski Joker planı sıfırlandı ve yeni nöbet listesine göre yeniden oluşturuldu; servis sayaçları güncellendi.';
     if (typeof showModernAlert === 'function') showModernAlert('Başarılı', successMessage);
     else if (typeof showToast === 'function') showToast(successMessage, 'success');
     else alert(successMessage);
