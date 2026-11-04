@@ -1420,7 +1420,7 @@ div[id*="becayis"] .modal-content {
 <div id="modalHolidays" class="modal-overlay">
     <div class="modal-content" style="max-width: 650px;">
         <div class="modal-header">
-            <h2><i class="fas fa-calendar-alt" style="color:var(--joker)"></i> Resmi Tatilleri Düzenle</h2>
+            <h2><i class="fas fa-calendar-alt" style="color:var(--joker)"></i> Resmi Tatilleri Düzenle <span id="holidayMonthLabel" style="margin-left:12px; font-size:0.75em; font-weight:700; color:#7c3aed;"></span></h2>
             <span class="close-modal" onclick="closeHolidayModal()">&times;</span>
         </div>
         <p style="font-size: 0.85rem; color: #64748b; margin-bottom: 15px;">
@@ -2618,6 +2618,22 @@ let extraServisAssignments = {}; // { "2026-07-01": ["Ahmet Yılmaz","Ayşe Kaya
 
     function renderHolidayCalendar() {
         const cont = document.getElementById('holidayCalContainer');
+        const monthLabel = document.getElementById('holidayMonthLabel');
+        if (monthLabel) {
+            const trMonths = ["Ocak","Şubat","Mart","Nisan","Mayıs","Haziran","Temmuz","Ağustos","Eylül","Ekim","Kasım","Aralık"];
+            const mList = [], yList = [];
+            dates.forEach(d => {
+                const p = d.str.split('-');
+                const y = parseInt(p[0], 10), m = parseInt(p[1], 10);
+                if (!mList.some(x => x.y === y && x.m === m)) mList.push({ y, m });
+                if (!yList.includes(y)) yList.push(y);
+            });
+            let txt = '';
+            if (mList.length === 1) txt = trMonths[mList[0].m - 1] + ' ' + mList[0].y;
+            else if (mList.length === 2) txt = trMonths[mList[0].m - 1] + '/' + trMonths[mList[1].m - 1] + (yList.length === 1 ? ' ' + yList[0] : '');
+            else if (mList.length > 2 && yList.length === 1) txt = String(yList[0]);
+            monthLabel.textContent = txt;
+        }
         cont.innerHTML = '';
         const dayNames = ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"];
         dayNames.forEach(d => cont.innerHTML += `<div class="day-name-label">${d}</div>`);
