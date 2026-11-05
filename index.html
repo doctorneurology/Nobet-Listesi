@@ -1479,7 +1479,7 @@ div[id*="becayis"] .modal-content {
 <!-- Düzenli ve Eşit Boyutlu Becayiş Alt Buton Alanı -->
 <div style="display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 8px; width: 100%; margin-top: 12px; padding-top: 12px; border-top: 1px solid #e2e8f0; background: #f8fafc; flex-wrap: wrap;">
     
-<button id="btnAllowCrossSwap"
+<button id="btnAllowCrossSwap" onclick="toggleCrossSwap()"
     class="btn btn-secondary"
     style="
         height:38px;
@@ -6659,15 +6659,13 @@ if (icapciColIdx !== -1) {
         const btn = document.getElementById('btnAllowCrossSwap');
         if (!btn) return;
         if (allowCrossSwap) {
-            btn.style.backgroundColor = "#f59e0b";
-            btn.style.color = "#ffffff";
-            btn.style.borderColor = "#d97706";
-            btn.style.fontWeight = "bold";
+            btn.style.setProperty('background', '#f59e0b', 'important');
+            btn.style.setProperty('border', '1px solid #d97706', 'important');
+            btn.style.setProperty('color', '#ffffff', 'important');
         } else {
-            btn.style.backgroundColor = "";
-            btn.style.color = "";
-            btn.style.borderColor = "";
-            btn.style.fontWeight = "";
+            btn.style.setProperty('background', '#64748b', 'important');
+            btn.style.setProperty('border', '1px solid #475569', 'important');
+            btn.style.setProperty('color', '#ffffff', 'important');
         }
     }
 
@@ -7372,13 +7370,7 @@ function clearBecayisScreenConfirmed() {
     }
 
     // Butonu başlangıç görünümüne döndür
-    const crossBtn = document.getElementById('btnAllowCrossSwap');
-    if (crossBtn) {
-        crossBtn.style.backgroundColor = '';
-        crossBtn.style.color = '';
-        crossBtn.style.borderColor = '';
-        crossBtn.style.fontWeight = '';
-    }
+    updateCrossSwapBtnUI();
 
     // Becayiş alanını gerçek ilk açılış görünümüne geri çiz
     renderSwapGrid();
