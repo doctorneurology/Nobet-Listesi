@@ -6769,7 +6769,10 @@ function renderSwapGrid() {
             } else if (selectedShiftSource) {
                 if (isEligible) {
                     cellStyle += "background:#dcfce7 !important; color:#14532d !important; font-weight:bold;";
-                    statusBadge = `<span class="badge" style="background:#16a34a; color:#fff; font-size:0.68rem; padding:1px 5px;">Uygun</span>`;
+                    const _wn = (d, di, pl) => { const dd = d && d.name ? docs.find(x => x.name === d.name) : null; return !!(dd && dd.avail && dd.avail[dates[di].str] && dd.avail[dates[di].str][pl] === 'wanted'); };
+const _gain = _wn(selectedShiftSource.doc, dayIdx, p) || _wn(doc, selectedShiftSource.dayIdx, selectedShiftSource.place);
+const _loss = _wn(doc, dayIdx, p);
+statusBadge = `<span class="badge" style="background:${_loss ? '#d97706' : '#16a34a'}; color:#fff; font-size:0.68rem; padding:1px 5px;">Uygun${_gain ? ' ★' : ''}${_loss ? ' ⚠' : ''}</span>`;
                 } else {
                     cellStyle += "opacity:0.25; pointer-events:none;";
                 }
@@ -6875,30 +6878,74 @@ function checkSwapEligibility(src, tgt) {
         if (docA) {
             if (!docA.allowed.includes(tgt.place)) return false;
             if (docA.avail && docA.avail[dates[tgt.dayIdx].str] && (docA.avail[dates[tgt.dayIdx].str][tgt.place] === 'unwanted' || docA.avail[dates[tgt.dayIdx].str][tgt.place] === 'permit')) return false;
-            if (!checkSwapGapAndConstraints(docA, tgt.dayIdx, src.dayIdx)) return false;
+            if (!checkSwapGapAndConstraints(docA, tgt.dayIdx, src.dayIdx, tgt.place)) return false;
         }
 
         // B Kişisinin yeni güne/birime uygunluk kontrolü
         if (docB) {
             if (!docB.allowed.includes(src.place)) return false;
             if (docB.avail && docB.avail[dates[src.dayIdx].str] && (docB.avail[dates[src.dayIdx].str][src.place] === 'unwanted' || docB.avail[dates[src.dayIdx].str][src.place] === 'permit')) return false;
-            if (!checkSwapGapAndConstraints(docB, src.dayIdx, tgt.dayIdx)) return false;
+            if (!checkSwapGapAndConstraints(docB, src.dayIdx, tgt.dayIdx, src.place)) return false;
         }
 
         return true;
     }
 
-    function checkSwapGapAndConstraints(doc, targetDayIdx, ignoreDayIdx) {
+    function checkSwapGapAndConstraints(doc, targetDayIdx, ignoreDayIdx, unit) {
         const allP = [...activePlaces];
         if (refakatciMode) allP.push("Refakatçi");
+        const hasDuty = (i, p) => !!(tempSwapSchedule[i] && tempSwapSchedule[i].assign && tempSwapSchedule[i].assign[p] && tempSwapSchedule[i].assign[p].name === doc.name);
+        const anyDuty = i => allP.some(p => hasDuty(i, p));
 
         for (let i = 0; i < dates.length; i++) {
             if (i === ignoreDayIdx) continue;
-            for (let p of allP) {
-                if (tempSwapSchedule[i].assign[p] && tempSwapSchedule[i].assign[p].name === doc.name) {
-                    if (i === targetDayIdx) return false;
-                    const diffDays = Math.abs(i - targetDayIdx);
-                    if (diffDays <= GAP) return false;
+            if (anyDuty(i)) {
+                if (i === targetDayIdx) return false;
+                if (Math.abs(i - targetDayIdx) <= GAP) return false;
+            }
+        }
+
+        const pv = (jokerConfig && jokerConfig.prevDuty) ? jokerConfig.prevDuty : { d1: {}, d2: {} };
+        if (targetDayIdx === 0) {
+            for (let p in (pv.d1 || {})) { if (doc.name === pv.d1[p]) return false; }
+            for (let p in (pv.d2 || {})) { if (doc.name === pv.d2[p]) return false; }
+        } else if (targetDayIdx === 1) {
+            for (let p in (pv.d1 || {})) { if (doc.name === pv.d1[p]) return false; }
+        }
+
+        const av = doc.avail && doc.avail[dates[targetDayIdx].str];
+        if (av) {
+            if (Object.values(av).includes('permit')) return false;
+            if (unit && av[unit] === 'unwanted') return false;
+        }
+
+        for (let u of allP) {
+            if (u === unit) continue;
+            const other = tempSwapSchedule[targetDayIdx] && tempSwapSchedule[targetDayIdx].assign ? tempSwapSchedule[targetDayIdx].assign[u] : null;
+            if (other && constraints.some(c => (c.p1 === doc.name && c.p2 === other.name) || (c.p1 === other.name && c.p2 === doc.name))) return false;
+        }
+
+        const cnt = fn => { let c = 0; for (let i = 0; i < dates.length; i++) { if (i !== ignoreDayIdx && fn(i) && anyDuty(i)) c++; } return c; };
+        if (isUserFriday(targetDayIdx)) {
+            const we = cnt(i => dates[i].isW);
+            const fr = cnt(i => isUserFriday(i));
+            if (fridayRuleEnabled && we >= 2) return false;
+            if (fridayMaxOneRule && we >= 1) return false;
+            if (fridayAbsoluteRule && fr >= 1) return false;
+            if (fridayWeMaxOneRule && we >= 2 && fr >= 1) return false;
+            if (fridayWe1MaxOneRule && we >= 1 && fr >= 1) return false;
+        }
+        if (unit && new Date(dates[targetDayIdx].str).getDay() === 5 && placeFridayRules[unit]) {
+            for (let i = 0; i < dates.length; i++) {
+                if (i !== ignoreDayIdx && new Date(dates[i].str).getDay() === 5 && hasDuty(i, unit)) return false;
+            }
+        }
+        if (weDifferentDaysRule && dates[targetDayIdx].isW) {
+            const tn = new Date(dates[targetDayIdx].str).getDay();
+            if (tn === 0 || tn === 6) {
+                for (let i = 0; i < dates.length; i++) {
+                    if (i === ignoreDayIdx || i === targetDayIdx || !dates[i].isW) continue;
+                    if (new Date(dates[i].str).getDay() === tn && anyDuty(i)) return false;
                 }
             }
         }
