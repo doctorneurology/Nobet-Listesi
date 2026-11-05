@@ -6769,7 +6769,7 @@ function renderSwapGrid() {
             } else if (selectedShiftSource) {
                 if (isEligible) {
                     cellStyle += "background:#dcfce7 !important; color:#14532d !important; font-weight:bold;";
-                    const _wn = (d, di, pl) => { const dd = d && d.name ? docs.find(x => x.name === d.name) : null; return !!(dd && dd.avail && dd.avail[dates[di].str] && dd.avail[dates[di].str][pl] === 'wanted'); };
+                    const _wn = (d, di, pl) => { const dd = d && d.name ? docs.find(x => x.name === d.name) : null; const ds = tempSwapSchedule[di].date.str; return !!(dd && dd.avail && dd.avail[ds] && dd.avail[ds][pl] === 'wanted'); };
 const _gain = _wn(selectedShiftSource.doc, dayIdx, p) || _wn(doc, selectedShiftSource.dayIdx, selectedShiftSource.place);
 const _loss = _wn(doc, dayIdx, p);
 statusBadge = `<span class="badge" style="background:${_loss ? '#d97706' : '#16a34a'}; color:#fff; font-size:0.68rem; padding:1px 5px;">Uygun${_gain ? ' ★' : ''}${_loss ? ' ⚠' : ''}</span>`;
@@ -6851,6 +6851,13 @@ function handleShiftClick(dayIdx, place) {
     }
 
 function checkSwapEligibility(src, tgt) {
+    const datesBak = dates;
+    const prevBak = jokerConfig.prevDuty;
+    dates = tempSwapSchedule.map(r => r.date);
+    if (!datesBak[0] || !dates[0] || datesBak[0].str !== dates[0].str) jokerConfig.prevDuty = { d1: {}, d2: {} };
+    try { return checkSwapEligibilityCore(src, tgt); } finally { dates = datesBak; jokerConfig.prevDuty = prevBak; }
+}
+function checkSwapEligibilityCore(src, tgt) {
         // "Bana Bırak" modu aktifse TÜM KURALLARI ES GEÇ!
         if (typeof banaBirakMode !== 'undefined' && banaBirakMode) {
             // Sadece aynı hücrenin kendisiyle değişmesini engelle
@@ -6955,8 +6962,8 @@ function checkSwapEligibility(src, tgt) {
     function executeSelectedSwap() {
         if (!selectedShiftSource || !selectedShiftTarget) return;
 
-        const isSrcW = dates[selectedShiftSource.dayIdx].isW;
-        const isTgtW = dates[selectedShiftTarget.dayIdx].isW;
+        const isSrcW = tempSwapSchedule[selectedShiftSource.dayIdx].date.isW;
+        const isTgtW = tempSwapSchedule[selectedShiftTarget.dayIdx].date.isW;
 
         if (!banaBirakMode && isSrcW !== isTgtW && selectedShiftSource.doc && selectedShiftTarget.doc) {
             const srcType = isSrcW ? "Hafta sonu" : "Hafta içi";
