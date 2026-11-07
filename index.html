@@ -905,6 +905,27 @@ div[id*="becayis"] .modal-content {
 }
 
 
+/* --- Jokerler & Görevler: Serviste çalışanlar (sol) + Joker asistanlar (sağ) --- */
+.roster-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; align-items: start; }
+@media (max-width: 820px) { .roster-grid { grid-template-columns: 1fr; } }
+.roster-card h3 { display: flex; align-items: center; gap: 8px; }
+.roster-count { background: #eef2ff; color: #4338ca; border-radius: 12px; padding: 1px 9px; font-size: 0.8rem; font-weight: 700; }
+.roster-note { color: #64748b; font-size: 0.8rem; margin: -4px 0 10px 0; }
+.roster-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; max-height: 420px; overflow-y: auto; padding-right: 2px; }
+.roster-row { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; }
+.roster-row.is-auto { background: #f8fafc; }
+.roster-row.is-empty { border-style: dashed; color: #94a3b8; background: #fcfcfd; font-style: italic; }
+.roster-row.is-empty .roster-name { font-weight: 400; color: #94a3b8; }
+.roster-name { font-weight: 600; color: #1e293b; flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.roster-slot { font-size: 0.7rem; font-weight: 700; color: #6d28d9; background: #ede9fe; border-radius: 4px; padding: 2px 6px; white-space: nowrap; font-style: normal; }
+.roster-badge { font-size: 0.7rem; font-weight: 700; border-radius: 4px; padding: 2px 6px; white-space: nowrap; background: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; }
+.roster-dot { width: 9px; height: 9px; border-radius: 50%; flex: 0 0 auto; background: #cbd5e1; }
+.roster-dot.on { background: #16a34a; }
+.roster-remove { background: none; border: none; color: #ef4444; cursor: pointer; padding: 2px 5px; font-size: 0.9rem; line-height: 1; border-radius: 4px; }
+.roster-remove:hover { background: #fee2e2; }
+.roster-add { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.roster-add .joker-select { flex: 1 1 140px; min-width: 0; }
+.roster-empty-msg { color: #94a3b8; font-size: 0.85rem; padding: 10px; text-align: center; border: 1px dashed #cbd5e1; border-radius: 8px; }
 </style>
 </head>
 <body>
@@ -1123,10 +1144,10 @@ div[id*="becayis"] .modal-content {
     <div class="stepper">
         <div class="step active" id="tab1" onclick="nav(1)">1. Ayarlar</div>
         <div class="step" id="tab2" onclick="nav(2)">2. Asistanlar</div>
-        <div class="step" id="tab3" onclick="nav(3)">3. Görevler</div>
+        <div class="step" id="tab3" onclick="nav(3)">3. Çalışma Yerleri</div>
         <div class="step" id="tab4" onclick="nav(4)">4. İstekler</div>
         <div class="step" id="tab5" onclick="nav(5)">5. Nöbet Listesi</div>
-        <div class="step" id="tab6" onclick="nav(6)">6. Jokerler & Görevler</div>
+        <div class="step" id="tab6" onclick="nav(6)">6. Joker</div>
         <div class="step" id="tab7" onclick="nav(7)">7. Sonuç</div>
     </div>
 
@@ -1197,14 +1218,70 @@ div[id*="becayis"] .modal-content {
             <span class="assignment-rule-tooltip" data-tip="Bir Asistan sadece tek alanda çalışabilir. Eğer seçeneği kapalı konuma getirirseniz bir asistan birden çok yerde görevlendirilebilir." aria-label="Açıklama">?</span>
         </div>
         <div style="margin-bottom:18px;">
-            <h2 style="margin:0 0 6px 0; color:#1e293b; font-size:1.2rem;"><i class="fas fa-tasks" style="color:#7c3aed;"></i> Görevler</h2>
+            <h2 style="margin:0 0 6px 0; color:#1e293b; font-size:1.2rem;"><i class="fas fa-tasks" style="color:#7c3aed;"></i> Çalışma Yerleri</h2>
             <div style="color:#64748b; font-size:0.9rem;"></div>
         </div>
         <div style="display:flex; justify-content:flex-end; margin-bottom:12px;" id="taskServisAktifButtonTarget"></div>
-        <div class="task-page-grid" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(320px, 1fr)); gap:15px; align-items:start;">
-            <div id="taskSpecialUnitsTarget"></div>
-            <div id="taskWorkplaceTarget"></div>
+
+        <div class="joker-grid" style="grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); align-items:start;">
+            <div class="joker-card" id="sharedSpecialUnitsCard">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                    <h3 style="margin:0;"><i class="fas fa-building"></i> Birim Sorumlu Asistanı</h3>
+                    <div style="display:flex; gap:8px;">
+                        <button class="btn btn-primary btn-sm" onclick="openEditSpecialUnitsModal()"><i class="fas fa-edit"></i> Düzenle</button>
+                        <button class="btn btn-success btn-sm" onclick="openAddSpecialUnitModal()"><i class="fas fa-plus"></i> Ekle</button>
+                    </div>
+                </div>
+                <div id="specialUnitsGrid" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;"></div>
+                <div id="emptyOwnerWarningBox" style="margin-top:12px;"></div>
+            </div>
+
+            <div class="joker-card" id="jokerSelectionCard">
+                <h3><i class="fas fa-user-md"></i> Joker Asistan Seçimi</h3>
+                <div style="margin-bottom:10px;">
+                    <label style="font-size:0.85rem; font-weight:bold;">1. Joker (Servis)</label>
+                    <select id="joker1Select" onchange="updateExclusion(); calculateJokerSchedule(); saveData(); renderWorkplaceGrid();"></select>
+                </div>
+                <div style="margin-bottom:10px;">
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:5px;">
+                        <input type="checkbox" id="joker2Toggle" onchange="toggleJoker2(); calculateJokerSchedule(); saveData(); renderWorkplaceGrid();" style="width:auto; margin:0;">
+                        <label for="joker2Toggle" style="font-size:0.85rem; font-weight:bold; cursor:pointer">2. Joker</label>
+                    </div>
+                    <select id="joker2Select" class="hidden-el" onchange="updateExclusion(); calculateJokerSchedule(); saveData(); renderWorkplaceGrid();"></select>
+                </div>
+                 <div style="margin-bottom:10px;">
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:5px;">
+                        <input type="checkbox" id="joker3Toggle" onchange="toggleJoker3(); calculateJokerSchedule(); saveData(); renderWorkplaceGrid();" style="width:auto; margin:0;">
+                        <label for="joker3Toggle" style="font-size:0.85rem; font-weight:bold; cursor:pointer">3. Joker</label>
+                    </div>
+                    <select id="joker3Select" class="hidden-el" onchange="updateExclusion(); calculateJokerSchedule(); saveData(); renderWorkplaceGrid();"></select>
+                </div>
+                 <div style="margin-bottom:10px;">
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:5px;">
+                        <input type="checkbox" id="joker4Toggle" onchange="toggleJoker4(); calculateJokerSchedule(); saveData(); renderWorkplaceGrid();" style="width:auto; margin:0;">
+                        <label for="joker4Toggle" style="font-size:0.85rem; font-weight:bold; cursor:pointer">4. Joker</label>
+                    </div>
+                    <select id="joker4Select" class="hidden-el" onchange="updateExclusion(); calculateJokerSchedule(); saveData(); renderWorkplaceGrid();"></select>
+                </div>
+                 <div>
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:5px;">
+                        <input type="checkbox" id="joker5Toggle" onchange="toggleJoker5(); calculateJokerSchedule(); saveData(); renderWorkplaceGrid();" style="width:auto; margin:0;">
+                        <label for="joker5Toggle" style="font-size:0.85rem; font-weight:bold; cursor:pointer">İzin Jokeri</label>
+                    </div>
+                    <select id="joker5Select" class="hidden-el" onchange="updateExclusion(); calculateJokerSchedule(); saveData(); renderWorkplaceGrid();"></select>
+                </div>
+            </div>
+
+            <div class="joker-card" id="sharedWorkplaceCard" style="border-left-color: #0ea5e9;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                    <h3 style="margin:0;"><i class="fas fa-map-signs"></i> Görev Yerleri</h3>
+                    <button class="btn btn-success btn-sm" onclick="addNewWorkplaceUnit()"><i class="fas fa-plus"></i> Birim Ekle</button>
+                </div>
+                <div id="workplaceGrid" style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; max-height: 480px; overflow-y: auto; padding-right: 5px;">
+                    </div>
+            </div>
         </div>
+
         <div style="display:flex; justify-content:space-between; margin-top:24px;">
             <button class="btn btn-ghost" onclick="nav(2)">Geri</button>
             <button class="btn btn-primary" onclick="nav(4)">İsteklere Geç <i class="fas fa-arrow-right"></i></button>
@@ -1261,76 +1338,30 @@ div[id*="becayis"] .modal-content {
     </div>
 
     <div class="content" id="p5">
-        <div class="assignment-rule-bar">
-            <label class="toggle-wrapper" title="">
-                <input type="checkbox" class="toggle-input assignment-rule-toggle" id="singleAssignmentToggleJokers" checked onchange="setSingleWorkplaceAssignmentRule(this.checked)">
-                <div class="toggle-switch"></div>
-                <span class="toggle-label">Tek çalışma alanı</span>
-            </label>
-            <span class="assignment-rule-tooltip" data-tip="Bir Asistan sadece tek alanda çalışabilir. Eğer seçeneği kapalı konuma getirirseniz bir asistan birden çok yerde görevlendirilebilir." aria-label="Açıklama">?</span>
-        </div>
         <div style="margin-bottom:20px;">
              <div class="history-bar" id="jokerHistoryBar"></div>
         </div>
 
-        <div class="joker-grid" style="grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));">
-            <div id="sharedSpecialUnitsHomeAnchor" style="display:none;"></div>
-            <div class="joker-card" id="sharedSpecialUnitsCard">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-                    <h3 style="margin:0;"><i class="fas fa-building"></i> Birim Sorumlu Asistanı</h3>
-                    <div style="display:flex; gap:8px;">
-                        <button class="btn btn-primary btn-sm" onclick="openEditSpecialUnitsModal()"><i class="fas fa-edit"></i> Düzenle</button>
-                        <button class="btn btn-success btn-sm" onclick="openAddSpecialUnitModal()"><i class="fas fa-plus"></i> Ekle</button>
-                    </div>
-                </div>
-                <div id="specialUnitsGrid" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;"></div>
-                <div id="emptyOwnerWarningBox" style="margin-top:12px;"></div>
-            </div>
-
-            <div class="joker-card">
-                <h3><i class="fas fa-user-md"></i> Joker Asistan Seçimi</h3>
-                <div style="margin-bottom:10px;">
-                    <label style="font-size:0.85rem; font-weight:bold;">1. Joker (Servis)</label>
-                    <select id="joker1Select" onchange="updateExclusion(); calculateJokerSchedule(); saveData(); renderWorkplaceGrid();"></select>
-                </div>
-                <div style="margin-bottom:10px;">
-                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:5px;">
-                        <input type="checkbox" id="joker2Toggle" onchange="toggleJoker2(); calculateJokerSchedule(); saveData(); renderWorkplaceGrid();" style="width:auto; margin:0;">
-                        <label for="joker2Toggle" style="font-size:0.85rem; font-weight:bold; cursor:pointer">2. Joker</label>
-                    </div>
-                    <select id="joker2Select" class="hidden-el" onchange="updateExclusion(); calculateJokerSchedule(); saveData(); renderWorkplaceGrid();"></select>
-                </div>
-                 <div style="margin-bottom:10px;">
-                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:5px;">
-                        <input type="checkbox" id="joker3Toggle" onchange="toggleJoker3(); calculateJokerSchedule(); saveData(); renderWorkplaceGrid();" style="width:auto; margin:0;">
-                        <label for="joker3Toggle" style="font-size:0.85rem; font-weight:bold; cursor:pointer">3. Joker</label>
-                    </div>
-                    <select id="joker3Select" class="hidden-el" onchange="updateExclusion(); calculateJokerSchedule(); saveData(); renderWorkplaceGrid();"></select>
-                </div>
-                 <div style="margin-bottom:10px;">
-                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:5px;">
-                        <input type="checkbox" id="joker4Toggle" onchange="toggleJoker4(); calculateJokerSchedule(); saveData(); renderWorkplaceGrid();" style="width:auto; margin:0;">
-                        <label for="joker4Toggle" style="font-size:0.85rem; font-weight:bold; cursor:pointer">4. Joker</label>
-                    </div>
-                    <select id="joker4Select" class="hidden-el" onchange="updateExclusion(); calculateJokerSchedule(); saveData(); renderWorkplaceGrid();"></select>
-                </div>
-                 <div>
-                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:5px;">
-                        <input type="checkbox" id="joker5Toggle" onchange="toggleJoker5(); calculateJokerSchedule(); saveData(); renderWorkplaceGrid();" style="width:auto; margin:0;">
-                        <label for="joker5Toggle" style="font-size:0.85rem; font-weight:bold; cursor:pointer">İzin Jokeri</label>
-                    </div>
-                    <select id="joker5Select" class="hidden-el" onchange="updateExclusion(); calculateJokerSchedule(); saveData(); renderWorkplaceGrid();"></select>
+        <div class="roster-grid" id="jokerRosterGrid">
+            <div class="joker-card roster-card" id="servisRosterCard" style="border-left-color:#0ea5e9;">
+                <h3><i class="fas fa-hospital-user"></i> Serviste Çalışan Asistanlar <span class="roster-count" id="servisRosterCount">0</span></h3>
+                <div class="roster-note">Yeşil nokta: serviste hasta takip eden asistan, Gri nokta; serviste olup hasta takip etmeyen asistan.</div>
+                <div class="roster-list" id="servisRosterList"></div>
+                <div class="roster-add">
+                    <select id="servisRosterAddSelect" class="joker-select workplace-person-select" data-assignment-type="unit" data-unit="Servis" onchange="addServisRosterPerson(this.value); this.value='';"></select>
                 </div>
             </div>
 
-            <div id="sharedWorkplaceHomeAnchor" style="display:none;"></div>
-            <div class="joker-card" id="sharedWorkplaceCard" style="border-left-color: #0ea5e9;">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-                    <h3 style="margin:0;"><i class="fas fa-map-signs"></i> Görev Yerleri</h3>
-                    <button class="btn btn-success btn-sm" onclick="addNewWorkplaceUnit()"><i class="fas fa-plus"></i> Birim Ekle</button>
+            <div class="joker-card roster-card" id="jokerRosterCard">
+                <h3><i class="fas fa-user-md"></i> Joker Asistanlar <span class="roster-count" id="jokerRosterCount">0</span></h3>
+                <div class="roster-note">Çalışma Yerleri sayfasındaki "Joker Asistan Seçimi" ile birebir aynı liste.</div>
+                <div class="roster-list" id="jokerRosterList"></div>
+                <div class="roster-add">
+                    <select id="jokerRosterAddSelect" class="joker-select"></select>
+                    <select id="jokerRosterSlotSelect" class="joker-select" style="flex:0 1 150px;"></select>
+                    <button type="button" class="btn btn-success btn-sm" onclick="addJokerRosterPerson()"><i class="fas fa-plus"></i> Ekle</button>
                 </div>
-                <div id="workplaceGrid" style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; max-height: 480px; overflow-y: auto; padding-right: 5px;">
-                    </div>
+                <div class="roster-note" id="jokerRosterRuleNote" style="margin:8px 0 0 0;">"Tek çalışma alanı" açık: başka birimde görevli asistanlar bu listede görünmez.</div>
             </div>
         </div>
 
@@ -1708,7 +1739,7 @@ div[id*="becayis"] .modal-content {
     
     <li><strong>Algoritma ve Taslak Yönetimi:</strong> <strong>AI Çözümleyici:</strong> "Listeyi Oluştur" dediğinizde sistem binlerce kombinasyonu dener ve kotalara/isteklere en uygun sonucu sunar. <strong>Geçmiş Denemeler:</strong> Algoritma her çalıştığında yeni bir taslak oluşturur. Bu listeler arasında geçiş yaparak en ideal olanı seçebilirsiniz.</li>
     
-    <li><strong>Joker ve Görevlendirme Mantığı:</strong> <strong>Birim Sorumluları:</strong> Poliklinik, MS Merkezi, Yoğun Bakım, Konsültan ve Servis Kıdemlisi gibi sabit görevlileri buradan atarsınız. <strong>Joker Hiyerarşisi:</strong> Sistem, birim sorumlularının "Nöbet Ertesi" veya "İzinli" olduğu günleri tespit ederek Joker asistanları otomatik atar. <strong>Görev Yerleri:</strong> Branş dışı rotasyonları bu alandan yönetebilir, tüm asistanların nerede çalıştığını belirtebilirsiniz.</li>
+    <li><strong>Çalışma Yerleri, Joker ve Görevlendirme Mantığı:</strong> <strong>3. Çalışma Yerleri</strong> adımında soldan sağa: <strong>Birim Sorumluları</strong> (Poliklinik, MS Merkezi, Yoğun Bakım, Konsültan, Servis Kıdemlisi...), <strong>Joker Asistan Seçimi</strong> (1. Joker (Servis), 2.-4. Joker, İzin Jokeri) ve <strong>Görev Yerleri</strong> belirlenir. <strong>Joker Hiyerarşisi:</strong> Sistem, birim sorumlularının "Nöbet Ertesi" veya "İzinli" olduğu günleri tespit ederek Joker asistanları otomatik atar; sonradan eklenen özel birimler yerleşik birimlerden sonra gelir. <strong>6. Joker</strong> adımında solda serviste çalışan asistanları, sağda joker asistanları görür, buradan ekleyip çıkarabilirsiniz; değişiklikler Çalışma Yerleri sayfası, Serviste Aktif Çalışan sayısı ve Joker hesabıyla eşzamanlıdır.</li>
     
     <li><strong>Raporlama ve Dışa Aktarım:</strong> <strong>Özet Raporu:</strong> Listenin asistan isteklerine ne kadar uyduğunu tek tıkla görebilirsiniz. <strong>Dışa Aktar:</strong> Nöbet listelerini Word ve PDF; Görev yerlerini renkli başlıklı PDF; Joker planını ise PDF formatında resmi imza formatına uygun olarak alabilirsiniz.</li>
 </ol>
@@ -2099,33 +2130,37 @@ window.addEventListener('DOMContentLoaded', () => {
     const MAX_HISTORY = 20;
     const DEFAULT_MASTER = ["Begüm Asena Doğruer", "Leyla Öztürk Sönmez", "Merve Nur Çelik", "Merve Akbaş", "Tuğbanur Baytok", "Çağatay Şahin", "Duygu Ateş", "Şamil Yıldız", "Mustafa Gültekin", "Burak Yiğiter", "Mevlüt Örs", "Shams Gurbanzade", "Tuğba Öztürk", "Gülnur Çifci", "Fatmanur Serin Ayhan", "Nureddin Karakşe","Kadir Gülşen", "Omar El Qutob", "Murat Faruk Tutar", "Mehmet Zahid Aydın", "Ayşe Avcı", "Cahit Ayan", "Alperen Kapama"];
     const MONTH_NAMES = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
+    // Dini bayramlar: R = Ramazan Bayramı 1. günü (3 gün), K = Kurban Bayramı 1. günü (4 gün).
+    // 2025-2027: Diyanet İşleri Başkanlığı dini günler takvimi. 2028 ve sonrası: astronomik hesapla tahmin (±1 gün);
+    // Diyanet ilgili yılın takvimini yayımladığında "Resmi Tatilleri Düzenle"den düzeltebilirsiniz.
+    // Bir yıl içinde aynı bayram iki kez geliyorsa (ör. 2033 Ramazan, 2039 Kurban) değer bir dizi olarak yazılır.
     const RELIGIOUS_HOLIDAYS_MAP = {
         2025: { R: "2025-03-30", K: "2025-06-06" },
         2026: { R: "2026-03-20", K: "2026-05-27" },
-        2027: { R: "2027-03-09", K: "2027-05-17" },
+        2027: { R: "2027-03-09", K: "2027-05-16" },
         2028: { R: "2028-02-26", K: "2028-05-05" },
-        2029: { R: "2029-02-15", K: "2029-04-24" },
-        2030: { R: "2030-02-04", K: "2030-04-14" },
-        2031: { R: "2031-01-24", K: "2031-04-03" },
+        2029: { R: "2029-02-14", K: "2029-04-24" },
+        2030: { R: "2030-02-04", K: "2030-04-13" },
+        2031: { R: "2031-01-24", K: "2031-04-02" },
         2032: { R: "2032-01-14", K: "2032-03-22" },
-        2033: { R: "2033-01-03", K: "2033-03-12" },
-        2034: { R: "2034-12-13", K: "2034-03-01" },
-        2035: { R: "2035-12-02", K: "2035-02-18" },
-        2036: { R: "2036-11-21", K: "2036-02-08" },
-        2037: { R: "2037-11-10", K: "2037-01-27" },
-        2038: { R: "2038-10-31", K: "2038-01-16" },
-        2039: { R: "2039-10-20", K: "2039-01-06" },
-        2040: { R: "2040-10-09", K: "2040-12-25" },
-        2041: { R: "2041-09-29", K: "2041-12-14" },
-        2042: { R: "2042-09-18", K: "2042-12-04" },
-        2043: { R: "2043-09-07", K: "2043-11-23" },
-        2044: { R: "2044-08-27", K: "2044-11-12" },
-        2045: { R: "2045-08-16", K: "2045-11-01" },
-        2046: { R: "2046-08-06", K: "2046-10-21" },
-        2047: { R: "2047-07-26", K: "2047-10-10" },
-        2048: { R: "2048-07-15", K: "2048-09-29" },
-        2049: { R: "2049-07-04", K: "2049-09-19" },
-        2050: { R: "2050-06-24", K: "2050-09-08" }
+        2033: { R: ["2033-01-02", "2033-12-23"], K: "2033-03-11" },
+        2034: { R: "2034-12-12", K: "2034-03-01" },
+        2035: { R: "2035-12-01", K: "2035-02-18" },
+        2036: { R: "2036-11-19", K: "2036-02-07" },
+        2037: { R: "2037-11-08", K: "2037-01-26" },
+        2038: { R: "2038-10-29", K: "2038-01-15" },
+        2039: { R: "2039-10-19", K: ["2039-01-05", "2039-12-26"] },
+        2040: { R: "2040-10-07", K: "2040-12-14" },
+        2041: { R: "2041-09-26", K: "2041-12-04" },
+        2042: { R: "2042-09-15", K: "2042-11-23" },
+        2043: { R: "2043-09-04", K: "2043-11-12" },
+        2044: { R: "2044-08-24", K: "2044-10-31" },
+        2045: { R: "2045-08-14", K: "2045-10-20" },
+        2046: { R: "2046-08-03", K: "2046-10-10" },
+        2047: { R: "2047-07-24", K: "2047-09-30" },
+        2048: { R: "2048-07-12", K: "2048-09-18" },
+        2049: { R: "2049-07-01", K: "2049-09-07" },
+        2050: { R: "2050-06-20", K: "2050-08-27" }
     };
 
     let holidays = new Set();
@@ -2178,7 +2213,7 @@ function renderDynamicPlaceFridayRules() {
             <div style="display:flex; align-items:center; justify-content:space-between; background:#fef3c7; padding:12px 15px; border-radius:12px; border:1px solid #fde68a; margin-bottom:14px;">
                 <div style="display:flex; align-items:center; gap:10px; flex:1;">
                     <label class="toggle-wrapper" style="width:fit-content; background:transparent; border:none; padding:0; margin:0;">
-                        <input type="checkbox" class="toggle-input" ${isChecked} onchange="togglePlaceFridayRule('${place}', this.checked)">
+                        <input type="checkbox" class="toggle-input" ${isChecked} onchange="togglePlaceFridayRule('${jsq(place)}', this.checked)">
                         <div class="toggle-switch"></div>
                     </label>
                     <span style="font-weight:600; font-size:0.9rem; color:#78350f;">
@@ -2201,6 +2236,7 @@ function togglePlaceFridayRule(place, isChecked) {
     let workplaceUnits = ["Servis", "Yoğun Bakım", "Pol-1", "Pol-2", "Pol-3", "MS Merkezi", "Uyku", "Anjio", "EMG", "EEG", "Servis Kıdemlisi", "Konsültan", "Radyoloji", "Kardiyoloji", "Dahiliye", "FTR", "Anestezi", "Psikiatri", "Çocuk Nöroloji"];
 let extraServisAssignments = {}; // { "2026-07-01": ["Ahmet Yılmaz","Ayşe Kaya"], ... }
 
+    let jokerDomReady = false;   // Joker/sorumlu kutuları ilk kez doldurulunca true olur
     let jokerConfig = { 
         j1: "", j2: "", j3: "", j4: "", j5: "", 
         j2Enabled: false, j3Enabled: false, j4Enabled: false, j5Enabled: false,
@@ -2281,6 +2317,7 @@ let extraServisAssignments = {}; // { "2026-07-01": ["Ahmet Yılmaz","Ayşe Kaya
             activePlaces: clone(activePlaces || []),
             specialUnits: clone(specialUnits || []),
             workplaceUnits: clone(workplaceUnits || []),
+            workplaceMigrated: true,
             schedule: clone(schedule || []),
             history: clone(history || []),
             activeHistoryIndex: activeHistoryIndex,
@@ -2318,6 +2355,9 @@ let extraServisAssignments = {}; // { "2026-07-01": ["Ahmet Yılmaz","Ayşe Kaya
 
         jokerConfig.owners = data.jokerConfig.owners;
         jokerConfig.prevDuty = data.jokerConfig.prevDuty;
+        if (jokerDomReady) {   // Joker seçimleri ve anahtarları da bellekteki ayara yazılır (adımlar arası gezinmede sıfırlanmasın)
+            ['j1', 'j2', 'j3', 'j4', 'j5', 'j2Enabled', 'j3Enabled', 'j4Enabled', 'j5Enabled'].forEach(k => { jokerConfig[k] = data.jokerConfig[k]; });
+        }
 
         let localSaved = false;
         try {
@@ -2400,8 +2440,12 @@ let extraServisAssignments = {}; // { "2026-07-01": ["Ahmet Yılmaz","Ayşe Kaya
         activePlaces = data.activePlaces || ["Yoğun Bakım", "Servis"];
         specialUnits = data.specialUnits || ["Pol-1", "Pol-2", "Pol-3", "MS Merkezi", "Servis Kıdemlisi", "Konsültan", "Yoğun Bakım 1", "Yoğun Bakım 2"];
         workplaceUnits = (data.workplaceUnits || []).filter(u => u !== "Joker");
-        if (workplaceUnits.length === 0 || !workplaceUnits.includes("Dahiliye")) {
-            workplaceUnits = ["Servis", "Yoğun Bakım", "Pol-1", "Pol-2", "Pol-3", "MS Merkezi", "Uyku", "Anjio", "EMG", "EEG", "Servis Kıdemlisi", "Konsültan", "Radyoloji", "Kardiyoloji", "Dahiliye", "FTR", "Anestezi", "Psikiatri", "Çocuk Nöroloji"];
+        const __defaultWorkplaceUnits = ["Servis", "Yoğun Bakım", "Pol-1", "Pol-2", "Pol-3", "MS Merkezi", "Uyku", "Anjio", "EMG", "EEG", "Servis Kıdemlisi", "Konsültan", "Radyoloji", "Kardiyoloji", "Dahiliye", "FTR", "Anestezi", "Psikiatri", "Çocuk Nöroloji"];
+        if (workplaceUnits.length === 0) {
+            workplaceUnits = __defaultWorkplaceUnits.slice();
+        } else if (!data.workplaceMigrated) {
+            // Eski kayıtlara yalnızca BİR KEZ eksik varsayılan birimler eklenir; sonrasında kullanıcının listesi aynen korunur.
+            __defaultWorkplaceUnits.forEach(u => { if (!workplaceUnits.includes(u)) workplaceUnits.push(u); });
         }
 
         extraServisAssignments = data.extraServis || {};
@@ -2455,6 +2499,7 @@ let extraServisAssignments = {}; // { "2026-07-01": ["Ahmet Yılmaz","Ayşe Kaya
         }
 
         document.getElementById('refModeToggle').checked = refakatciMode;
+        jokerDomReady = false;
         if (data.jokerConfig) jokerConfig = Object.assign({}, jokerConfig, data.jokerConfig);
         if (!jokerConfig.prevDuty) jokerConfig.prevDuty = { d1:{}, d2:{} };
         if (!jokerConfig.owners) jokerConfig.owners = {};
@@ -2507,6 +2552,11 @@ let extraServisAssignments = {}; // { "2026-07-01": ["Ahmet Yılmaz","Ayşe Kaya
     function closeManualModal() { closeModal('modalManual'); }
     function openManual() { document.getElementById('modalManual').style.display = 'flex'; }
     function invalidateResults() { if(history.length > 0 || schedule.length > 0) { history = []; schedule = []; jokerSchedule = []; activeHistoryIndex = -1; renderHistoryButtons(); document.getElementById('resTable').innerHTML = ''; document.getElementById('jokerResults').innerHTML = ''; document.getElementById('jokerWarningBox').style.display = 'none'; } }
+    // Kullanıcı verisini (isim, birim adı) HTML metnine / özniteliğine güvenle yerleştirir.
+    function escHtml(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
+    // Satır içi (inline) onclick/onchange işleyicilerinde '...' içine konacak metin: önce JS kaçışı, sonra HTML kaçışı.
+    // Böylece adında ' (kesme işareti), " veya \ geçen asistan/birimlerde de düğmeler sorunsuz çalışır.
+    function jsq(s) { return String(s == null ? '' : s).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\r?\n/g, ' ').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
     function titleCase(str) { if(!str) return ""; return str.toLocaleLowerCase('tr-TR').split(' ').map(word => word.charAt(0).toLocaleUpperCase('tr-TR') + word.slice(1)).join(' '); }
     
     function getFormattedMonthYear() {
@@ -2517,34 +2567,45 @@ let extraServisAssignments = {}; // { "2026-07-01": ["Ahmet Yılmaz","Ayşe Kaya
     }
 
     // --- TATİL HESAPLAMA MANTIĞI ---
-    function isDefaultTurkeyHoliday(dateObj) {
-        const m = dateObj.getMonth() + 1;
-        const d = dateObj.getDate();
-        const y = dateObj.getFullYear();
-        const str = dateObj.toISOString().split('T')[0];
+    // Resmî sabit tatiller + dini bayramlar (RELIGIOUS_HOLIDAYS_MAP). Tarih 'YYYY-MM-DD' metni veya Date olabilir.
+    // Tüm hesap saat diliminden bağımsızdır (UTC aritmetiği) ve yıl sonuna taşan bayramları da yakalar.
+    let __religiousHolidaySet = null;
+    function getReligiousHolidaySet() {
+        if (__religiousHolidaySet) return __religiousHolidaySet;
+        const set = new Set();
+        const addRange = (startStr, days) => {
+            const p = String(startStr).split('-').map(Number);
+            if (p.length !== 3 || p.some(isNaN)) return;
+            const t0 = Date.UTC(p[0], p[1] - 1, p[2]);
+            for (let i = 0; i < days; i++) set.add(new Date(t0 + i * 86400000).toISOString().slice(0, 10));
+        };
+        Object.keys(RELIGIOUS_HOLIDAYS_MAP).forEach(y => {
+            const e = RELIGIOUS_HOLIDAYS_MAP[y];
+            [].concat(e.R || []).forEach(d => addRange(d, 3));   // Ramazan Bayramı: 3 gün
+            [].concat(e.K || []).forEach(d => addRange(d, 4));   // Kurban Bayramı: 4 gün
+        });
+        __religiousHolidaySet = set;
+        return set;
+    }
+    function isDefaultTurkeyHoliday(dateOrStr) {
+        const str = (typeof dateOrStr === 'string') ? dateOrStr : dateOrStr.toISOString().split('T')[0];
+        const p = str.split('-').map(Number);
+        const m = p[1], d = p[2];
         if ((m === 1 && d === 1) || (m === 4 && d === 23) || (m === 5 && d === 1) || (m === 5 && d === 19) || (m === 7 && d === 15) || (m === 8 && d === 30) || (m === 10 && d === 29)) return true;
-        if (RELIGIOUS_HOLIDAYS_MAP[y]) {
-            const rStart = new Date(RELIGIOUS_HOLIDAYS_MAP[y].R);
-            const kStart = new Date(RELIGIOUS_HOLIDAYS_MAP[y].K);
-            for (let i = 0; i < 3; i++) {
-                let check = new Date(rStart); check.setDate(rStart.getDate() + i);
-                if (check.toISOString().split('T')[0] === str) return true;
-            }
-            for (let i = 0; i < 4; i++) {
-                let check = new Date(kStart); check.setDate(kStart.getDate() + i);
-                if (check.toISOString().split('T')[0] === str) return true;
-            }
-        }
-        return false;
+        return getReligiousHolidaySet().has(str);
     }
 
     function autoPopulateHolidays() {
-        const s = new Date(document.getElementById('startDate').value);
-        const e = new Date(document.getElementById('endDate').value);
-        let c = new Date(s);
-        while(c <= e) {
-            if (isDefaultTurkeyHoliday(c)) holidays.add(c.toISOString().split('T')[0]);
-            c.setDate(c.getDate() + 1);
+        const sVal = document.getElementById('startDate').value;
+        const eVal = document.getElementById('endDate').value;
+        if (!sVal || !eVal) return;
+        const sp = sVal.split('-').map(Number), ep = eVal.split('-').map(Number);
+        let c = Date.UTC(sp[0], sp[1] - 1, sp[2]);
+        const e = Date.UTC(ep[0], ep[1] - 1, ep[2]);
+        while (c <= e) {
+            const str = new Date(c).toISOString().slice(0, 10);
+            if (isDefaultTurkeyHoliday(str)) holidays.add(str);
+            c += 86400000;
         }
     }
 
@@ -2873,7 +2934,7 @@ function initFridayTooltips() {
         });
         const addTask = (name, unit) => { if (name && peopleNames.has(name)) taskByPerson.get(name).add(unit); };
 
-        // 3. Görevler ve 5. Jokerler/Görevler sayfaları: kişinin görevleri.
+        // 3. Çalışma Yerleri ve 6. Jokerler & Görevler sayfaları: kişinin görevleri.
         ["Pol-1", "Pol-2", "Pol-3", "MS Merkezi", "Konsültan", "Servis Kıdemlisi", "EMG", "Yoğun Bakım 1", "Yoğun Bakım 2"].forEach(unit => {
             let found = { combined: [] };
             try { found = getWorkplacePeople(unit) || found; } catch (error) { console.warn('Görev yeri okunamadı:', unit, error); }
@@ -3128,7 +3189,7 @@ function initFridayTooltips() {
                 const dis = checked ? '' : 'disabled style="opacity:0.5;background:#f1f5f9"'; 
                 const act = checked ? 'active' : ''; 
                 if(!d.targets[p]) d.targets[p] = {w:0, e:0};
-                cfg += `<div class="unit-config ${act}"><label class="lbl-check"><input type="checkbox" ${checked?'checked':''} onchange="toggleUnit(${d.id},'${p}')">${p}</label><div class="quota-group"><span class="q-label-top">Hİ</span><input type="number" class="mini-inp" value="${d.targets[p].w||0}" min="0" ${dis} oninput="updQ(${d.id},'${p}','w',this)"></div><div class="quota-group"><span class="q-label-top">HS</span><input type="number" class="mini-inp" value="${d.targets[p].e||0}" min="0" ${dis} oninput="updQ(${d.id},'${p}','e',this)"></div></div>`; 
+                cfg += `<div class="unit-config ${act}"><label class="lbl-check"><input type="checkbox" ${checked?'checked':''} onchange="toggleUnit(${d.id},'${jsq(p)}')">${escHtml(p)}</label><div class="quota-group"><span class="q-label-top">Hİ</span><input type="number" class="mini-inp" value="${d.targets[p].w||0}" min="0" ${dis} oninput="updQ(${d.id},'${jsq(p)}','w',this)"></div><div class="quota-group"><span class="q-label-top">HS</span><input type="number" class="mini-inp" value="${d.targets[p].e||0}" min="0" ${dis} oninput="updQ(${d.id},'${jsq(p)}','e',this)"></div></div>`; 
             });
             if(refakatciMode) { 
                 if(!d.targets['Refakatçi']) d.targets['Refakatçi'] = {w:0,e:0}; 
@@ -3138,7 +3199,7 @@ function initFridayTooltips() {
                 cfg += `<div class="unit-config-ref ${act}"><label class="lbl-check"><input type="checkbox" ${allowed?'checked':''} onchange="toggleUnit(${d.id},'Refakatçi')">Refakatçi</label><div class="quota-group"><span class="q-label-top">Hİ</span><input type="number" class="mini-inp" value="${d.targets['Refakatçi'].w||0}" min="0" ${dis} oninput="updQ(${d.id},'Refakatçi','w',this)"></div><div class="quota-group"><span class="q-label-top">HS</span><input type="number" class="mini-inp" value="${d.targets['Refakatçi'].e||0}" min="0" ${dis} oninput="updQ(${d.id},'Refakatçi','e',this)"></div></div>`; 
             }
             cfg += '</div>';
-            tr.innerHTML = `<td style="text-align:center;"><i class="fas fa-bars drag-handle" draggable="true"></i></td><td style="font-weight:600">${d.name}</td><td>${cfg}</td><td><button class="btn btn-ghost btn-danger" onclick="confirmAction('Sil', '${d.name} listeden çıkarılsın mı?', () => delDoc(${d.id}))"><i class="fas fa-trash"></i></button></td>`;
+            tr.innerHTML = `<td style="text-align:center;"><i class="fas fa-bars drag-handle" draggable="true"></i></td><td style="font-weight:600">${escHtml(d.name)}</td><td>${cfg}</td><td><button class="btn btn-ghost btn-danger" onclick="confirmAction('Sil', '${jsq(d.name)} listeden çıkarılsın mı?', () => delDoc(${d.id}))"><i class="fas fa-trash"></i></button></td>`;
             tr.querySelector('.drag-handle').addEventListener('dragstart', handleDragStart); tr.querySelector('.drag-handle').addEventListener('dragend', handleDragEnd); if(tbody) tbody.appendChild(tr);
         });
     }
@@ -3162,6 +3223,7 @@ function initFridayTooltips() {
         if ((currentVal || null) === (actionVal || null)) return;
 
         if (actionVal === 'wanted') { 
+            if (!d.targets || !d.targets[place]) { if (isClick) showModernAlert("Uyarı", "İstek işaretlemek için önce bu kişiye en az bir birim (nöbet yeri) atayın."); return; }
             const dateObj = dates.find(x => x.str === dateStr); const isW = dateObj.isW; 
             const target = isW ? d.targets[place].e : d.targets[place].w; 
             const currentUsed = getMarkedCount(d, place, isW); 
@@ -3170,11 +3232,12 @@ function initFridayTooltips() {
             if (check.error) { if (isClick) showModernAlert("Kural İhlali", check.msg); return; } 
         }
         
-        undoStack.push({ id: id, dateStr: dateStr, place: place, prev: currentVal }); 
+        undoStack.push({ id: id, dateStr: dateStr, place: place, prev: currentVal, prevDay: JSON.parse(JSON.stringify(d.avail[dateStr] || {})) }); 
         if(undoStack.length > 50) undoStack.shift(); 
         
 if (actionVal === null) {
-            d.avail[dateStr] = {};
+            if (currentVal === 'permit') { d.avail[dateStr] = {}; }   // izin tüm birimleri kapsar → bütünüyle kaldır
+            else { delete d.avail[dateStr][place]; }                  // diğer birimlerdeki işaretler korunur
         } else if (actionVal === 'permit') {
             const allPossible = [...activePlaces]; if(refakatciMode) allPossible.push("Refakatçi");
             allPossible.forEach(p => { d.avail[dateStr][p] = 'permit'; });
@@ -3186,7 +3249,7 @@ if (actionVal === null) {
         if (d.avail[dateStr] && Object.keys(d.avail[dateStr]).length === 0) delete d.avail[dateStr];
         saveData(); renderCal(); invalidateResults();
     }
-    function undoLastAction() { if(undoStack.length === 0) return; const action = undoStack.pop(); const d = docs.find(x=>x.id === action.id); if(!d) return; if(!d.avail[action.dateStr]) d.avail[action.dateStr] = {}; if(action.prev === undefined || action.prev === null) { delete d.avail[action.dateStr][action.place]; if(Object.keys(d.avail[action.dateStr]).length === 0) delete d.avail[action.dateStr]; } else { d.avail[action.dateStr][action.place] = action.prev; } saveData(); renderCal(); invalidateResults(); }
+    function undoLastAction() { if(undoStack.length === 0) return; const action = undoStack.pop(); const d = docs.find(x=>x.id === action.id); if(!d) return; if(action.prevDay !== undefined) { if(Object.keys(action.prevDay).length) d.avail[action.dateStr] = action.prevDay; else delete d.avail[action.dateStr]; saveData(); renderCal(); invalidateResults(); return; } if(!d.avail[action.dateStr]) d.avail[action.dateStr] = {}; if(action.prev === undefined || action.prev === null) { delete d.avail[action.dateStr][action.place]; if(Object.keys(d.avail[action.dateStr]).length === 0) delete d.avail[action.dateStr]; } else { d.avail[action.dateStr][action.place] = action.prev; } saveData(); renderCal(); invalidateResults(); }
     function clearAllSelections() { docs.forEach(d => d.avail = {}); saveData(); renderCal(); invalidateResults(); }
 
     function getMarkedCount(doc, place, isWeekend) { let count = 0; Object.keys(doc.avail).forEach(dateStr => { if(doc.avail[dateStr][place] === 'wanted') { const dateObj = dates.find(d => d.str === dateStr); if(dateObj && dateObj.isW === isWeekend) count++; } }); return count; }
@@ -3217,7 +3280,7 @@ if (actionVal === null) {
         docs.forEach(d => {
             let quotaInfo = '';
             allP.forEach(p => { if(d.allowed.includes(p)) { let markedW = 0, markedE = 0; Object.keys(d.avail).forEach(dateStr => { if(d.avail[dateStr] && d.avail[dateStr][p] === 'wanted') { const dateObj = dates.find(x => x.str === dateStr); if(dateObj) { if(dateObj.isW) markedE++; else markedW++; } } }); const remW = d.targets[p].w - markedW; const remE = d.targets[p].e - markedE; const isRef = p === 'Refakatçi'; const remWClass = isRef ? 'q-rem' : (remW===0?'q-done':(remW<0?'text-red':'')); const remEClass = isRef ? 'q-rem' : (remE===0?'q-done':(remE<0?'text-red':'')); quotaInfo += `<div class="quota-line"><span class="q-label">${p}</span><span class="q-label">Kalan: <span class="${remWClass}">${remW}</span> Hİ | <span class="${remEClass}">${remE}</span> HS</span></div>`; } });
-            h += `<div class="cal-head name-col"><div class="doc-name" title="${d.name}">${d.name}</div><div class="doc-quota-info">${quotaInfo}</div></div>`;
+            h += `<div class="cal-head name-col"><div class="doc-name" title="${escHtml(d.name)}">${escHtml(d.name)}</div><div class="doc-quota-info">${quotaInfo}</div></div>`;
             dates.forEach(x => { 
                 h += `<div class="cal-cell-wrapper ${x.isW ? 'weekend-col' : ''}">`; 
                 if (!d.allowed || d.allowed.length === 0) {
@@ -3230,7 +3293,7 @@ if (actionVal === null) {
                         let status = (d.avail[x.str] && d.avail[x.str][p]) || ''; 
                         let label = p.substring(0,3); 
                         let icon = status==='wanted'?'✓':(status==='unwanted'?'X':(status==='permit'?'<i class="fas fa-umbrella-beach"></i>':'')); 
-                        h += `<div class="sub-cell ${status}" onmousedown="handleMouseDown(event, ${d.id},'${x.str}','${p}',this)" onmouseenter="handleMouseEnter(event, ${d.id},'${x.str}','${p}',this)"><span class="u-tag" style="font-size:0.55em; position:absolute; left:2px; top:1px; opacity:0.6">${label}</span>${icon}</div>`; 
+                        h += `<div class="sub-cell ${status}" onmousedown="handleMouseDown(event, ${d.id},'${x.str}','${jsq(p)}',this)" onmouseenter="handleMouseEnter(event, ${d.id},'${x.str}','${jsq(p)}',this)"><span class="u-tag" style="font-size:0.55em; position:absolute; left:2px; top:1px; opacity:0.6">${label}</span>${icon}</div>`; 
                     });
                 }
                 h += `</div>`; 
@@ -3287,7 +3350,7 @@ if (actionVal === null) {
                 docs.forEach(d => {
                     const m = d.name;
                     const isTakenElsewhere = allSelected.includes(m) && m !== currentVal;
-                    if(!isTakenElsewhere) h += `<option value="${m}">${m}</option>`;
+                    if(!isTakenElsewhere) h += `<option value="${escHtml(m)}">${escHtml(m)}</option>`;
                 });
                 el.innerHTML = h;
                 el.value = currentVal;
@@ -3338,13 +3401,13 @@ if (actionVal === null) {
             
             let tagsHtml = '';
             data.auto.forEach(p => {
-                tagsHtml += `<div class="wp-tag wp-tag-auto" title="Otomatik Eklendi">${p}</div>`;
+                tagsHtml += `<div class="wp-tag wp-tag-auto" title="Otomatik Eklendi">${escHtml(p)}</div>`;
             });
             data.manual.forEach(p => {
-                tagsHtml += `<div class="wp-tag wp-tag-manual">${p} <i class="fas fa-times" style="cursor:pointer; margin-left:5px; color:#ef4444" onclick="removeManualWorkplace('${unit}', '${p}')"></i></div>`;
+                tagsHtml += `<div class="wp-tag wp-tag-manual">${escHtml(p)} <i class="fas fa-times" style="cursor:pointer; margin-left:5px; color:#ef4444" onclick="removeManualWorkplace('${jsq(unit)}', '${jsq(p)}')"></i></div>`;
             });
 
-            const opts = '<option value="">+ Kişi Seçin...</option>' + asisNames.map(m => `<option value="${m}">${m}</option>`).join('');
+            const opts = '<option value="">+ Kişi Seçin...</option>' + asisNames.map(m => `<option value="${escHtml(m)}">${escHtml(m)}</option>`).join('');
 
             const div = document.createElement('div');
             div.style.marginBottom = "10px";
@@ -3355,15 +3418,15 @@ if (actionVal === null) {
             
             div.innerHTML = `
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
-                    <label style="font-size:0.75rem; font-weight:700; color:#475569;">${unit}</label>
+                    <label style="font-size:0.75rem; font-weight:700; color:#475569;">${escHtml(unit)}</label>
                     ${!["Servis", "Yoğun Bakım", "Joker", "Servis Kıdemlisi", "Konsültan", "Yoğun Bakım 1", "Yoğun Bakım 2"].includes(unit) ? 
-                      `<i class="fas fa-trash" style="color:#ef4444; font-size:0.7rem; cursor:pointer;" onclick="deleteWorkplaceUnit('${unit}')"></i>` : ''}
+                      `<i class="fas fa-trash" style="color:#ef4444; font-size:0.7rem; cursor:pointer;" onclick="deleteWorkplaceUnit('${jsq(unit)}')"></i>` : ''}
                 </div>
                 <div style="display:flex; flex-wrap:wrap; gap:5px; margin-bottom:5px; min-height:24px;">
                     ${tagsHtml}
                 </div>
                 <div style="display:flex; gap:5px; margin-top:5px;">
-                    <select id="${safeId}" class="joker-select workplace-person-select" data-assignment-type="unit" data-unit="${unit}" style="font-size:0.75rem; padding:4px; width:100%;" onchange="addManualWorkplace('${unit}', this.value); this.value='';">${opts}</select>
+                    <select id="${safeId}" class="joker-select workplace-person-select" data-assignment-type="unit" data-unit="${escHtml(unit)}" style="font-size:0.75rem; padding:4px; width:100%;" onchange="addManualWorkplace('${jsq(unit)}', this.value); this.value='';">${opts}</select>
                 </div>
             `;
             grid.appendChild(div);
@@ -3376,6 +3439,8 @@ if (actionVal === null) {
         if (document.getElementById('p6') && document.getElementById('p6').classList.contains('active') && typeof renderFinalPage === 'function') renderFinalPage();
         // Yeni oluşturulan görev yeri seçim kutularına da tek-görev kuralını uygula.
         if (typeof updateExclusion === 'function') updateExclusion();
+        // Jokerler & Görevler sayfasındaki Servis / Joker listelerini de güncel tut.
+        if (typeof renderJokerServisLists === 'function') renderJokerServisLists();
     }
 
 function addNewWorkplaceUnit() {
@@ -3408,8 +3473,10 @@ function addNewWorkplaceUnit() {
     }
 
     function addManualWorkplace(unit, person) {
-        person = titleCase(person.trim());
+        person = (person || '').trim();
         if (!person) return;
+        const __match = docs.find(d => d.name === person) || docs.find(d => d.name.toLocaleLowerCase('tr-TR') === person.toLocaleLowerCase('tr-TR'));
+        person = __match ? __match.name : titleCase(person);
         
         if (!jokerConfig.workplaceAssignments) jokerConfig.workplaceAssignments = {};
         if (!jokerConfig.workplaceAssignments[unit]) jokerConfig.workplaceAssignments[unit] = [];
@@ -3426,6 +3493,184 @@ function addNewWorkplaceUnit() {
         jokerConfig.workplaceAssignments[unit] = jokerConfig.workplaceAssignments[unit].filter(p => p !== person);
         saveData();
         renderWorkplaceGrid();
+    }
+
+    // ===== Jokerler & Görevler sayfası: SOL = Serviste çalışan asistanlar, SAĞ = Joker asistanlar =====
+    // Bu listeler "Çalışma Yerleri" sayfasındaki birim sorumlusu / Joker / Servis görev yeri seçimleriyle AYNI veriyi kullanır;
+    // birinde yapılan ekleme-çıkarma diğerine, Servis-aktif sayacına ve Joker hesabına anında yansır.
+    const JOKER_SLOT_LABELS = { 1: '1. Joker (Servis)', 2: '2. Joker', 3: '3. Joker', 4: '4. Joker', 5: 'İzin Jokeri' };
+
+    function getJokerSlotState() {
+        const slots = [];
+        for (let k = 1; k <= 5; k++) {
+            const sel = document.getElementById('joker' + k + 'Select');
+            const tog = k === 1 ? null : document.getElementById('joker' + k + 'Toggle');
+            const name = sel ? (sel.value || '') : '';
+            const enabled = k === 1 ? true : !!(tog && tog.checked);
+            slots.push({ k, name, enabled, active: enabled && !!name && docs.some(d => d.name === name) });
+        }
+        return slots;
+    }
+
+    // Liste üzerinden yapılan her değişiklikte, Çalışma Yerleri sayfasındaki seçim kutularının yaptığıyla aynı yenileme zinciri.
+    function refreshAfterRosterChange(ownerChanged) {
+        updateExclusion();
+        calculateJokerSchedule();
+        saveData();
+        renderWorkplaceGrid();
+        if (ownerChanged) renderSpecialUnitsGrid();
+    }
+
+    function setJokerSlot(k, name) {
+        const sel = document.getElementById('joker' + k + 'Select');
+        if (!sel) return;
+        if (name && ![...sel.options].some(o => o.value === name)) sel.add(new Option(name, name));
+        sel.value = name || '';
+        if (k >= 2) {
+            const tog = document.getElementById('joker' + k + 'Toggle');
+            if (tog) tog.checked = !!name;
+            const toggler = { 2: toggleJoker2, 3: toggleJoker3, 4: toggleJoker4, 5: toggleJoker5 }[k];
+            if (toggler) toggler();
+        }
+        refreshAfterRosterChange(false);
+    }
+
+    function addJokerRosterPerson() {
+        const nameSel = document.getElementById('jokerRosterAddSelect');
+        const slotSel = document.getElementById('jokerRosterSlotSelect');
+        const name = nameSel ? nameSel.value : '';
+        const k = slotSel ? parseInt(slotSel.value, 10) : 0;
+        if (!k) { showModernAlert("Uyarı", "Tüm joker alanları dolu. Yeni joker eklemek için önce bir jokeri çıkarın."); return; }
+        if (!name) { showModernAlert("Uyarı", "Lütfen eklenecek asistanı seçin."); return; }
+        setJokerSlot(k, name);
+    }
+
+    function removeJokerRosterPerson(k) {
+        const sel = document.getElementById('joker' + k + 'Select');
+        const name = sel ? sel.value : '';
+        if (!name) return;
+        confirmAction('Joker Çıkar', `${name}, "${JOKER_SLOT_LABELS[k]}" görevinden çıkarılsın mı? Joker listesi yeniden hesaplanacaktır.`, () => setJokerSlot(k, ''));
+    }
+
+    function addServisRosterPerson(name) {
+        name = (name || '').trim();
+        // Seçim kutusunu hemen sıfırla: aksi hâlde yenileme sırasında seçilen isim "mevcut değer" sayılıp listede kalır.
+        const addSel = document.getElementById('servisRosterAddSelect');
+        if (addSel) addSel.value = '';
+        if (!name || !docs.some(d => d.name === name)) return;
+        if (!jokerConfig.workplaceAssignments) jokerConfig.workplaceAssignments = {};
+        if (!jokerConfig.workplaceAssignments['Servis']) jokerConfig.workplaceAssignments['Servis'] = [];
+        if (!jokerConfig.workplaceAssignments['Servis'].includes(name)) {
+            jokerConfig.workplaceAssignments['Servis'].push(name);
+            saveData();
+            renderWorkplaceGrid();
+        }
+    }
+
+    function removeServisRosterPerson(name, roles) {
+        const doRemove = () => {
+            let ownerChanged = false;
+            (roles || []).forEach(r => {
+                if (r.type === 'owner') {
+                    const el = document.getElementById('owner_' + r.unit.replace(/\s+/g, '_'));
+                    if (el) el.value = '';
+                    if (jokerConfig.owners) jokerConfig.owners[r.unit] = '';
+                    ownerChanged = true;
+                } else if (r.type === 'joker') {
+                    const sel = document.getElementById('joker' + r.slot + 'Select');
+                    if (sel) sel.value = '';
+                }
+            });
+            if (jokerConfig.workplaceAssignments && jokerConfig.workplaceAssignments['Servis']) {
+                jokerConfig.workplaceAssignments['Servis'] = jokerConfig.workplaceAssignments['Servis'].filter(p => p !== name);
+            }
+            refreshAfterRosterChange(ownerChanged);
+        };
+        if (roles && roles.length) {
+            confirmAction('Servisten Çıkar', `${name}, şu görev(ler) nedeniyle Servis listesinde otomatik görünüyor: ${roles.map(r => r.label).join(', ')}. Listeden çıkarırsanız bu görev(ler) de boşaltılır. Devam edilsin mi?`, doRemove);
+        } else {
+            doRemove();
+        }
+    }
+
+    function renderJokerServisLists() {
+        const leftEl = document.getElementById('servisRosterList');
+        const rightEl = document.getElementById('jokerRosterList');
+        if (!leftEl || !rightEl || !Array.isArray(docs)) return;
+        const mk = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
+
+        // ---------- SOL: Serviste çalışan asistanlar ----------
+        const owners = jokerConfig.owners || {};
+        const j1El = document.getElementById('joker1Select');
+        const j1 = j1El ? (j1El.value || '') : '';
+        const names = getWorkplacePeople('Servis').combined.filter(n => docs.some(d => d.name === n));
+        leftEl.innerHTML = '';
+        if (names.length === 0) leftEl.appendChild(mk('div', 'roster-empty-msg', 'Serviste çalışan asistan yok. Aşağıdan ekleyebilirsiniz.'));
+        names.forEach(name => {
+            const roles = [];
+            if (owners['Servis Kıdemlisi'] === name) roles.push({ type: 'owner', unit: 'Servis Kıdemlisi', label: 'Servis Kıdemlisi' });
+            if (owners['Konsültan'] === name) roles.push({ type: 'owner', unit: 'Konsültan', label: 'Konsültan' });
+            if (j1 && j1 === name) roles.push({ type: 'joker', slot: 1, label: '1. Joker' });
+            const row = mk('div', 'roster-row' + (roles.length ? ' is-auto' : ''));
+            const active = (typeof servisAktifSecimler !== 'undefined') && !!servisAktifSecimler[name];
+            const dot = mk('span', 'roster-dot' + (active ? ' on' : ''));
+            dot.title = active ? 'Serviste aktif çalışan olarak sayılıyor' : 'Serviste aktif çalışan sayılmıyor (Servis Aktif düğmesinden değiştirilir)';
+            const nm = mk('span', 'roster-name', name); nm.title = name;
+            row.appendChild(dot); row.appendChild(nm);
+            roles.forEach(r => row.appendChild(mk('span', 'roster-badge', r.label)));
+            const rm = mk('button', 'roster-remove'); rm.type = 'button'; rm.title = 'Servis listesinden çıkar'; rm.innerHTML = '<i class="fas fa-times"></i>';
+            rm.addEventListener('click', () => removeServisRosterPerson(name, roles));
+            row.appendChild(rm);
+            leftEl.appendChild(row);
+        });
+        const lc = document.getElementById('servisRosterCount'); if (lc) lc.textContent = String(names.length);
+
+        // ---------- SAĞ: Joker asistanlar ----------
+        const slots = getJokerSlotState();
+        rightEl.innerHTML = '';
+        slots.forEach(s => {
+            if (s.active) {
+                const row = mk('div', 'roster-row');
+                row.appendChild(mk('span', 'roster-slot', JOKER_SLOT_LABELS[s.k]));
+                const nm = mk('span', 'roster-name', s.name); nm.title = s.name; row.appendChild(nm);
+                const rm = mk('button', 'roster-remove'); rm.type = 'button'; rm.title = 'Jokerlikten çıkar'; rm.innerHTML = '<i class="fas fa-times"></i>';
+                rm.addEventListener('click', () => removeJokerRosterPerson(s.k));
+                row.appendChild(rm);
+                rightEl.appendChild(row);
+            } else {
+                const row = mk('div', 'roster-row is-empty');
+                row.appendChild(mk('span', 'roster-slot', JOKER_SLOT_LABELS[s.k]));
+                row.appendChild(mk('span', 'roster-name', 'boş'));
+                rightEl.appendChild(row);
+            }
+        });
+        const activeSlots = slots.filter(s => s.active);
+        const rc = document.getElementById('jokerRosterCount'); if (rc) rc.textContent = String(activeSlots.length);
+
+        // Joker ekleme kutuları: aynı kişi iki joker alanında olamaz; "Tek çalışma alanı" açıksa başka görevi olanlar listelenmez.
+        const nameSel = document.getElementById('jokerRosterAddSelect');
+        const slotSel = document.getElementById('jokerRosterSlotSelect');
+        if (nameSel && slotSel) {
+            const used = new Set(activeSlots.map(s => s.name));
+            const taken = new Set();
+            if (singleWorkplaceAssignmentRule) collectSingleAssignmentRecords(getSingleAssignmentControls()).forEach(r => taken.add(r.name));
+            const available = docs.map(d => d.name).filter(n => n && !used.has(n) && !taken.has(n));
+            const prevName = nameSel.value;
+            const prevSlot = slotSel.value;
+            nameSel.innerHTML = '';
+            const ph = document.createElement('option'); ph.value = ''; ph.textContent = '+ Joker asistan seçin...'; nameSel.appendChild(ph);
+            available.forEach(n => { const o = document.createElement('option'); o.value = n; o.textContent = n; nameSel.appendChild(o); });
+            if (prevName && available.includes(prevName)) nameSel.value = prevName;
+            const emptySlots = slots.filter(s => !s.active);
+            slotSel.innerHTML = '';
+            emptySlots.forEach(s => { const o = document.createElement('option'); o.value = String(s.k); o.textContent = JOKER_SLOT_LABELS[s.k]; slotSel.appendChild(o); });
+            if (emptySlots.length === 0) { const o = document.createElement('option'); o.value = ''; o.textContent = 'Tüm alanlar dolu'; slotSel.appendChild(o); }
+            else if (prevSlot && emptySlots.some(s => String(s.k) === prevSlot)) slotSel.value = prevSlot;
+            slotSel.disabled = emptySlots.length === 0;
+            nameSel.disabled = emptySlots.length === 0;
+        }
+        const note = document.getElementById('jokerRosterRuleNote');
+        if (note) note.style.display = singleWorkplaceAssignmentRule ? 'block' : 'none';
     }
 
     function syncAllDropdowns() {
@@ -3485,6 +3730,14 @@ function getFridayCount(doc) {
 }
     function validateQuotaPlan() {
         const errors = [];
+
+        // Ön kontrol: aralık kuralı (GAP) nedeniyle bir kişiye ayda yazılabilecek en fazla nöbet sayısı
+        const __maxPerPerson = Math.ceil(dates.length / (GAP + 1));
+        docs.forEach(d => {
+            let tot = 0;
+            [...activePlaces, ...(refakatciMode ? ['Refakatçi'] : [])].forEach(p => { const t = d.targets[p] || {w:0, e:0}; if (d.allowed.includes(p)) tot += (t.w || 0) + (t.e || 0); });
+            if (tot > __maxPerPerson) errors.push(`<strong>${d.name}</strong> için toplam ${tot} nöbet verilmiş; ${dates.length} günde, nöbetler arasında en az ${GAP} gün boşlukla en fazla ${__maxPerPerson} nöbet yazılabilir.`);
+        });
 
         activePlaces.forEach(p => {
             let totalW = 0, totalE = 0;
@@ -3554,6 +3807,7 @@ function getFridayCount(doc) {
     }
 
     async function startSolve() {
+        const __prevSchedule = schedule; const __restore = () => { if (Array.isArray(__prevSchedule) && __prevSchedule.length) schedule = __prevSchedule; };
         document.getElementById('loadingOverlay').style.display = 'flex'; document.getElementById('cancelSolveBtn').style.display = 'none'; isSolvingCancelled = false; cancelTimer = setTimeout(() => { document.getElementById('cancelSolveBtn').style.display = 'flex'; }, 3000);
         docs.forEach(d => { d.cur = {}; [...activePlaces, "Refakatçi"].forEach(p => d.cur[p]={w:0, e:0}); }); 
         schedule = []; for(let i=0; i<dates.length; i++) { schedule[i] = { date: dates[i], assign: {} }; [...activePlaces, "Refakatçi"].forEach(p => schedule[i].assign[p] = null); }
@@ -3561,7 +3815,7 @@ function getFridayCount(doc) {
 
         const quotaCheck = validateQuotaPlan();
         if(quotaCheck.error) {
-            clearTimeout(cancelTimer);
+            __restore(); clearTimeout(cancelTimer);
             document.getElementById('alertBox').innerHTML = `⚠️ <strong>HATA:</strong> ${quotaCheck.msg}`;
             document.getElementById('alertBox').style.display='block';
             document.getElementById('loadingOverlay').style.display = 'none';
@@ -3569,17 +3823,28 @@ function getFridayCount(doc) {
             return;
         }
 
-        const conflict = checkGlobalConflicts(); if(conflict.error) { clearTimeout(cancelTimer); document.getElementById('alertBox').innerHTML = conflict.msg; document.getElementById('alertBox').style.display='block'; document.getElementById('loadingOverlay').style.display = 'none'; nav(5); return; }
+        const conflict = checkGlobalConflicts(); if(conflict.error) { __restore(); clearTimeout(cancelTimer); document.getElementById('alertBox').innerHTML = conflict.msg; document.getElementById('alertBox').style.display='block'; document.getElementById('loadingOverlay').style.display = 'none'; nav(5); return; }
         try {
-            assignWantedShifts();
-            for(let p of activePlaces) {
-                if(!(await solveBatchAsync(p, true))) throw `${p} - Hafta Sonu listesi oluşturulamadı.`; 
-                if(!(await solveBatchAsync(p, false))) throw `${p} - Hafta İçi listesi oluşturulamadı.`; 
+            const __t0 = performance.now(); let __lastFail = ''; let __ok = false;
+            for(let __try = 0; __try < 300 && !__ok; __try++) {
+                if(__try > 0 && performance.now() - __t0 > 8000) break;
+                docs.forEach(d => { d.cur = {}; [...activePlaces, "Refakatçi"].forEach(p => d.cur[p]={w:0, e:0}); });
+                schedule = []; for(let i=0; i<dates.length; i++) { schedule[i] = { date: dates[i], assign: {} }; [...activePlaces, "Refakatçi"].forEach(p => schedule[i].assign[p] = null); }
+                assignWantedShifts();
+                let __fail = '';
+                const __placeOrder = __try === 0 ? activePlaces.slice() : activePlaces.slice().sort(() => Math.random() - 0.5);
+                for(let p of __placeOrder) {
+                    const __weFirst = __try === 0 ? true : Math.random() < 0.5;
+                    if(!(await solveBatchAsync(p, __weFirst))) { __fail = `${p} - ${__weFirst ? 'Hafta Sonu' : 'Hafta İçi'} listesi oluşturulamadı.`; break; }
+                    if(!(await solveBatchAsync(p, !__weFirst))) { __fail = `${p} - ${!__weFirst ? 'Hafta Sonu' : 'Hafta İçi'} listesi oluşturulamadı.`; break; }
+                }
+                if(!__fail && refakatciMode) {
+                    if(!(await solveBatchAsync('Refakatçi', true))) __fail = "Refakatçi - Hafta Sonu kotaları oluşturulamadı.";
+                    else if(!(await solveBatchAsync('Refakatçi', false))) __fail = "Refakatçi - Hafta İçi kotaları oluşturulamadı.";
+                }
+                if(!__fail) __ok = true; else __lastFail = __fail;
             }
-            if(refakatciMode) {
-                if(!(await solveBatchAsync('Refakatçi', true))) throw "Refakatçi - Hafta Sonu kotaları oluşturulamadı.";
-                if(!(await solveBatchAsync('Refakatçi', false))) throw "Refakatçi - Hafta İçi kotaları oluşturulamadı.";
-            }
+            if(!__ok) throw __lastFail;
 
             const finalCheck = validateSolvedSchedule();
             if(finalCheck.error) throw finalCheck.msg;
@@ -3603,7 +3868,7 @@ function getFridayCount(doc) {
             renderHistoryButtons(); 
             renderRes(); 
             nav(5);
-        } catch (e) { clearTimeouts(); document.getElementById('loadingOverlay').style.display = 'none'; if(e !== 'cancelled') { document.getElementById('alertBox').innerHTML = `⚠️ <strong>HATA:</strong> ${e}`; document.getElementById('alertBox').style.display='block'; nav(5); } }
+        } catch (e) { __restore(); clearTimeouts(); document.getElementById('loadingOverlay').style.display = 'none'; if(e !== 'cancelled') { document.getElementById('alertBox').innerHTML = `⚠️ <strong>HATA:</strong> ${e}`; document.getElementById('alertBox').style.display='block'; nav(5); } }
     }
     function clearTimeouts() { if(cancelTimer) clearTimeout(cancelTimer); }
     function cancelSolving() { isSolvingCancelled = true; }
@@ -3674,12 +3939,18 @@ function getFridayCount(doc) {
         });
 
         if(unit === 'Refakatçi') return await backtrackRefakatci(slots, 0, isWeekend);
-        return await backtrackSlots(slots, 0, unit, isWeekend);
+        for(let attempt = 0; attempt < 6; attempt++) {
+            __nodes = 0; __aborted = false;
+            if(attempt > 0) slots.sort(() => Math.random() - 0.5);
+            if(await backtrackSlots(slots, 0, unit, isWeekend)) return true;
+            if(!__aborted) return false;
+        }
+        return false;
     }
 
     async function backtrackRefakatci(slots, index, isWeekend) {
         if(isSolvingCancelled) throw 'cancelled';
-        if(index % 5 === 0) await new Promise(r => setTimeout(r, 0));
+        await __maybeYield();
 
         const remainingNeed = docs.reduce((sum, d) => {
             if(!d.allowed.includes('Refakatçi')) return sum;
@@ -3721,10 +3992,13 @@ function getFridayCount(doc) {
         return await backtrackRefakatci(slots, index + 1, isWeekend);
     }
 
+    let __nodes = 0, __aborted = false, __NODE_LIMIT = 3000, __lastYield = performance.now();
+    async function __maybeYield() { const t = performance.now(); if (t - __lastYield > 30) { await new Promise(r => setTimeout(r, 0)); __lastYield = performance.now(); } }
     async function backtrackSlots(slots, index, unit, isWeekend) { 
         if(isSolvingCancelled) throw 'cancelled'; 
+        if(__aborted) return false; if(++__nodes > __NODE_LIMIT) { __aborted = true; return false; }
         if(index >= slots.length) return true; 
-        if(index % 5 === 0) await new Promise(r => setTimeout(r, 0)); 
+        await __maybeYield(); 
         const dayIdx = slots[index]; const date = dates[dayIdx]; 
         
         let candidates = docs.filter(d => { 
@@ -3741,27 +4015,21 @@ function getFridayCount(doc) {
     // Kural 1: 2 veya daha fazla HS nöbeti olanlar cuma alamaz
     if (fridayRuleEnabled) {
         const f1 = candidates.filter(d => getWeekendDutyCount(d) < 2);
-        if (f1.length === 0) {
-            throw `<strong>${dates[dayIdx].full}</strong> (Cuma) tarihinde <strong>${unit}</strong> birimine uygun nöbetçi bulunamadı. Kural (2+ HS'ye Cuma Yok) aktif ve tüm personelin 2+ hafta sonu nöbeti bulunuyor.`;
-        }
+        if (f1.length === 0) return false;
         candidates = f1;
     }
 
     // Kural 2: Herhangi bir HS nöbeti olan kişiye hiç Cuma yazılmaz
     if (fridayMaxOneRule) {
         const f2 = candidates.filter(d => getWeekendDutyCount(d) < 1);
-        if (f2.length === 0) {
-            throw `<strong>${dates[dayIdx].full}</strong> (Cuma) tarihinde <strong>${unit}</strong> birimine uygun nöbetçi bulunamadı. Kural (HS Olana Cuma Yok) aktif ve uygun tüm personelin en az 1 hafta sonu nöbeti bulunuyor.`;
-        }
+        if (f2.length === 0) return false;
         candidates = f2;
     }
 
     // Kural 3: Bir kişiye toplamda 1'den fazla cuma yazılmaz
     if (fridayAbsoluteRule) {
         const f3 = candidates.filter(d => getFridayCount(d) < 1);
-        if (f3.length === 0) {
-            throw `<strong>${dates[dayIdx].full}</strong> (Cuma) tarihinde <strong>${unit}</strong> birimine uygun nöbetçi bulunamadı. Kural (Herkese Max 1 Cuma) aktif ve tüm personel zaten 1 cuma nöbeti aldı.`;
-        }
+        if (f3.length === 0) return false;
         candidates = f3;
     }
 
@@ -3772,9 +4040,7 @@ function getFridayCount(doc) {
             if (!hasTwoOrMoreWeekend) return true; 
             return getFridayCount(d) < 1;          
         });
-        if (f4.length === 0) {
-            throw `<strong>${dates[dayIdx].full}</strong> (Cuma) tarihinde <strong>${unit}</strong> birimine uygun nöbetçi bulunamadı. Kural (2+ HS'ye Max 1 Cuma) aktif ve şartı sağlayan tüm personel zaten 1 cuma nöbeti aldı.`;
-        }
+        if (f4.length === 0) return false;
         candidates = f4;
     }
 
@@ -3785,9 +4051,7 @@ function getFridayCount(doc) {
             if (!hasOneOrMoreWeekend) return true; 
             return getFridayCount(d) < 1;          
         });
-        if (f5.length === 0) {
-            throw `<strong>${dates[dayIdx].full}</strong> (Cuma) tarihinde <strong>${unit}</strong> birimine uygun nöbetçi bulunamadı. Kural (1+ HS'ye Max 1 Cuma) aktif ve şartı sağlayan tüm personel zaten 1 cuma nöbeti aldı.`;
-        }
+        if (f5.length === 0) return false;
         candidates = f5;
     }
 }
@@ -3813,11 +4077,11 @@ function getFridayCount(doc) {
     
 function checkConstraints(d, dayIdx, unit) {
     // Dinamik Nöbet Yeri Cuma Kısıtlaması (Birime Özel Cuma Kontrolü)
-    const currentDayNum = new Date(dates[dayIdx].str).getDay();
+    const currentDayNum = getLocalDayNumber(dates[dayIdx].str);
     if (currentDayNum === 5 && placeFridayRules[unit]) {
         let fridayCountInThisUnit = 0;
         for (let i = 0; i < dates.length; i++) {
-            const dayNum = new Date(dates[i].str).getDay();
+            const dayNum = getLocalDayNumber(dates[i].str);
             if (dayNum === 5 && schedule[i].assign[unit] && schedule[i].assign[unit].id === d.id) {
                 fridayCountInThisUnit++;
             }
@@ -3831,13 +4095,13 @@ function checkConstraints(d, dayIdx, unit) {
 
 // 2 Hafta Sonu Nöbetinde Gün Farklılığı Kuralı (Cumartesi / Pazar Çakışması Engelleme)
     if (weDifferentDaysRule && dates[dayIdx].isW) {
-        const targetDayNum = new Date(dates[dayIdx].str).getDay(); // 0: Pazar, 6: Cumartesi
+        const targetDayNum = getLocalDayNumber(dates[dayIdx].str); // 0: Pazar, 6: Cumartesi
 
         // Sadece gerçek hafta sonu günleri (Cumartesi veya Pazar) için geçerli, resmi tatiller serbest
         if (targetDayNum === 0 || targetDayNum === 6) {
             for (let i = 0; i < dates.length; i++) {
                 if (i !== dayIdx && dates[i].isW) {
-                    const existingDayNum = new Date(dates[i].str).getDay();
+                    const existingDayNum = getLocalDayNumber(dates[i].str);
 
                     // İkisi de Cumartesi veya ikisi de Pazar ise engelle
                     if (targetDayNum === existingDayNum) {
@@ -4016,8 +4280,8 @@ function renderSpecialUnitsGrid() {
         }
 
         const div = document.createElement('div');
-        div.innerHTML = `<label style="font-size:0.75rem; font-weight:700; color:#475569;">${u}</label>
-            <select id="${safeId}" class="joker-select" data-assignment-type="unit" data-unit="${u}" style="margin-top:4px;" onchange="updateExclusion(); calculateJokerSchedule(); saveData(); renderWorkplaceGrid(); renderSpecialUnitsGrid();"></select>`;
+        div.innerHTML = `<label style="font-size:0.75rem; font-weight:700; color:#475569;">${escHtml(u)}</label>
+            <select id="${safeId}" class="joker-select" data-assignment-type="unit" data-unit="${escHtml(u)}" style="margin-top:4px;" onchange="updateExclusion(); calculateJokerSchedule(); saveData(); renderWorkplaceGrid(); renderSpecialUnitsGrid();"></select>`;
         grid.appendChild(div);
     });
 
@@ -4084,7 +4348,7 @@ function addSpecialUnit() {
         specialUnits.forEach(u => {
             const tag = document.createElement('div');
             tag.className = 'pool-tag';
-            tag.innerHTML = `<span>${u}</span><i class="fas fa-times pool-del-btn" onclick="confirmAction('Sil','${u} birimi sorumluluk listesinden silinsin mi?', () => deleteSpecialUnit('${u}'))"></i>`;
+            tag.innerHTML = `<span>${escHtml(u)}</span><i class="fas fa-times pool-del-btn" onclick="confirmAction('Sil','${jsq(u)} birimi sorumluluk listesinden silinsin mi?', () => deleteSpecialUnit('${jsq(u)}'))"></i>`;
             cont.appendChild(tag);
         });
     }
@@ -4108,12 +4372,12 @@ function deleteSpecialUnit(name) {
 
     function populateJokerDropdowns() { 
         const asisNames = docs.map(d => d.name);
-        const opts = '<option value="">Seçiniz...</option>' + asisNames.map(m => `<option value="${m}">${m}</option>`).join(''); 
+        const opts = '<option value="">Seçiniz...</option>' + asisNames.map(m => `<option value="${escHtml(m)}">${escHtml(m)}</option>`).join(''); 
         
         ['joker1Select', 'joker2Select', 'joker3Select', 'joker4Select', 'joker5Select'].forEach(id => {
             const el = document.getElementById(id);
             if(el) {
-                const prev = el.value || jokerConfig[id.replace('Select', '')];
+                const prev = el.value || jokerConfig['j' + id.replace(/\D/g, '')];   // 'joker1Select' -> jokerConfig.j1
                 el.innerHTML = opts;
                 if(prev && asisNames.includes(prev)) el.value = prev;
             }
@@ -4134,6 +4398,7 @@ function deleteSpecialUnit(name) {
         if(document.getElementById('joker4Toggle')) { document.getElementById('joker4Toggle').checked = jokerConfig.j4Enabled || false; toggleJoker4(); }
         if(document.getElementById('joker5Toggle')) { document.getElementById('joker5Toggle').checked = jokerConfig.j5Enabled || false; toggleJoker5(); }
         updateExclusion();
+        jokerDomReady = true;
     }
     
     function toggleJoker2() { const toggle = document.getElementById('joker2Toggle'); if(!toggle) return; const sel = document.getElementById('joker2Select'); if(sel) sel.classList.toggle('hidden-el', !toggle.checked); updateExclusion(); }
@@ -4422,12 +4687,12 @@ function renderServisCountWarnings() {
             // ve takviye eklenmiş günler listelenir.
             if (baseCount <= 2 || extraCount > 0) {
                 const tags = validSelected.map(name =>
-                    `<span class="wp-tag wp-tag-manual">${name} <i class="fas fa-times" style="cursor:pointer;color:#ef4444;margin-left:5px;" onclick="removeExtraServisPerson('${dateStr}','${name}')"></i></span>`
+                    `<span class="wp-tag wp-tag-manual">${escHtml(name)} <i class="fas fa-times" style="cursor:pointer;color:#ef4444;margin-left:5px;" onclick="removeExtraServisPerson('${dateStr}','${jsq(name)}')"></i></span>`
                 ).join('');
 
                 const eligibleDocs = getEligibleExtraServisPeople(i, validSelected);
                 const opts = '<option value="">+ Kişi Ekle...</option>' +
-                    eligibleDocs.map(d => `<option value="${d.name}">${d.name}</option>`).join('');
+                    eligibleDocs.map(d => `<option value="${escHtml(d.name)}">${escHtml(d.name)}</option>`).join('');
 
                 const isCritical = totalCount <= 2;
                 const statusBg = isCritical ? '#fef2f2' : '#f0fdf4';
@@ -5000,7 +5265,7 @@ function guncelleServisAktifAsistanListesi() {
                     <div class="servis-aktif-name">${name}</div>
                     <span class="servis-aktif-place">${placeLabel}</span>
                 </div>
-                <input class="servis-aktif-switch" type="checkbox" id="${safeId}" data-name="${name}" ${isChecked ? "checked" : ""} onchange="toggleServisAktifAsistan('${name}', this.checked)">
+                <input class="servis-aktif-switch" type="checkbox" id="${safeId}" data-name="${escHtml(name)}" ${isChecked ? "checked" : ""} onchange="toggleServisAktifAsistan('${jsq(name)}', this.checked)">
             `;
             container.appendChild(item);
         });
@@ -5060,6 +5325,7 @@ function toggleServisAktifAsistan(name, isChecked) {
 
     if (typeof renderServisCountWarnings === 'function') renderServisCountWarnings();
     if (typeof renderJokerTable === 'function') renderJokerTable();
+    if (typeof renderJokerServisLists === 'function') renderJokerServisLists();
     if (document.getElementById("p6") && document.getElementById("p6").classList.contains("active")) {
         if (typeof renderFinalPage === 'function') renderFinalPage();
     }
@@ -5079,6 +5345,7 @@ function kaydetServisAktif() {
 
     if (typeof renderServisCountWarnings === 'function') renderServisCountWarnings();
     if (typeof renderJokerTable === 'function') renderJokerTable();
+    if (typeof renderJokerServisLists === 'function') renderJokerServisLists();
     if (document.getElementById("p6") && document.getElementById("p6").classList.contains("active")) {
         if (typeof renderFinalPage === 'function') renderFinalPage();
     }
@@ -5124,7 +5391,10 @@ function hesaplaVeGuncelleServisAktifSayilari() {
             if(el) owners[u] = el.value;
         });
 
-        const hierarchy = ["Pol-1", "Pol-2", "Pol-3", "Konsültan", "Yoğun Bakım", "MS Merkezi", "Servis Kıdemlisi"];
+        const __builtInHierarchy = ["Pol-1", "Pol-2", "Pol-3", "Konsültan", "Yoğun Bakım", "MS Merkezi", "Servis Kıdemlisi"];
+        // Sonradan eklenen özel birimler yerleşik birimlerden SONRA, eklenme sırasıyla sıralanır (en düşük öncelik).
+        // İzin Jokeri en düşük öncelikli ihtiyaçtan başladığı için bu birimleri de kapatabilir.
+        const hierarchy = __builtInHierarchy.concat((Array.isArray(specialUnits) ? specialUnits : []).filter(u => u !== "Yoğun Bakım 1" && u !== "Yoğun Bakım 2" && !__builtInHierarchy.includes(u)));
         const isValidJokerName = name => !!name && docs.some(person => person.name === name);
         if(isForced) {
             jokerSchedule = []; jokerWarnings = [];
@@ -5194,7 +5464,6 @@ function hesaplaVeGuncelleServisAktifSayilari() {
         const prevVals = jokerConfig.prevDuty || { d1:{}, d2:{} };
         jokerSchedule.forEach((row, i) => {
             if(row.isW) return;
-            if(i < dates.length - 1 && dates[i + 1].isW) return;
             let resting = [];
             if(i > 0) { [...activePlaces, "Refakatçi"].forEach(p => { if(schedule[i-1].assign[p]) resting.push(schedule[i-1].assign[p].name); }); } else { for(let p in prevVals.d1) resting.push(prevVals.d1[p]); }
             for(let unit in owners) {
@@ -5232,7 +5501,7 @@ displayJokerWarnings(jokerWarnings);
         
         let dynamicOpts = '';
         specialUnits.forEach(u => {
-            if(!u.includes("Yoğun Bakım")) dynamicOpts += `<option value="${u}">${u}</option>`;
+            if(!u.includes("Yoğun Bakım")) dynamicOpts += `<option value="${escHtml(u)}">${escHtml(u)}</option>`;
         });
         
         const opts = `<option value="">&nbsp;</option>${dynamicOpts}<option value="Yoğun Bakım">Yoğun Bakım</option><option value="Servis">Servis</option><option value="İzinli">İzinli</option><option value="Nöbet Ertesi">Nöbet Ertesi</option>`;
@@ -5304,25 +5573,16 @@ displayJokerWarnings(jokerWarnings);
     }
 
     function moveSharedTaskPanels(targetStep) {
-        const onTasksPage = targetStep === 3;
-        const specialCard = document.getElementById('sharedSpecialUnitsCard');
-        const workplaceCard = document.getElementById('sharedWorkplaceCard');
+        // Birim sorumlusu / Joker / Görev yerleri kartları artık yalnızca "Çalışma Yerleri" sayfasında durur;
+        // sadece "Serviste Aktif Çalışan Asistanlar" düğmesi iki sayfa arasında taşınır.
         const serviceButton = document.getElementById('sharedServisAktifButton');
-
-        if (onTasksPage) {
-            const specialTarget = document.getElementById('taskSpecialUnitsTarget');
-            const workplaceTarget = document.getElementById('taskWorkplaceTarget');
+        if (!serviceButton) return;
+        if (targetStep === 3) {
             const serviceTarget = document.getElementById('taskServisAktifButtonTarget');
-            if (specialCard && specialTarget) specialTarget.appendChild(specialCard);
-            if (workplaceCard && workplaceTarget) workplaceTarget.appendChild(workplaceCard);
-            if (serviceButton && serviceTarget) serviceTarget.appendChild(serviceButton);
+            if (serviceTarget) serviceTarget.appendChild(serviceButton);
         } else {
-            const specialAnchor = document.getElementById('sharedSpecialUnitsHomeAnchor');
-            const workplaceAnchor = document.getElementById('sharedWorkplaceHomeAnchor');
             const serviceAnchor = document.getElementById('sharedServisAktifButtonHomeAnchor');
-            if (specialCard && specialAnchor && specialAnchor.parentNode) specialAnchor.parentNode.insertBefore(specialCard, specialAnchor.nextSibling);
-            if (workplaceCard && workplaceAnchor && workplaceAnchor.parentNode) workplaceAnchor.parentNode.insertBefore(workplaceCard, workplaceAnchor.nextSibling);
-            if (serviceButton && serviceAnchor && serviceAnchor.parentNode) serviceAnchor.parentNode.insertBefore(serviceButton, serviceAnchor.nextSibling);
+            if (serviceAnchor && serviceAnchor.parentNode) serviceAnchor.parentNode.insertBefore(serviceButton, serviceAnchor.nextSibling);
         }
     }
 
@@ -5524,6 +5784,7 @@ function generateReadOnlyJokerTable() {
     function getSafeFilename(ext) { const d = new Date(document.getElementById('startDate').value); return `nobet_${d.getMonth()+1}_${d.getFullYear()}.${ext}`; }
     
     
+function __xmlEsc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 function exportWord() {
         const allP = [...activePlaces]; if(refakatciMode) allP.push("Refakatçi");
         const sVal = document.getElementById('startDate').value;
@@ -5625,7 +5886,7 @@ function exportWord() {
         headerRow += `<w:tc><w:tcPr><w:tcW w:w="${colW}" w:type="dxa"/>${tcBorders}<w:vAlign w:val="center"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/><w:rPr>${cg11Bold}</w:rPr></w:pPr><w:r><w:rPr>${cg11Bold}</w:rPr><w:t>NÖBET TARİHİ</w:t></w:r></w:p></w:tc>`;
         allP.forEach((p) => {
             const label = p === 'Refakatçi' ? 'REFAKAT NÖBETİ' : `NÖBETÇİ ASİSTANLAR (${p.toLocaleUpperCase('tr-TR')})`;
-            headerRow += `<w:tc><w:tcPr><w:tcW w:w="${colW}" w:type="dxa"/>${tcBorders}<w:vAlign w:val="center"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/><w:rPr>${cg11Bold}</w:rPr></w:pPr><w:r><w:rPr>${cg11Bold}</w:rPr><w:t>${label}</w:t></w:r></w:p></w:tc>`;
+            headerRow += `<w:tc><w:tcPr><w:tcW w:w="${colW}" w:type="dxa"/>${tcBorders}<w:vAlign w:val="center"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/><w:rPr>${cg11Bold}</w:rPr></w:pPr><w:r><w:rPr>${cg11Bold}</w:rPr><w:t>${__xmlEsc(label)}</w:t></w:r></w:p></w:tc>`;
         });
         headerRow += `<w:tc><w:tcPr><w:tcW w:w="${colW}" w:type="dxa"/>${tcBorders}<w:vAlign w:val="center"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/><w:rPr>${cg11Bold}</w:rPr></w:pPr><w:r><w:rPr>${cg11Bold}</w:rPr><w:t>İCAPÇI ÖĞRETİM ÜYESİ</w:t></w:r></w:p></w:tc></w:tr>`;
 
@@ -5641,7 +5902,7 @@ function exportWord() {
             // Asistanlar
             allP.forEach((p) => {
                 const name = r.assign[p] ? r.assign[p].name.toLocaleUpperCase('tr-TR') : '';
-                dataRows += `<w:tc><w:tcPr><w:tcW w:w="${colW}" w:type="dxa"/>${tcBorders}${bgShd}<w:vAlign w:val="center"/></w:tcPr><w:p><w:pPr><w:spacing w:after="0" w:line="240" w:lineRule="auto"/><w:jc w:val="left"/><w:rPr>${cali10Normal}</w:rPr></w:pPr><w:r><w:rPr>${cali10Normal}</w:rPr><w:t>${name}</w:t></w:r></w:p></w:tc>`;
+                dataRows += `<w:tc><w:tcPr><w:tcW w:w="${colW}" w:type="dxa"/>${tcBorders}${bgShd}<w:vAlign w:val="center"/></w:tcPr><w:p><w:pPr><w:spacing w:after="0" w:line="240" w:lineRule="auto"/><w:jc w:val="left"/><w:rPr>${cali10Normal}</w:rPr></w:pPr><w:r><w:rPr>${cali10Normal}</w:rPr><w:t>${__xmlEsc(name)}</w:t></w:r></w:p></w:tc>`;
             });
             
             // İcapçı
@@ -5671,7 +5932,7 @@ dataRows += `
         </w:pPr>
         <w:r>
             <w:rPr>${cali10Normal}</w:rPr>
-            <w:t>${icapciName}</w:t>
+            <w:t>${__xmlEsc(icapciName)}</w:t>
         </w:r>
     </w:p>
 </w:tc>
@@ -6784,7 +7045,7 @@ statusBadge = `<span class="badge" style="background:${_loss ? '#d97706' : '#16a
 
             const displayName = doc && doc.name ? doc.name : "(BOŞ)";
 
-            html += `<td style="${cellStyle}" onclick="handleShiftClick(${dayIdx}, '${p}')" title="${banaBirakMode ? 'Aynı hücreye tekrar tıklayarak manuel isim atayabilir veya boş bırakabilirsiniz.' : ''}">
+            html += `<td style="${cellStyle}" onclick="handleShiftClick(${dayIdx}, '${jsq(p)}')" title="${banaBirakMode ? 'Aynı hücreye tekrar tıklayarak manuel isim atayabilir veya boş bırakabilirsiniz.' : ''}">
                 <div style="display:flex; align-items:center; justify-content:space-between; width:100%; overflow:hidden;">
                     <span style="overflow:hidden; text-overflow:ellipsis; ${doc ? 'font-weight:600;' : 'font-weight:normal; opacity:0.7;'}">${displayName}</span>
                     ${statusBadge}
@@ -6940,17 +7201,26 @@ function checkSwapEligibilityCore(src, tgt) {
             if (fridayWeMaxOneRule && we >= 2 && fr >= 1) return false;
             if (fridayWe1MaxOneRule && we >= 1 && fr >= 1) return false;
         }
-        if (unit && new Date(dates[targetDayIdx].str).getDay() === 5 && placeFridayRules[unit]) {
+        if (dates[targetDayIdx].isW) {
+            // Hedef gün hafta sonuysa kişinin HS sayısı 1 artar; mevcut Cuma nöbetleriyle Cuma kuralları çelişmemeli.
+            const we2 = cnt(i => dates[i].isW) + 1;
+            const fr0 = cnt(i => isUserFriday(i));
+            if (fridayRuleEnabled && we2 >= 2 && fr0 >= 1) return false;
+            if (fridayMaxOneRule && we2 >= 1 && fr0 >= 1) return false;
+            if (fridayWeMaxOneRule && we2 >= 2 && fr0 >= 2) return false;
+            if (fridayWe1MaxOneRule && we2 >= 1 && fr0 >= 2) return false;
+        }
+        if (unit && getLocalDayNumber(dates[targetDayIdx].str) === 5 && placeFridayRules[unit]) {
             for (let i = 0; i < dates.length; i++) {
-                if (i !== ignoreDayIdx && new Date(dates[i].str).getDay() === 5 && hasDuty(i, unit)) return false;
+                if (i !== ignoreDayIdx && getLocalDayNumber(dates[i].str) === 5 && hasDuty(i, unit)) return false;
             }
         }
         if (weDifferentDaysRule && dates[targetDayIdx].isW) {
-            const tn = new Date(dates[targetDayIdx].str).getDay();
+            const tn = getLocalDayNumber(dates[targetDayIdx].str);
             if (tn === 0 || tn === 6) {
                 for (let i = 0; i < dates.length; i++) {
                     if (i === ignoreDayIdx || i === targetDayIdx || !dates[i].isW) continue;
-                    if (new Date(dates[i].str).getDay() === tn && anyDuty(i)) return false;
+                    if (getLocalDayNumber(dates[i].str) === tn && anyDuty(i)) return false;
                 }
             }
         }
@@ -7208,16 +7478,16 @@ function saveSwapChanges() {
     function openDirectAssignModal(dayIdx, place) {
         const d = dates[dayIdx];
         const cur = tempSwapSchedule[dayIdx].assign ? tempSwapSchedule[dayIdx].assign[place] : null;
-        const opts = docs.map(x => `<option value="${x.name}">`).join('');
+        const opts = docs.map(x => `<option value="${escHtml(x.name)}">`).join('');
         showCustomModal("Manuel Nöbet Atama", `<div style="padding:10px;">
             <p style="margin-bottom:10px; font-weight:600; font-size:0.9rem;">${d.full} (${d.wd}) - ${place}</p>
-            <input id="directAssignInput" list="directAssignList" value="${cur && cur.name ? cur.name : ''}" placeholder="İsim seçin veya yazın" style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:6px; margin-bottom:15px;">
+            <input id="directAssignInput" list="directAssignList" value="${escHtml(cur && cur.name ? cur.name : '')}" placeholder="İsim seçin veya yazın" style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:6px; margin-bottom:15px;">
             <datalist id="directAssignList">${opts}</datalist>
             <div style="display:flex; justify-content:space-between; gap:8px;">
-                <button class="btn btn-danger btn-sm" onclick="confirmDirectAssign(${dayIdx}, '${place}', true)">Boş Bırak</button>
+                <button class="btn btn-danger btn-sm" onclick="confirmDirectAssign(${dayIdx}, '${jsq(place)}', true)">Boş Bırak</button>
                 <div style="display:flex; gap:8px;">
                     <button class="btn btn-ghost btn-sm" onclick="closeCustomModal()">İptal</button>
-                    <button class="btn btn-primary btn-sm" onclick="confirmDirectAssign(${dayIdx}, '${place}')">Kaydet</button>
+                    <button class="btn btn-primary btn-sm" onclick="confirmDirectAssign(${dayIdx}, '${jsq(place)}')">Kaydet</button>
                 </div>
             </div></div>`);
     }
