@@ -1154,7 +1154,7 @@ div[id*="becayis"] .modal-content {
     <div class="content active" id="p1">
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:40px;">
             <div><label>Başlangıç</label><input type="date" id="startDate" onchange="onStartChange()" onclick="this.showPicker()"></div>
-            <div><label>Bitiş</label><input type="date" id="endDate" onchange="init()" onclick="this.showPicker()"></div>
+            <div><label>Bitiş</label><input type="date" id="endDate" onchange="onEndChange()" onclick="this.showPicker()"></div>
         </div>
         
         <div style="margin-top:30px; display:flex; justify-content:space-between; align-items:center;">
@@ -1478,13 +1478,13 @@ div[id*="becayis"] .modal-content {
         </div>
     </div>
 </div>
-    <input type="file" id="docxImportInput" accept=".docx" style="display:none;" onchange="handleDocxFileUpload(event)">
+    <input type="file" id="docxImportInput" accept=".doc,.docx" style="display:none;" onchange="handleDocxFileUpload(event)">
 <div id="modalSwap" class="modal-overlay">
     <div class="modal-content" id="swapModalContent" style="max-width:1150px; width:88%; max-height:82vh; display:flex; flex-direction:column; padding:18px 24px; position:relative;" ondragenter="handleSwapDragEnter(event)" ondragover="handleSwapDragOver(event)" ondragleave="handleSwapDragLeave(event)" ondrop="handleSwapFileDrop(event)">
         
         <div id="swapDropZoneOverlay" style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(59,130,246,0.94); z-index:100; border-radius:16px; flex-direction:column; align-items:center; justify-content:center; color:white; pointer-events:none;">
             <i class="fas fa-file-word" style="font-size:4.5rem; margin-bottom:15px;"></i>
-            <div style="font-size:1.5rem; font-weight:700;">Word (.docx) Dosyasını Buraya Bırakın</div>
+            <div style="font-size:1.5rem; font-weight:700;">Word (.doc / .docx) Dosyasını Buraya Bırakın</div>
             <div style="font-size:0.95rem; opacity:0.9; margin-top:6px;">Nöbet günleri ve asistan eşleşmeleri otomatik algılanacaktır.</div>
         </div>
 
@@ -1500,7 +1500,7 @@ div[id*="becayis"] .modal-content {
         
         <div style="background:#f8fafc; padding:8px 14px; border-radius:6px; border:1px solid #e2e8f0; margin-bottom:8px;">
             <div style="font-size:0.82rem; color:#475569; font-weight:500;">
-                <i class="fas fa-info-circle" style="color:#3b82f6;"></i> Takas yapmak istediğiniz kişinin nöbetine tıklayın veya bilgisayarınızdan `.docx` listesi sürükleyip bırakın.
+                <i class="fas fa-info-circle" style="color:#3b82f6;"></i> Takas yapmak istediğiniz kişinin nöbetine tıklayın veya bilgisayarınızdan `.doc` / `.docx` listesi sürükleyip bırakın.
             </div>
             <div id="swapStatusInfo" style="font-size:0.85rem; font-weight:700; color:#3b82f6; margin-top:3px;">Lütfen takas yapmak istediğiniz ilk nöbeti seçin.</div>
         </div>
@@ -1883,38 +1883,6 @@ div[id*="becayis"] .modal-content {
 
 <script>
 
-// Modern Ekranı Temizle Onay Penceresini Açar
-function openModernClearConfirmModal() {
-    const modal = document.getElementById('modernClearConfirmModal');
-    if (modal) {
-        modal.style.display = 'flex';
-        modal.classList.add('show');
-    }
-}
-
-// Modal Kapatma Fonksiyonu
-function closeModernClearConfirmModal() {
-    const modal = document.getElementById('modernClearConfirmModal');
-    if (modal) {
-        modal.style.display = 'none';
-        modal.classList.remove('show');
-    }
-}
-
-// Onay Verildiğinde Ekranı ve Seçimleri Sıfırlar
-function clearBecayisScreenConfirmed() {
-    closeModernClearConfirmModal();
-    if (window.becayisState) {
-        window.becayisState.selectedSlot1 = null;
-        window.becayisState.selectedSlot2 = null;
-        window.becayisState.history = [];
-        window.becayisState.currentSchedule = null;
-    }
-    const container = document.getElementById('becayisBoardContainer') || document.getElementById('becayisTableBody');
-    if (container) {
-        container.innerHTML = '<div style="padding:20px; text-align:center; color:#666;">Becayiş ekranı temizlendi. Yeni dosya yükleyebilir veya mevcut listeden aktarabilirsiniz.</div>';
-    }
-}
 const STORAGE_KEY = 'nobetData';
 (function () { try { if (!localStorage.getItem(STORAGE_KEY)) { const o = localStorage.getItem('nobetData_v1_2_3'); if (o) localStorage.setItem(STORAGE_KEY, o); } } catch (e) {} })();
 
@@ -2190,6 +2158,7 @@ let weDifferentDaysRule = false;
     
 // Nöbet Yeri Cuma Kısıtlamaları Nesnesi
 let placeFridayRules = {};
+let lastDutyMemory = {};   // Her listenin son iki gününün nöbetçileri (tarih -> birim -> isim); sonraki ayın "önceki dönem" kaydı için
 
 // Dinamik Modal Elemanlarını Çizen Fonksiyon
 function renderDynamicPlaceFridayRules() {
@@ -2291,6 +2260,7 @@ let extraServisAssignments = {}; // { "2026-07-01": ["Ahmet Yılmaz","Ayşe Kaya
     };
 
     function saveData() {
+        updateLastDutyMemory();
         const activeContent = document.querySelector('.content.active');
         const activePage = Number(window.__currentNavigationStep || (activeContent ? (parseInt(activeContent.id.replace('p', ''), 10) || 1) : 1));
         const clone = value => JSON.parse(JSON.stringify(value === undefined ? null : value));
@@ -2298,6 +2268,7 @@ let extraServisAssignments = {}; // { "2026-07-01": ["Ahmet Yılmaz","Ayşe Kaya
         const data = {
             savedAt: Date.now(),
             navigationVersion: 3,
+            lastDutyMemory: clone(lastDutyMemory || {}),
             activePage: activePage,
             sDate: document.getElementById('startDate').value,
             eDate: document.getElementById('endDate').value,
@@ -2382,7 +2353,9 @@ let extraServisAssignments = {}; // { "2026-07-01": ["Ahmet Yılmaz","Ayşe Kaya
     }
 
     function getCurrentPrevDutyValues() {
-        const res = { d1:{}, d2:{} };
+        // Seçim kutuları henüz çizilmediyse (ör. sayfa yeni açıldığında) bellekteki kayıtlı değerler silinmesin.
+        const base = (typeof jokerConfig !== 'undefined' && jokerConfig && jokerConfig.prevDuty) ? jokerConfig.prevDuty : {};
+        const res = { d1: Object.assign({}, base.d1 || {}), d2: Object.assign({}, base.d2 || {}) };
         const allP = [...activePlaces]; if(refakatciMode) allP.push("Refakatçi");
         allP.forEach(p => {
             const el1 = document.getElementById(`prevD1_${p}`); if(el1) res.d1[p] = el1.value;
@@ -2410,8 +2383,9 @@ let extraServisAssignments = {}; // { "2026-07-01": ["Ahmet Yılmaz","Ayşe Kaya
         holidays = new Set(data.hols || []);
         docs = data.docs || [];
         docs.forEach(d => { if (!d.avail) d.avail = {}; });
-        masterList = data.masterList || DEFAULT_MASTER;
+        masterList = DEFAULT_MASTER;
         constraints = data.constraints || [];
+        lastDutyMemory = (data.lastDutyMemory && typeof data.lastDutyMemory === 'object' && !Array.isArray(data.lastDutyMemory)) ? data.lastDutyMemory : {};
         singleWorkplaceAssignmentRule = data.singleWorkplaceAssignmentRule !== undefined
             ? !!data.singleWorkplaceAssignmentRule
             : true;
@@ -2546,7 +2520,6 @@ let extraServisAssignments = {}; // { "2026-07-01": ["Ahmet Yılmaz","Ayşe Kaya
     function confirmAction(title, msg, callback) { document.getElementById('genConfirmTitle').innerText = title; document.getElementById('genConfirmMsg').innerText = msg; pendingConfirmAction = callback; document.getElementById('generalConfirmModal').style.display = 'flex'; }
     function executeConfirm() { if(pendingConfirmAction) pendingConfirmAction(); closeGenModal(); }
     function closeGenModal() { document.getElementById('generalConfirmModal').style.display = 'none'; pendingConfirmAction = null; }
-    function showModernAlert(title, msg) { document.getElementById('genAlertTitle').innerText = title; document.getElementById('genAlertMsg').innerText = msg; document.getElementById('generalAlertModal').style.display = 'flex'; }
     function closeAlertModal() { document.getElementById('generalAlertModal').style.display = 'none'; }
     function closeModal(id) { document.getElementById(id).style.display = 'none'; }
     function closeManualModal() { closeModal('modalManual'); }
@@ -2596,10 +2569,13 @@ let extraServisAssignments = {}; // { "2026-07-01": ["Ahmet Yılmaz","Ayşe Kaya
     }
 
     function autoPopulateHolidays() {
-        const sVal = document.getElementById('startDate').value;
-        const eVal = document.getElementById('endDate').value;
-        if (!sVal || !eVal) return;
-        const sp = sVal.split('-').map(Number), ep = eVal.split('-').map(Number);
+        addDefaultHolidaysForRange(document.getElementById('startDate').value, document.getElementById('endDate').value);
+    }
+
+    // --- ORTAK YARDIMCILAR: resmî tatil / izin / önceki dönem hafızası / günlük servis ---
+    function addDefaultHolidaysForRange(startISO, endISO) {
+        if (!startISO || !endISO) return;
+        const sp = startISO.split('-').map(Number), ep = endISO.split('-').map(Number);
         let c = Date.UTC(sp[0], sp[1] - 1, sp[2]);
         const e = Date.UTC(ep[0], ep[1] - 1, ep[2]);
         while (c <= e) {
@@ -2607,6 +2583,90 @@ let extraServisAssignments = {}; // { "2026-07-01": ["Ahmet Yılmaz","Ayşe Kaya
             if (isDefaultTurkeyHoliday(str)) holidays.add(str);
             c += 86400000;
         }
+    }
+
+    // İzin tüm nöbet yerlerini kapsar: kişi o gün herhangi bir birimde izinliyse hiçbir birime yazılamaz.
+    function isPermitDay(doc, dateStr) {
+        const av = doc && doc.avail ? doc.avail[dateStr] : null;
+        return !!(av && Object.values(av).includes('permit'));
+    }
+
+    // İzinli günlerde: sonradan eklenen birimlere / Refakatçi moduna da izin işlenir, istek-istenmeyen işareti kalmaz.
+    function normalizePermitMarks() {
+        const allP = [...activePlaces, "Refakatçi"];
+        let changed = false;
+        docs.forEach(d => {
+            if (!d.avail) return;
+            Object.keys(d.avail).forEach(ds => {
+                const day = d.avail[ds];
+                if (!day || !Object.values(day).includes('permit')) return;
+                const before = JSON.stringify(day);
+                const fixed = {};
+                Object.keys(day).forEach(k => { fixed[k] = 'permit'; });
+                allP.forEach(p => { fixed[p] = 'permit'; });
+                fixed['GENERAL'] = 'permit';
+                if (JSON.stringify(fixed) !== before) { d.avail[ds] = fixed; changed = true; }
+            });
+        });
+        return changed;
+    }
+
+    // Her nöbet listesinin son iki günündeki nöbetçileri tarihine göre hafızaya alır (sonraki ayın "önceki dönem" kaydı için).
+    function updateLastDutyMemory() {
+        try {
+            if (!Array.isArray(schedule) || schedule.length === 0) return;
+            const places = [...activePlaces, "Refakatçi"];
+            schedule.slice(-2).forEach(row => {
+                if (!row || !row.date || !row.date.str || !row.assign) return;
+                const rec = {};
+                places.forEach(p => { const a = row.assign[p]; if (a && a.name) rec[p] = a.name; });
+                lastDutyMemory[row.date.str] = rec;
+            });
+            const keys = Object.keys(lastDutyMemory).sort();
+            while (keys.length > 60) { delete lastDutyMemory[keys.shift()]; }
+        } catch (e) {}
+    }
+
+    // Başlangıçtan önceki 2 günün nöbetçileri hafızada varsa "önceki dönem" alanlarına aktarılır.
+    // Hafızada yoksa mevcut seçimlere dokunulmaz (elle girilebilir).
+    function applyPrevDutyFromMemory() {
+        try {
+            const sVal = document.getElementById('startDate').value;
+            if (!sVal || !lastDutyMemory) return false;
+            const sp = sVal.split('-').map(Number);
+            const iso = off => new Date(Date.UTC(sp[0], sp[1] - 1, sp[2] - off)).toISOString().slice(0, 10);
+            const mem = { d1: lastDutyMemory[iso(1)], d2: lastDutyMemory[iso(2)] };
+            if (!mem.d1 && !mem.d2) return false;
+            if (!jokerConfig.prevDuty) jokerConfig.prevDuty = { d1: {}, d2: {} };
+            const allP = [...activePlaces]; if (refakatciMode) allP.push("Refakatçi");
+            let applied = false;
+            ['d1', 'd2'].forEach(k => {
+                if (!mem[k]) return;
+                if (!jokerConfig.prevDuty[k]) jokerConfig.prevDuty[k] = {};
+                allP.forEach(p => {
+                    const name = mem[k][p] || '';
+                    jokerConfig.prevDuty[k][p] = (name && docs.some(d => d.name === name)) ? name : '';
+                });
+                applied = true;
+            });
+            return applied;
+        } catch (e) { return false; }
+    }
+
+    // Yeni liste / becayiş / içe aktarma sonrası bu dönemin elle düzenlenmiş günlük servis listeleri sıfırlanır.
+    function resetGunlukServisOverridesForCurrentPeriod() {
+        try {
+            if (typeof gunlukServisAktifMap === 'undefined' || typeof gunlukServisEkstraMap === 'undefined') return;
+            (dates || []).forEach(dt => {
+                if (!dt) return;
+                const keys = [dt.str, dt.full];
+                if (typeof formatTarihTR === 'function' && dt.str) keys.push(formatTarihTR(dt.str));
+                keys.forEach(k => { if (k) { delete gunlukServisAktifMap[k]; delete gunlukServisEkstraMap[k]; } });
+            });
+            const storagePrefix = typeof STORAGE_KEY !== 'undefined' ? STORAGE_KEY : 'nobet';
+            localStorage.setItem(storagePrefix + "_gunlukServisAktif", JSON.stringify(gunlukServisAktifMap));
+            localStorage.setItem(storagePrefix + "_gunlukServisEkstra", JSON.stringify(gunlukServisEkstraMap));
+        } catch (e) {}
     }
 
     // --- TARİH & ASİSTAN YÖNETİMİ ---
@@ -2621,8 +2681,27 @@ let extraServisAssignments = {}; // { "2026-07-01": ["Ahmet Yılmaz","Ayşe Kaya
             const d = String(lastDay.getDate()).padStart(2, '0'); 
             document.getElementById('endDate').value = `${y}-${m}-${d}`; 
             autoPopulateHolidays();
+            // Önceki dönemin son iki günü hafızada varsa otomatik aktarılır; yoksa mevcut seçimlere dokunulmaz.
+            if (applyPrevDutyFromMemory()) { try { renderDynamicPrevDuty(); } catch (e) {} }
         } 
         init(); 
+    }
+
+    // Bitiş tarihi elle değiştirilince (uzatılınca) yeni eklenen günlerin resmî tatilleri de eklenir.
+    function onEndChange() {
+        const sVal = document.getElementById('startDate').value;
+        const eVal = document.getElementById('endDate').value;
+        const prevEnd = window.__lastCalcEndISO || '';
+        if (sVal && eVal) {
+            if (prevEnd && prevEnd >= sVal && eVal > prevEnd) {
+                const pp = prevEnd.split('-').map(Number);
+                const nextDay = new Date(Date.UTC(pp[0], pp[1] - 1, pp[2] + 1)).toISOString().slice(0, 10);
+                addDefaultHolidaysForRange(nextDay, eVal);
+            } else if (!prevEnd) {
+                addDefaultHolidaysForRange(sVal, eVal);
+            }
+        }
+        init();
     }
 
     function init(preserveResults = false) {
@@ -2670,6 +2749,7 @@ let extraServisAssignments = {}; // { "2026-07-01": ["Ahmet Yılmaz","Ayşe Kaya
             current.setDate(current.getDate() + 1); 
         } 
         stats = { w, we };
+        window.__lastCalcEndISO = eVal;
         const headerLabel = document.getElementById('headerMonthLabel');
         if (headerLabel) {
             const trMonths = ["Ocak","Şubat","Mart","Nisan","Mayıs","Haziran","Temmuz","Ağustos","Eylül","Ekim","Kasım","Aralık"];
@@ -2745,6 +2825,7 @@ let extraServisAssignments = {}; // { "2026-07-01": ["Ahmet Yılmaz","Ayşe Kaya
     function toggleRefakatciMode() { 
         refakatciMode = document.getElementById('refModeToggle').checked; 
         docs.forEach(d => { if(refakatciMode && !d.targets['Refakatçi']) { d.targets['Refakatçi'] = { w: 0, e: 0 }; } }); 
+        normalizePermitMarks();
         renderTableRows(); 
         updVal(); 
         saveData(); 
@@ -3138,6 +3219,7 @@ function initFridayTooltips() {
         if(!name || activePlaces.includes(name) || name === "Refakatçi") return;
         activePlaces.push(name);
         docs.forEach(d => { if(!d.targets[name]) d.targets[name] = {w:0, e:0}; });
+        normalizePermitMarks();
         inp.value = ''; renderUnitsTable(); renderTableRows(); updVal(); saveData(); invalidateResults(); syncAllDropdowns();
     }
     function delUnit(idx) {
@@ -3205,7 +3287,16 @@ function initFridayTooltips() {
     }
     function toggleUnit(id, p) { const d = docs.find(x=>x.id===id); if(d.allowed.includes(p)) { d.allowed=d.allowed.filter(x=>x!==p); d.targets[p]={w:0,e:0}; } else d.allowed.push(p); renderTableRows(); updVal(); saveData(); invalidateResults(); syncAllDropdowns(); }
     function updQ(id, p, t, el) { let val = parseInt(el.value); if(isNaN(val) || val < 0) val = 0; el.value = val; const d = docs.find(x => x.id === id); if(!d.targets[p]) d.targets[p]={w:0,e:0}; d.targets[p][t] = val; updVal(); saveData(); invalidateResults(); syncAllDropdowns(); }
-    function delDoc(id) { docs=docs.filter(x=>x.id!==id); renderTableRows(); updVal(); saveData(); invalidateResults(); syncAllDropdowns(); }
+    function delDoc(id) {
+        const __gone = docs.find(x => x.id === id);
+        docs = docs.filter(x => x.id !== id);
+        // Silinen asistanı içeren kişi-kısıtlama çiftlerini de kaldır.
+        if (__gone) {
+            constraints = constraints.filter(c => c.p1 !== __gone.name && c.p2 !== __gone.name);
+            try { renderConstraintList(); renderSuggestedConstraintPairs(); } catch (e) {}
+        }
+        renderTableRows(); updVal(); saveData(); invalidateResults(); syncAllDropdowns();
+    }
     function updVal() { const div = document.getElementById('valDashboard'); if(!div) return; let html = ''; activePlaces.forEach(p => { let hw=0, he=0; docs.forEach(d => { if(d.allowed.includes(p)) { hw+=d.targets[p].w; he+=d.targets[p].e; }}); const dw = hw - stats.w; const de = he - stats.we; const badgeW = dw===0 ? `<span class="badge badge-ok">OK</span>` : `<span class="badge ${dw<0?'badge-err':'badge-warn'}">${Math.abs(dw)} ${dw<0?'Eksik':'Fazla'}</span>`; const badgeE = de===0 ? `<span class="badge badge-ok">OK</span>` : `<span class="badge ${de<0?'badge-err':'badge-warn'}">${Math.abs(de)} ${de<0?'Eksik':'Fazla'}</span>`; let statusClass = ''; if(dw===0 && de===0) statusClass = 'success'; else if(dw<0 || de<0) statusClass = 'error'; html += `<div class="stat-card ${statusClass}"><div class="stat-title"><span>${p}</span>${(dw===0 && de===0) ? '<i class="fas fa-check-circle" style="color:green"></i>' : '<i class="fas fa-exclamation-circle" style="color:#ef4444"></i>'}</div><div class="stat-row"><span>H.İçi (${stats.w})</span><span class="stat-val">${hw} ${badgeW}</span></div><div class="stat-row"><span>H.Sonu (${stats.we})</span><span class="stat-val">${he} ${badgeE}</span></div></div>`; }); if(refakatciMode) { let rw=0, re=0; docs.forEach(d => { if(d.targets['Refakatçi']) { rw+=d.targets['Refakatçi'].w; re+=d.targets['Refakatçi'].e; }}); html += `<div class="stat-card ref"><div class="stat-title"><span>Refakatçi</span><i class="fas fa-user-graduate" style="color:#8b5cf6"></i></div><div class="stat-row"><span>H.İçi Toplam</span><span class="stat-val">${rw}</span></div><div class="stat-row"><span>H.Sonu Toplam</span><span class="stat-val">${re}</span></div></div>`; } div.innerHTML = html; }
 
     // --- TAKVİM & ARAÇLAR ---
@@ -3221,6 +3312,12 @@ function initFridayTooltips() {
         if (tool === 'eraser') { actionVal = null; } 
         else { if (isClick && currentVal === tool) { actionVal = null; } else { actionVal = tool; } } 
         if ((currentVal || null) === (actionVal || null)) return;
+
+        // İzinli güne istek / istenmeyen gün eklenemez (izin tüm nöbet yerlerini kapsar).
+        if ((actionVal === 'wanted' || actionVal === 'unwanted') && isPermitDay(d, dateStr)) {
+            if (isClick) showModernAlert("Uyarı", "Bu gün izinli olarak işaretli. İstek veya istenmeyen gün eklemek için önce izni kaldırın (silgi aracı).");
+            return;
+        }
 
         if (actionVal === 'wanted') { 
             if (!d.targets || !d.targets[place]) { if (isClick) showModernAlert("Uyarı", "İstek işaretlemek için önce bu kişiye en az bir birim (nöbet yeri) atayın."); return; }
@@ -3695,7 +3792,9 @@ function addNewWorkplaceUnit() {
 
     function getWeekendDutyCount(doc) {
         // Cuma kuralları nihai HS sayısına göre çalışmalıdır. Kota planı nihai HS sayısını belirler.
-        return activePlaces.reduce((sum, p) => sum + (doc.targets[p]?.e || 0), 0);
+        // Refakatçi nöbetleri de (mod açıksa) hafta sonu sayısına dahildir; becayiş denetimiyle aynı sayım.
+        const __allP = refakatciMode ? [...activePlaces, "Refakatçi"] : activePlaces;
+        return __allP.reduce((sum, p) => sum + (doc.targets[p]?.e || 0), 0);
     }
 
     function getFridayRuleViolation(doc, dayIdx) {
@@ -3813,6 +3912,7 @@ function getFridayCount(doc) {
         schedule = []; for(let i=0; i<dates.length; i++) { schedule[i] = { date: dates[i], assign: {} }; [...activePlaces, "Refakatçi"].forEach(p => schedule[i].assign[p] = null); }
         await new Promise(r => setTimeout(r, 4000));
 
+        normalizePermitMarks();
         const quotaCheck = validateQuotaPlan();
         if(quotaCheck.error) {
             __restore(); clearTimeout(cancelTimer);
@@ -3853,6 +3953,7 @@ function getFridayCount(doc) {
             jokerSchedule = [];
             jokerWarnings = [];
             extraServisAssignments = {};
+            resetGunlukServisOverridesForCurrentPeriod();
 
             clearTimeouts(); document.getElementById('loadingOverlay').style.display = 'none'; document.getElementById('alertBox').style.display='none';
             if(history.length >= MAX_HISTORY) history.shift(); 
@@ -3913,7 +4014,7 @@ function getFridayCount(doc) {
         for(let i=0; i<dates.length; i++) {
             if(dates[i].isW === isWeekend && schedule[i].assign[unit] === null) {
                 const potentialCandidates = docs.filter(d => {
-                    return d.allowed.includes(unit) && (!d.avail[dates[i].str] || (d.avail[dates[i].str][unit] !== 'unwanted' && d.avail[dates[i].str][unit] !== 'permit'));
+                    return d.allowed.includes(unit) && (!d.avail[dates[i].str] || (d.avail[dates[i].str][unit] !== 'unwanted' && !isPermitDay(d, dates[i].str)));
                 });
                 if(potentialCandidates.length === 0) {
                     if(unit === 'Refakatçi') {
@@ -3933,7 +4034,7 @@ function getFridayCount(doc) {
             for(let i=0; i<dates.length; i++) {
                 if(dates[i].isW === isWeekend) {
                     const status = d.avail[dates[i].str]?.[unit];
-                    if(status !== 'unwanted' && status !== 'permit' && d.allowed.includes(unit)) d.validSlotsCount++;
+                    if(status !== 'unwanted' && !isPermitDay(d, dates[i].str) && d.allowed.includes(unit)) d.validSlotsCount++;
                 }
             }
         });
@@ -3966,7 +4067,7 @@ function getFridayCount(doc) {
         const dayIdx = slots[index];
         let candidates = docs.filter(d => {
             if(!d.allowed.includes('Refakatçi')) return false;
-            if(d.avail[dates[dayIdx].str] && (d.avail[dates[dayIdx].str]['Refakatçi'] === 'unwanted' || d.avail[dates[dayIdx].str]['Refakatçi'] === 'permit')) return false;
+            if(d.avail[dates[dayIdx].str] && (d.avail[dates[dayIdx].str]['Refakatçi'] === 'unwanted' || isPermitDay(d, dates[dayIdx].str))) return false;
             const current = isWeekend ? d.cur['Refakatçi'].e : d.cur['Refakatçi'].w;
             const target = isWeekend ? d.targets['Refakatçi'].e : d.targets['Refakatçi'].w;
             if(current >= target) return false;
@@ -4003,7 +4104,7 @@ function getFridayCount(doc) {
         
         let candidates = docs.filter(d => { 
             if(!d.allowed.includes(unit)) return false; 
-            if(d.avail[date.str] && (d.avail[date.str][unit] === 'unwanted' || d.avail[date.str][unit] === 'permit')) return false; 
+            if(d.avail[date.str] && (d.avail[date.str][unit] === 'unwanted' || isPermitDay(d, date.str))) return false; 
             const current = isWeekend ? d.cur[unit].e : d.cur[unit].w; 
             const target = isWeekend ? d.targets[unit].e : d.targets[unit].w; 
             if(current >= target) return false; 
@@ -5477,6 +5578,17 @@ function hesaplaVeGuncelleServisAktifSayilari() {
                     if(!isCovered) jokerWarnings.push(`<strong>${row.dateDisplay}</strong>: ${unit} boş.`);
                 }
             }
+            // Yoğun Bakım: iki sorumlu da yoksa (izin / nöbet ertesi) ve hiçbir jokere atanmadıysa uyarı verilir.
+            // Sorumlulardan biri varsa joker gerekmez.
+            const ybA = owners["Yoğun Bakım 1"], ybB = owners["Yoğun Bakım 2"];
+            if (ybA && ybB) {
+                const ybAbsent = n => { const dd = docs.find(d => d.name === n); return resting.includes(n) || !!(dd && dd.avail[dates[i].str] && Object.values(dd.avail[dates[i].str]).includes('permit')); };
+                if (ybAbsent(ybA) && ybAbsent(ybB)) {
+                    let ybCovered = false;
+                    for(let jid in row.assignments) { if(row.assignments[jid] === "Yoğun Bakım") ybCovered = true; }
+                    if(!ybCovered) jokerWarnings.push(`<strong>${row.dateDisplay}</strong>: Yoğun Bakım boş.`);
+                }
+            }
         });
 displayJokerWarnings(jokerWarnings);
         renderJokerTable();
@@ -6572,13 +6684,153 @@ function exportWorkplacesPNG() {
 
         if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
             const file = e.dataTransfer.files[0];
-            if (file.name.endsWith('.docx')) {
+            if (/\.docx?$/i.test(file.name)) {
                 processDocxShiftFile(file);
             } else {
-                showModernAlert("Hata", "Lütfen sadece .docx formatında Word dosyası yükleyin.");
+                showModernAlert("Hata", "Lütfen .doc veya .docx formatında Word dosyası yükleyin.");
             }
         }
     }
+
+// ---- ESKİ WORD (.doc, Word 97-2003) İÇE AKTARMA: Tarayıcıda, harici kütüphane olmadan çözümler ----
+// .doc dosyasını okuyup mevcut .docx çözümleyicisinin anladığı basit bir tablo XML'ine (w:tr / w:tc / w:t) çevirir.
+function docBinaryToDocxXml(arrayBuffer) {
+    const u8 = new Uint8Array(arrayBuffer);
+    if (u8.length < 512) throw new Error('Dosya çok küçük veya bozuk.');
+    const dv = new DataView(arrayBuffer);
+    const MAXREG = 0xFFFFFFFA;
+    const sectorSize = 1 << dv.getUint16(30, true);
+    const miniSize = 1 << dv.getUint16(32, true);
+    const dirStart = dv.getUint32(48, true);
+    const miniCutoff = dv.getUint32(56, true);
+    const miniFatStart = dv.getUint32(60, true);
+    const difatStart = dv.getUint32(68, true);
+    const numDifat = dv.getUint32(72, true);
+    const secOff = s => (s + 1) * sectorSize;
+
+    // FAT sektör listesi (DIFAT)
+    const fatSecs = [];
+    for (let i = 0; i < 109; i++) { const s = dv.getUint32(76 + i * 4, true); if (s < MAXREG) fatSecs.push(s); }
+    let ds = difatStart;
+    for (let n = 0; n < numDifat && ds < MAXREG; n++) {
+        const off = secOff(ds);
+        if (off + sectorSize > u8.length) break;
+        for (let i = 0; i < sectorSize / 4 - 1; i++) { const s = dv.getUint32(off + i * 4, true); if (s < MAXREG) fatSecs.push(s); }
+        ds = dv.getUint32(off + sectorSize - 4, true);
+    }
+    const fat = [];
+    fatSecs.forEach(s => {
+        const off = secOff(s);
+        for (let i = 0; i < sectorSize / 4; i++) { if (off + i * 4 + 4 > u8.length) break; fat.push(dv.getUint32(off + i * 4, true)); }
+    });
+    const chainOf = (start, table) => {
+        const out = []; let s = start, guard = 0;
+        while (s < MAXREG && guard++ < 5000000) { out.push(s); s = table[s]; if (s === undefined) break; }
+        return out;
+    };
+    const readFat = (start, size) => {
+        const chain = chainOf(start, fat);
+        const out = new Uint8Array(chain.length * sectorSize);
+        chain.forEach((s, i) => { out.set(u8.subarray(secOff(s), secOff(s) + sectorSize), i * sectorSize); });
+        return (size == null || size > out.length) ? out : out.subarray(0, size);
+    };
+
+    // Dizin (directory) girdileri
+    const dir = readFat(dirStart, null);
+    const ddv = new DataView(dir.buffer, dir.byteOffset, dir.byteLength);
+    const entries = [];
+    for (let off = 0; off + 128 <= dir.length; off += 128) {
+        const nameLen = ddv.getUint16(off + 64, true);
+        let name = '';
+        for (let k = 0; k < Math.max(0, nameLen - 2) && k < 64; k += 2) name += String.fromCharCode(ddv.getUint16(off + k, true));
+        entries.push({ name: name, type: dir[off + 66], start: ddv.getUint32(off + 116, true), size: ddv.getUint32(off + 120, true) });
+    }
+    const root = entries[0];
+    const miniStream = (root && root.type === 5 && root.start < MAXREG) ? readFat(root.start, root.size) : new Uint8Array(0);
+    const miniFatBytes = miniFatStart < MAXREG ? readFat(miniFatStart, null) : new Uint8Array(0);
+    const mdv = new DataView(miniFatBytes.buffer, miniFatBytes.byteOffset, miniFatBytes.byteLength);
+    const miniFat = [];
+    for (let i = 0; i + 4 <= miniFatBytes.length; i += 4) miniFat.push(mdv.getUint32(i, true));
+    const readMini = (start, size) => {
+        const chain = chainOf(start, miniFat);
+        const out = new Uint8Array(chain.length * miniSize);
+        chain.forEach((s, i) => { out.set(miniStream.subarray(s * miniSize, (s + 1) * miniSize), i * miniSize); });
+        return out.subarray(0, Math.min(size, out.length));
+    };
+    const getStream = name => {
+        const e = entries.find(x => x.type === 2 && x.name === name);
+        if (!e) return null;
+        return e.size < miniCutoff ? readMini(e.start, e.size) : readFat(e.start, e.size);
+    };
+
+    // Word belge akışı (FIB)
+    const wd = getStream('WordDocument');
+    if (!wd || wd.length < 0x1AA) throw new Error('Geçerli bir Word (.doc) belgesi değil.');
+    const wv = new DataView(wd.buffer, wd.byteOffset, wd.byteLength);
+    if (wv.getUint16(0, true) !== 0xA5EC) throw new Error('Word belge başlığı tanınmadı.');
+    const nFib = wv.getUint16(2, true), flags = wv.getUint16(10, true);
+    if (flags & 0x0100) throw new Error('Şifreli Word belgeleri desteklenmiyor.');
+    if (nFib < 0x00C1) throw new Error('Word 97 öncesi sürümler desteklenmiyor. Lütfen dosyayı .docx olarak kaydedin.');
+    const table = getStream((flags & 0x0200) ? '1Table' : '0Table');
+    if (!table) throw new Error('Word tablo akışı bulunamadı.');
+    const ccpText = wv.getInt32(0x4C, true);
+    const fcClx = wv.getUint32(0x1A2, true), lcbClx = wv.getUint32(0x1A6, true);
+    if (!lcbClx || fcClx + lcbClx > table.length) throw new Error('Metin parça tablosu (CLX) bulunamadı.');
+
+    // CLX → parça (piece) tablosu → ana metin
+    const clx = table.subarray(fcClx, fcClx + lcbClx);
+    const cv = new DataView(clx.buffer, clx.byteOffset, clx.byteLength);
+    let p = 0;
+    while (p < clx.length && clx[p] === 0x01) { p += 3 + cv.getUint16(p + 1, true); }
+    if (clx[p] !== 0x02) throw new Error('Metin parça tablosu çözümlenemedi.');
+    const lcb = cv.getUint32(p + 1, true); p += 5;
+    const nPieces = Math.floor((lcb - 4) / 12);
+    const cps = [];
+    for (let i = 0; i <= nPieces; i++) cps.push(cv.getUint32(p + i * 4, true));
+    const pcdOff = p + (nPieces + 1) * 4;
+    const W1252 = [0x20AC, 0x81, 0x201A, 0x0192, 0x201E, 0x2026, 0x2020, 0x2021, 0x02C6, 0x2030, 0x0160, 0x2039, 0x0152, 0x8D, 0x017D, 0x8F, 0x90, 0x2018, 0x2019, 0x201C, 0x201D, 0x2022, 0x2013, 0x2014, 0x02DC, 0x2122, 0x0161, 0x203A, 0x0153, 0x9D, 0x017E, 0x0178];
+    let text = '';
+    for (let i = 0; i < nPieces; i++) {
+        const cpS = cps[i];
+        if (cpS >= ccpText) break;
+        const cpE = Math.min(cps[i + 1], ccpText);
+        const fcRaw = cv.getUint32(pcdOff + i * 8 + 2, true);
+        const compressed = (fcRaw & 0x40000000) !== 0;
+        const fc = fcRaw & 0x3FFFFFFF;
+        const len = cpE - cpS;
+        if (compressed) {
+            const st = Math.floor(fc / 2);
+            for (let k = 0; k < len && st + k < wd.length; k++) { const b = wd[st + k]; text += (b >= 0x80 && b <= 0x9F) ? String.fromCharCode(W1252[b - 0x80]) : String.fromCharCode(b); }
+        } else {
+            for (let k = 0; k < len && fc + 2 * k + 2 <= wd.length; k++) text += String.fromCharCode(wv.getUint16(fc + 2 * k, true));
+        }
+    }
+
+    // Hücre işaretleri (0x07) ile parçala; tarihle başlayan satırları bul
+    const clean = s => s.replace(/[\u0001\u0008\u0013\u0014\u0015]/g, '').replace(/[\r\u000b\u000c\n]+/g, ' ').replace(/\s+/g, ' ').trim();
+    const tokens = text.split('\u0007').map((t, i) => clean(i === 0 ? t.split('\r').pop() : t));
+    const isDate = t => /^\d{2}\.\d{2}\.\d{4}(\s|$)/.test(t);
+    const k0 = tokens.findIndex(isDate);
+    if (k0 < 0) throw new Error('Belgede tarih içeren bir nöbet tablosu bulunamadı.');
+    let h = -1;
+    for (let i = k0 - 1; i >= Math.max(0, k0 - 25); i--) { if (/TAR[İIiı]H/i.test(tokens[i])) { h = i; break; } }
+    let header = h >= 0 ? tokens.slice(h, k0) : tokens.slice(Math.max(0, k0 - 6), k0).filter(Boolean);
+    while (header.length && header[header.length - 1] === '') header.pop();   // satır sonu işareti
+    const ncols = Math.max(header.length, 2);
+    const rows = [];
+    let i = k0;
+    while (i < tokens.length) {
+        if (!isDate(tokens[i])) { i++; continue; }
+        const cells = [tokens[i]]; let j = i + 1;
+        while (j < tokens.length && !isDate(tokens[j]) && cells.length < ncols) { cells.push(tokens[j]); j++; }
+        rows.push(cells);
+        i = j;
+    }
+    if (!rows.length) throw new Error('Nöbet tablosu satırları okunamadı.');
+    const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const mk = cells => '<w:tr>' + cells.map(c => '<w:tc><w:p><w:r><w:t>' + esc(c) + '</w:t></w:r></w:p></w:tc>').join('') + '</w:tr>';
+    return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:tbl>' + mk(header) + rows.map(mk).join('') + '</w:tbl></w:body></w:document>';
+}
 
 function handleDocxFileUpload(e) {
     if (e.target.files && e.target.files.length > 0) {
@@ -6588,14 +6840,34 @@ function handleDocxFileUpload(e) {
     }
 }
 function processDocxShiftFile(file) {
-    if (typeof JSZip === 'undefined') {
-        const script = document.createElement('script');
-        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
-        script.onload = () => readDocxFileContent(file);
-        document.head.appendChild(script);
-    } else {
-        readDocxFileContent(file);
-    }
+    // Önce dosya türüne bakılır: eski Word (.doc) ise kütüphane gerekmeden doğrudan okunur, değilse .docx yolu izlenir.
+    const sniff = new FileReader();
+    sniff.onerror = function() { showModernAlert("Hata", "Dosya okunamadı."); };
+    sniff.onload = function(ev) {
+        const buf = ev.target.result;
+        const head = new Uint8Array(buf.slice(0, 8));
+        const isOle = head.length === 8 && head[0] === 0xD0 && head[1] === 0xCF && head[2] === 0x11 && head[3] === 0xE0 && head[4] === 0xA1 && head[5] === 0xB1 && head[6] === 0x1A && head[7] === 0xE1;
+        if (isOle) {
+            let xml = '';
+            try { xml = docBinaryToDocxXml(buf); }
+            catch (err) { showModernAlert("Hata", ".doc dosyası okunamadı: " + (err && err.message ? err.message : err) + " Dosyayı Word'de .docx olarak kaydedip tekrar deneyebilirsiniz."); return; }
+            parseDocxTableAndSetSchedule(xml);
+            return;
+        }
+        if (!(head.length >= 2 && head[0] === 0x50 && head[1] === 0x4B)) {   // .docx bir ZIP dosyasıdır ("PK")
+            showModernAlert("Hata", "Geçersiz Word belgesi. Lütfen .doc veya .docx formatında bir Word dosyası yükleyin.");
+            return;
+        }
+        if (typeof JSZip === 'undefined') {
+            const script = document.createElement('script');
+            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+            script.onload = () => readDocxFileContent(file);
+            document.head.appendChild(script);
+        } else {
+            readDocxFileContent(file);
+        }
+    };
+    sniff.readAsArrayBuffer(file);
 }
 
 function readDocxFileContent(file) {
@@ -6706,7 +6978,7 @@ function parseDocxTableAndSetSchedule(xmlStr) {
             if (!dateObj) {
                 const dt = new Date(parts[2], parts[1] - 1, parts[0]);
                 const dy = dt.getDay();
-                const isW = (dy === 0 || dy === 6 || holidays.has(isoStr));
+                const isW = (dy === 0 || dy === 6 || holidays.has(isoStr) || isDefaultTurkeyHoliday(isoStr));
                 dateObj = {
                     str: isoStr,
                     d: dt.getDate(),
@@ -6868,7 +7140,11 @@ if (icapciColIdx !== -1) {
         const lastISO = toISO(imported[imported.length - 1].date);
         if (firstISO) document.getElementById('startDate').value = firstISO;
         if (lastISO) document.getElementById('endDate').value = lastISO;
-        if (firstISO && lastISO) calcDates();
+        if (firstISO && lastISO) {
+            addDefaultHolidaysForRange(firstISO, lastISO);   // içe aktarılan ayın resmî tatilleri
+            calcDates();
+            if (applyPrevDutyFromMemory()) { try { renderDynamicPrevDuty(); } catch (e) {} }
+        }
 
         schedule = imported.map(row => {
             const dateISO = toISO(row.date);
@@ -6887,6 +7163,7 @@ if (icapciColIdx !== -1) {
         window.originalLoadedSchedule = JSON.parse(JSON.stringify(schedule));
 
         // Eski liste yeni bir ana liste olarak kaydedilir; eski becayiş geçmişi bu içe aktarıma taşınmaz.
+        resetGunlukServisOverridesForCurrentPeriod();
         jokerSchedule = [];
         jokerWarnings = [];
         extraServisAssignments = {};
@@ -6952,18 +7229,6 @@ function resetSwapSchedule() {
     }
 }
 
-// EKRANI TEMİZLE: Ekrandaki yüklü olan listeyi tamamen kaldırır
-function clearBecayisScreenConfirmed() {
-    closeModernClearConfirmModal();
-    tempSwapSchedule = null;
-    window.becayisState = { selectedSlot1: null, selectedSlot2: null, history: [], currentSchedule: null };
-    
-    const container = document.getElementById('swapGridContainer') || document.getElementById('becayisBoardContainer');
-    if (container) {
-        container.innerHTML = '<div style="padding:40px; text-align:center; color:#64748b; font-weight:500;">Becayiş ekranı temizlendi. Dosya yükleyebilir veya mevcut nöbet listesini aktarabilirsiniz.</div>';
-    }
-    if (typeof showToast === 'function') showToast('Becayiş ekranı tamamen temizlendi.', 'info');
-}
 
 function renderSwapGrid() {
     const modalBody = document.getElementById('swapModalBodyFlex') || document.getElementById('swapGridContainer');
@@ -7306,7 +7571,11 @@ function saveSwapChanges() {
     const lastISO = toISO(cloneSchedule[cloneSchedule.length - 1] && cloneSchedule[cloneSchedule.length - 1].date);
     if (firstISO) document.getElementById('startDate').value = firstISO;
     if (lastISO) document.getElementById('endDate').value = lastISO;
-    if (firstISO && lastISO) calcDates();
+    if (firstISO && lastISO) {
+        addDefaultHolidaysForRange(firstISO, lastISO);   // içe aktarılan / kaydedilen listenin resmî tatilleri
+        calcDates();
+        if (importedNewList && applyPrevDutyFromMemory()) { try { renderDynamicPrevDuty(); } catch (e) {} }
+    }
 
     // Onaylanan yeni nöbet planını ana listeye geçir.
     schedule = cloneSchedule;
@@ -7356,6 +7625,9 @@ function saveSwapChanges() {
     if (typeof guncelleServisAktifAsistanListesi === 'function') {
         guncelleServisAktifAsistanListesi();
     }
+
+    // Becayiş / yeni liste sonrası bu dönemin elle düzenlenmiş günlük servis listeleri sıfırlanır.
+    resetGunlukServisOverridesForCurrentPeriod();
 
     // Becayişte de Word aktarımında da Joker çizelgesini mutlaka sıfırdan oluştur.
     calculateJokerSchedule(true);
@@ -7652,8 +7924,8 @@ function clearBecayisScreenConfirmed() {
 function showModernAlert(title, message) {
     const alertModal = document.getElementById('generalAlertModal');
     if (alertModal) {
-        const titleEl = alertModal.querySelector('.modal-title') || alertModal.querySelector('h3') || alertModal.querySelector('h5');
-        const bodyEl = alertModal.querySelector('.modal-body') || alertModal.querySelector('p');
+        const titleEl = document.getElementById('genAlertTitle') || alertModal.querySelector('.modal-title') || alertModal.querySelector('h2') || alertModal.querySelector('h3') || alertModal.querySelector('h5');
+        const bodyEl = document.getElementById('genAlertMsg') || alertModal.querySelector('.modal-body') || alertModal.querySelector('p');
         if (titleEl) titleEl.innerText = title;
         if (bodyEl) bodyEl.innerText = message;
         alertModal.style.display = 'flex';
