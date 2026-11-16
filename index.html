@@ -1640,7 +1640,7 @@ div[id*="becayis"] .modal-content {
             </div>
             <div style="position:relative; display:inline-block;">
                 <span class="friday-help-icon" data-tip="tip5">&#x3F;</span>
-                <div id="tip5" class="friday-tooltip">2 Haftasonu nöbeti olan kişi bu nöbetlerinin birini Cumartesi, birini Pazar günü tutar; iki Cumartesi veya iki Pazar tutmaz.</div>
+                <div id="tip5" class="friday-tooltip">2 Haftasonu nöbeti olan kişi bu nöbetlerinin birini Cumartesi, birini Pazar günü tutar; iki Cumartesi veya iki Pazar tutmaz. Daha fazla hafta sonu nöbeti olanda Cumartesi ve Pazar sayıları arasındaki fark en çok 1 olur. Resmî tatiller bu kurala dahil değildir.</div>
             </div>
         </div>
 
@@ -3905,6 +3905,717 @@ function getFridayCount(doc) {
         return errors.length ? { error:true, msg:`Çözüm son doğrulamadan geçemedi:<ul>${errors.slice(0, 20).map(e => `<li>${e}</li>`).join('')}</ul>${errors.length > 20 ? `<div>...ve ${errors.length - 20} ek hata.</div>` : ''}` } : { error:false };
     }
 
+    // ============================================================
+    // KESİN NÖBET ÇÖZÜCÜ (NobetCozucu)
+    // ------------------------------------------------------------
+    // Nöbet problemini mantıksal bir modele çevirir ve "çatışmadan öğrenen" tam bir arama ile çözer.
+    // Tam arama: çözüm VARSA mutlaka bulunur; YOKSA bunun matematiksel olarak imkânsız olduğu kanıtlanır.
+    // Her çalıştırmada rastgele farklı bir geçerli liste üretir.
+    // ============================================================
+    const NobetCozucu = (function () {
+        'use strict';
+        const ARALIK = 2;                 // iki nöbet arasında en az 2 boş gün
+        const REF = 'Refakatçi';
+        const esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        const now = () => (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+
+        // ---------- 1) Mantık çözücü (CDCL) ----------
+        // Değişkenler 1..n; "x doğru" = 2x, "x yanlış" = 2x+1 olarak kodlanır.
+        function createSat(rnd) {
+            let nVars = 0, ok = true, inited = false;
+            const pending = [], decFlag = [0], initPhase = [0];
+            let value, level, reason, trail, trailSize = 0, qhead = 0, watches, activity, heap, heapPos, heapSize = 0, phase, seen;
+            const trailLim = [], learnts = [];
+            let varInc = 1, claInc = 1, maxLearnts = 0, lubyI = 0, restartLeft = 0, restartPending = false, scanPtr = 1;
+            const st = { conflicts: 0, decisions: 0, restarts: 0, vars: 0, clauses: 0 };
+
+            function newVar(isDecision, firstPhase) { nVars++; decFlag.push(isDecision ? 1 : 0); initPhase.push(firstPhase ? 1 : 0); return nVars; }
+            function addClause(lits) { if (inited) throw new Error('addClause: çözüm başladıktan sonra eklenemez'); pending.push(lits); }
+
+            function heapUp(i) { const v = heap[i], a = activity[v]; while (i > 0) { const p = (i - 1) >> 1, pv = heap[p]; if (activity[pv] >= a) break; heap[i] = pv; heapPos[pv] = i; i = p; } heap[i] = v; heapPos[v] = i; }
+            function heapDown(i) { const v = heap[i], a = activity[v]; for (;;) { let c = 2 * i + 1; if (c >= heapSize) break; if (c + 1 < heapSize && activity[heap[c + 1]] > activity[heap[c]]) c++; const cv = heap[c]; if (activity[cv] <= a) break; heap[i] = cv; heapPos[cv] = i; i = c; } heap[i] = v; heapPos[v] = i; }
+            function heapInsert(v) { if (heapPos[v] >= 0) return; heap[heapSize] = v; heapPos[v] = heapSize; heapSize++; heapUp(heapSize - 1); }
+            function heapPop() { const v = heap[0]; heapSize--; heapPos[v] = -1; if (heapSize > 0) { heap[0] = heap[heapSize]; heapPos[heap[0]] = 0; heapDown(0); } return v; }
+
+            function enqueue(l, from) { value[l] = 1; value[l ^ 1] = -1; const v = l >> 1; level[v] = trailLim.length; reason[v] = from; trail[trailSize++] = l; }
+            function attach(c) { watches[c.lits[0]].push(c); watches[c.lits[1]].push(c); }
+
+            function init() {
+                inited = true;
+                value = new Int8Array(2 * nVars + 2); level = new Int32Array(nVars + 1); reason = new Array(nVars + 1).fill(null);
+                trail = new Int32Array(nVars + 1); watches = new Array(2 * nVars + 2); for (let i = 0; i < watches.length; i++) watches[i] = [];
+                activity = new Float64Array(nVars + 1); heap = new Int32Array(nVars + 1); heapPos = new Int32Array(nVars + 1).fill(-1);
+                phase = new Int8Array(nVars + 1); seen = new Uint8Array(nVars + 1);
+                for (let v = 1; v <= nVars; v++) { phase[v] = initPhase[v]; if (decFlag[v]) { activity[v] = rnd() * 1e-3; heapInsert(v); } }
+                const units = [];
+                for (const raw of pending) {
+                    const lits = Array.from(new Set(raw)).sort((a, b) => a - b);
+                    let taut = false; for (let i = 1; i < lits.length; i++) if ((lits[i] ^ 1) === lits[i - 1]) { taut = true; break; }
+                    if (taut) continue;
+                    if (lits.length === 0) { ok = false; return; }
+                    if (lits.length === 1) { units.push(lits[0]); continue; }
+                    attach({ lits: lits, learnt: false, act: 0, del: false }); st.clauses++;
+                }
+                pending.length = 0;
+                for (const u of units) { if (value[u] === -1) { ok = false; return; } if (value[u] === 0) enqueue(u, null); }
+                if (propagate()) ok = false;
+                st.vars = nVars; maxLearnts = Math.max(4000, Math.floor(st.clauses / 2)); restartLeft = 100;
+            }
+
+            function propagate() {
+                while (qhead < trailSize) {
+                    const fl = trail[qhead++] ^ 1;          // bu değer artık YANLIŞ
+                    const ws = watches[fl]; let i = 0, j = 0; const n = ws.length;
+                    while (i < n) {
+                        const c = ws[i++];
+                        if (c.del) continue;
+                        const lits = c.lits;
+                        if (lits[0] === fl) { lits[0] = lits[1]; lits[1] = fl; }
+                        const first = lits[0];
+                        if (value[first] === 1) { ws[j++] = c; continue; }
+                        let moved = false;
+                        for (let k = 2; k < lits.length; k++) {
+                            const lk = lits[k];
+                            if (value[lk] !== -1) { lits[1] = lk; lits[k] = fl; watches[lk].push(c); moved = true; break; }
+                        }
+                        if (moved) continue;
+                        ws[j++] = c;
+                        if (value[first] === -1) { while (i < n) ws[j++] = ws[i++]; ws.length = j; qhead = trailSize; return c; }
+                        enqueue(first, c);
+                    }
+                    ws.length = j;
+                }
+                return null;
+            }
+
+            function bumpVar(v) {
+                if ((activity[v] += varInc) > 1e100) { for (let i = 1; i <= nVars; i++) activity[i] *= 1e-100; varInc *= 1e-100; }
+                if (heapPos[v] >= 0) heapUp(heapPos[v]);
+            }
+            function bumpClause(c) { if ((c.act += claInc) > 1e20) { for (const x of learnts) x.act *= 1e-20; claInc *= 1e-20; } }
+
+            function cancelUntil(lvl) {
+                if (trailLim.length <= lvl) return;
+                const lim = trailLim[lvl];
+                for (let i = trailSize - 1; i >= lim; i--) {
+                    const l = trail[i], v = l >> 1;
+                    phase[v] = (l & 1) ? 0 : 1; value[l] = 0; value[l ^ 1] = 0; reason[v] = null;
+                    if (decFlag[v]) heapInsert(v);
+                }
+                trailSize = lim; qhead = lim; trailLim.length = lvl; scanPtr = 1;
+            }
+
+            function analyze(confl) {
+                const out = [0]; let pathC = 0, p = -1, idx = trailSize - 1; const cur = trailLim.length;
+                do {
+                    if (confl.learnt) bumpClause(confl);
+                    const lits = confl.lits;
+                    for (let j = (p === -1 ? 0 : 1); j < lits.length; j++) {
+                        const q = lits[j], v = q >> 1;
+                        if (!seen[v] && level[v] > 0) { bumpVar(v); seen[v] = 1; if (level[v] >= cur) pathC++; else out.push(q); }
+                    }
+                    while (!seen[trail[idx] >> 1]) idx--;
+                    p = trail[idx--]; confl = reason[p >> 1]; seen[p >> 1] = 0; pathC--;
+                } while (pathC > 0);
+                out[0] = p ^ 1;
+                // gereksiz değerleri at (yerel sadeleştirme)
+                const keep = [out[0]];
+                for (let i = 1; i < out.length; i++) {
+                    const r = reason[out[i] >> 1]; let redundant = false;
+                    if (r) { redundant = true; const rl = r.lits; for (let k = 1; k < rl.length; k++) { const v = rl[k] >> 1; if (!seen[v] && level[v] > 0) { redundant = false; break; } } }
+                    if (!redundant) keep.push(out[i]);
+                }
+                for (let i = 1; i < out.length; i++) seen[out[i] >> 1] = 0;
+                let bt = 0;
+                if (keep.length > 1) { let mi = 1; for (let i = 2; i < keep.length; i++) if (level[keep[i] >> 1] > level[keep[mi] >> 1]) mi = i; const t = keep[1]; keep[1] = keep[mi]; keep[mi] = t; bt = level[keep[1] >> 1]; }
+                return { lits: keep, bt: bt };
+            }
+
+            function luby(i) { let size = 1, seq = 0; while (size < i + 1) { seq++; size = 2 * size + 1; } while (size - 1 !== i) { size = (size - 1) >> 1; seq--; i = i % size; } return Math.pow(2, seq); }
+
+            function reduceDB() {
+                learnts.sort((a, b) => a.act - b.act);
+                const half = learnts.length >> 1; let w = 0;
+                for (let i = 0; i < learnts.length; i++) {
+                    const c = learnts[i];
+                    const locked = reason[c.lits[0] >> 1] === c;
+                    if (i < half && c.lits.length > 2 && !locked) c.del = true; else learnts[w++] = c;
+                }
+                learnts.length = w;
+                for (let l = 2; l < watches.length; l++) { const ws = watches[l]; let j = 0; for (let i = 0; i < ws.length; i++) if (!ws[i].del) ws[j++] = ws[i]; ws.length = j; }
+                maxLearnts = Math.floor(maxLearnts * 1.15);
+            }
+
+            function pickBranch() {
+                let v = 0;
+                if (heapSize > 0 && rnd() < 0.02) { v = heap[Math.floor(rnd() * heapSize)]; if (value[v << 1] !== 0) v = 0; }
+                while (v === 0) {
+                    if (heapSize === 0) {
+                        while (scanPtr <= nVars && value[scanPtr << 1] !== 0) scanPtr++;
+                        if (scanPtr > nVars) return -1;
+                        return (scanPtr << 1) | 1;
+                    }
+                    v = heapPop(); if (value[v << 1] !== 0) v = 0;
+                }
+                return phase[v] ? (v << 1) : ((v << 1) | 1);
+            }
+
+            // En çok "butce" kadar çatışma işler. 1 = çözüm bulundu, -1 = çözüm yok (kanıtlandı), 0 = devam edilecek.
+            function run(butce) {
+                if (!ok) return -1;
+                if (!inited) { init(); if (!ok) return -1; }
+                for (;;) {
+                    const confl = propagate();
+                    if (confl) {
+                        st.conflicts++; butce--;
+                        if (trailLim.length === 0) { ok = false; return -1; }
+                        const a = analyze(confl);
+                        cancelUntil(a.bt);
+                        if (a.lits.length === 1) enqueue(a.lits[0], null);
+                        else { const c = { lits: a.lits, learnt: true, act: 0, del: false }; attach(c); learnts.push(c); bumpClause(c); enqueue(a.lits[0], c); }
+                        varInc /= 0.90; claInc /= 0.999;
+                        if (--restartLeft <= 0) restartPending = true;
+                    } else {
+                        if (restartPending) {
+                            restartPending = false; st.restarts++; cancelUntil(0); restartLeft = 100 * luby(lubyI++);
+                            if (learnts.length > maxLearnts) reduceDB();
+                        }
+                        if (butce <= 0) return 0;
+                        const next = pickBranch();
+                        if (next === -1) return 1;
+                        st.decisions++; trailLim.push(trailSize); enqueue(next, null);
+                    }
+                }
+            }
+            return { newVar, addClause, run, isTrue: v => value[v << 1] === 1, stats: st, nVars: () => nVars };
+        }
+
+        // ---------- 2) Girdiyi hazırla ----------
+        // girdi: { dates:[{str,full,isW,dow}], places:[...], refMode, docs:[{name,allowed,targets,avail}], constraints:[[a,b]|{p1,p2}], rules:{...}, prevDuty:{d1,d2} }
+        // gevsek: tanı amacıyla geçici olarak yok sayılacak kural aileleri
+        function prepare(girdi, gevsek) {
+            gevsek = gevsek || {};
+            const dates = girdi.dates, D = dates.length;
+            const places = girdi.places.slice(), allP = girdi.refMode ? places.concat([REF]) : places.slice(), P = allP.length;
+            const docs = girdi.docs, N = docs.length, R = girdi.rules || {};
+            const isW = dates.map(d => !!d.isW), dow = dates.map(d => d.dow);
+            const ufri = dates.map((d, i) => !isW[i] && dow[i] === 5);          // resmî tatil olmayan Cuma
+            const idxOf = {}; dates.forEach((d, i) => { idxOf[d.str] = i; });
+            const nameIdx = {}; docs.forEach((d, k) => { if (!(d.name in nameIdx)) nameIdx[d.name] = k; });
+            const pv = girdi.prevDuty || {};
+            const prev1 = new Set(), prev2 = new Set();
+            if (!gevsek.prev) {
+                Object.keys(pv.d1 || {}).forEach(p => { const k = nameIdx[pv.d1[p]]; if (k !== undefined) prev1.add(k); });
+                Object.keys(pv.d2 || {}).forEach(p => { const k = nameIdx[pv.d2[p]]; if (k !== undefined) prev2.add(k); });
+            }
+            const hsSayisi = docs.map(d => allP.reduce((s, p) => s + ((d.targets && d.targets[p] && d.targets[p].e) || 0), 0));
+            const cumaYasak = docs.map((d, k) => !gevsek.friday && ((R.fridayRule && hsSayisi[k] >= 2) || (R.fridayMaxOne && hsSayisi[k] >= 1)));
+            const cumaEnFazla1 = docs.map((d, k) => !gevsek.friday && (R.fridayAbsolute || (R.fridayWeMaxOne && hsSayisi[k] >= 2) || (R.fridayWe1MaxOne && hsSayisi[k] >= 1)));
+            const can = [], neden = [], kota = [], istenen = [], celiski = [];
+            for (let k = 0; k < N; k++) {
+                const d = docs[k], av = d.avail || {}; can.push([]); neden.push([]); kota.push([]);
+                const izin = new Uint8Array(D);
+                Object.keys(av).forEach(ds => { const i = idxOf[ds]; if (i !== undefined && av[ds] && Object.values(av[ds]).includes('permit')) izin[i] = 1; });
+                for (let pi = 0; pi < P; pi++) {
+                    const p = allP[pi], izinli = (d.allowed || []).includes(p);
+                    const row = new Uint8Array(D), why = new Uint8Array(D);   // why: 1 izinli gün, 2 istenmeyen gün, 3 önceki dönem, 4 Cuma kuralı
+                    if (izinli) {
+                        for (let i = 0; i < D; i++) {
+                            const a = av[dates[i].str];
+                            if (izin[i] && !gevsek.permit) { why[i] = 1; continue; }
+                            if (a && a[p] === 'unwanted' && !gevsek.unwanted) { why[i] = 2; continue; }
+                            if ((i === 0 && (prev1.has(k) || prev2.has(k))) || (i === 1 && prev1.has(k))) { why[i] = 3; continue; }
+                            if (cumaYasak[k] && ufri[i]) { why[i] = 4; continue; }
+                            row[i] = 1;
+                        }
+                        const t = (d.targets && d.targets[p]) || { w: 0, e: 0 };
+                        kota[k].push({ w: t.w || 0, e: t.e || 0 });
+                    } else kota[k].push(null);
+                    can[k].push(row); neden[k].push(why);
+                    if (!gevsek.wanted) {
+                        for (let i = 0; i < D; i++) {
+                            const a = av[dates[i].str];
+                            if (a && a[p] === 'wanted') {
+                                if (!izinli) celiski.push(`<strong>${esc(dates[i].full)}</strong>: <strong>${esc(d.name)}</strong>, <strong>${esc(p)}</strong> için istekli işaretlenmiş ancak bu birimde nöbet tutmuyor.`);
+                                else if (!row[i]) celiski.push(`<strong>${esc(dates[i].full)}</strong>: <strong>${esc(d.name)}</strong> için istenen <strong>${esc(p)}</strong> nöbeti ${['', 'izinli güne', 'istenmeyen güne', 'önceki dönem nöbetinin hemen ertesine', 'Cuma kuralının yasakladığı güne'][why[i]]} denk geliyor.`);
+                                else istenen.push({ k: k, pi: pi, i: i });
+                            }
+                        }
+                    }
+                }
+            }
+            const ciftler = [];
+            if (!gevsek.pairs) (girdi.constraints || []).forEach(c => {
+                const a = nameIdx[Array.isArray(c) ? c[0] : c.p1], b = nameIdx[Array.isArray(c) ? c[1] : c.p2];
+                if (a !== undefined && b !== undefined && a !== b) ciftler.push([a, b]);
+            });
+            const birimCuma = allP.map(p => !gevsek.placeFriday && !!(R.placeFriday && R.placeFriday[p]));
+            return { girdi, D, dates, places, allP, P, nReg: places.length, docs, N, isW, dow, ufri, can, neden, kota, istenen, celiski, ciftler, cumaEnFazla1, birimCuma, haftaSonuDengesi: !!R.weDifferentDays && !gevsek.weDiff, hsSayisi };
+        }
+
+        // ---------- 3) Hızlı kesin denetimler (anında, gerekçeli) ----------
+        // Buradaki her denetim "gerek şart"tır: biri bile sağlanmıyorsa çözüm matematiksel olarak yoktur.
+        function tarihListesi(M, gunler) {
+            const s = gunler.slice(0, 14).map(i => esc(M.dates[i].full.slice(0, 5))).join(', ');
+            return gunler.length > 14 ? `${s} … (+${gunler.length - 14} gün)` : s;
+        }
+        function enCokAralikli(gunler) { let c = 0, son = -99; for (const i of gunler) { if (i - son > ARALIK) { c++; son = i; } } return c; }
+
+        // Küçük bir "en büyük akış" hesaplayıcısı (tam sayılarla çalışır; yuvarlama hatası olmaz)
+        function createFlow(n) {
+            const head = new Int32Array(n).fill(-1), to = [], cap = [], nxt = [];
+            const addEdge = (u, v, c) => { to.push(v); cap.push(c); nxt.push(head[u]); head[u] = to.length - 1; to.push(u); cap.push(0); nxt.push(head[v]); head[v] = to.length - 1; };
+            const lvl = new Int32Array(n), it = new Int32Array(n);
+            const bfs = (s, t) => {
+                lvl.fill(-1); lvl[s] = 0; const q = [s];
+                for (let qi = 0; qi < q.length; qi++) { const u = q[qi]; for (let e = head[u]; e !== -1; e = nxt[e]) if (cap[e] > 0 && lvl[to[e]] < 0) { lvl[to[e]] = lvl[u] + 1; q.push(to[e]); } }
+                return lvl[t] >= 0;
+            };
+            const dfs = (u, t, f) => {
+                if (u === t) return f;
+                for (; it[u] !== -1; it[u] = nxt[it[u]]) {
+                    const e = it[u], v = to[e];
+                    if (cap[e] > 0 && lvl[v] === lvl[u] + 1) { const d = dfs(v, t, Math.min(f, cap[e])); if (d > 0) { cap[e] -= d; cap[e ^ 1] += d; return d; } }
+                }
+                return 0;
+            };
+            const maxflow = (s, t) => { let fl = 0; while (bfs(s, t)) { for (let i = 0; i < n; i++) it[i] = head[i]; let f; while ((f = dfs(s, t, 1e9)) > 0) fl += f; } return fl; };
+            const kaynakTarafi = s => { bfs(s, s); return lvl.map(x => x >= 0 ? 1 : 0); };   // artık çizgede kaynaktan erişilenler
+            return { addEdge, maxflow, kaynakTarafi };
+        }
+
+        function hizliDenetim(M) {
+            const out = [];
+            if (M.celiski.length) return M.celiski.slice(0, 8);
+            const { D, N, P, nReg, allP, dates, isW, dow, ufri, can, kota, docs } = M;
+            const turAdi = we => we ? 'hafta sonu/tatil' : 'hafta içi';
+            // a) istek çelişkileri
+            const slotIsteyen = {};
+            M.istenen.forEach(w => { const key = w.i + '_' + w.pi; (slotIsteyen[key] = slotIsteyen[key] || []).push(w.k); });
+            Object.keys(slotIsteyen).forEach(key => {
+                if (slotIsteyen[key].length > 1) { const [i, pi] = key.split('_').map(Number); out.push(`<strong>${esc(dates[i].full)}</strong> tarihinde <strong>${esc(allP[pi])}</strong> nöbetini ${slotIsteyen[key].length} kişi birden istemiş (${slotIsteyen[key].map(k => esc(docs[k].name)).join(', ')}).`); }
+            });
+            const kisiIstek = {};
+            M.istenen.forEach(w => { (kisiIstek[w.k] = kisiIstek[w.k] || []).push(w); });
+            Object.keys(kisiIstek).forEach(k => {
+                const ws = kisiIstek[k].slice().sort((a, b) => a.i - b.i), say = {};
+                for (let t = 1; t < ws.length; t++) {
+                    if (ws[t].i === ws[t - 1].i) out.push(`<strong>${esc(docs[k].name)}</strong>: <strong>${esc(dates[ws[t].i].full)}</strong> tarihinde iki ayrı birimde nöbet istenmiş.`);
+                    else if (ws[t].i - ws[t - 1].i <= ARALIK) out.push(`<strong>${esc(docs[k].name)}</strong>: istenen <strong>${esc(dates[ws[t - 1].i].full)}</strong> ve <strong>${esc(dates[ws[t].i].full)}</strong> nöbetleri arasında en az ${ARALIK} gün boşluk yok.`);
+                }
+                ws.forEach(w => { const key = w.pi + (isW[w.i] ? 'e' : 'w'); say[key] = (say[key] || 0) + 1; });
+                Object.keys(say).forEach(key => { const pi = parseInt(key, 10), we = key.slice(-1) === 'e', q = kota[k][pi]; const lim = q ? (we ? q.e : q.w) : 0; if (say[key] > lim) out.push(`<strong>${esc(docs[k].name)}</strong> / <strong>${esc(allP[pi])}</strong>: ${say[key]} ${turAdi(we)} nöbeti istenmiş, kotası ${lim}.`); });
+            });
+            // b) kota toplamları ve hiç kimsenin yazılamadığı günler
+            const gunSay = { w: isW.filter(x => !x).length, e: isW.filter(x => x).length };
+            for (let pi = 0; pi < P; pi++) {
+                let tw = 0, te = 0; for (let k = 0; k < N; k++) if (kota[k][pi]) { tw += kota[k][pi].w; te += kota[k][pi].e; }
+                if (pi < nReg) {
+                    if (tw !== gunSay.w) out.push(`<strong>${esc(allP[pi])}</strong> hafta içi kota toplamı ${tw}; doldurulması gereken hafta içi gün sayısı ${gunSay.w}.`);
+                    if (te !== gunSay.e) out.push(`<strong>${esc(allP[pi])}</strong> hafta sonu/tatil kota toplamı ${te}; doldurulması gereken gün sayısı ${gunSay.e}.`);
+                } else {
+                    if (tw > gunSay.w) out.push(`<strong>${esc(allP[pi])}</strong> hafta içi kota toplamı ${tw}; kullanılabilir hafta içi gün sayısı yalnızca ${gunSay.w}.`);
+                    if (te > gunSay.e) out.push(`<strong>${esc(allP[pi])}</strong> hafta sonu/tatil kota toplamı ${te}; kullanılabilir gün sayısı yalnızca ${gunSay.e}.`);
+                }
+            }
+            for (let pi = 0; pi < nReg; pi++) for (let i = 0; i < D; i++) {
+                let biri = false; for (let k = 0; k < N && !biri; k++) if (can[k][pi][i]) biri = true;
+                if (!biri) out.push(`<strong>${esc(dates[i].full)}</strong> tarihinde <strong>${esc(allP[pi])}</strong> birimine yazılabilecek kimse yok (herkes izinli, istenmeyen gün işaretli, nöbet ertesi ya da Cuma kuralına takılıyor).`);
+            }
+            // c) kişinin kotası, yazılabileceği gün sayısını aşıyor
+            const herhangi = [];
+            for (let k = 0; k < N; k++) {
+                const gunler = []; let toplam = 0;
+                for (let i = 0; i < D; i++) { let v = false; for (let pi = 0; pi < P; pi++) if (can[k][pi][i]) v = true; if (v) gunler.push(i); }
+                herhangi.push(gunler);
+                for (let pi = 0; pi < P; pi++) {
+                    const q = kota[k][pi]; if (!q) continue; toplam += q.w + q.e;
+                    [['w', false], ['e', true]].forEach(([key, we]) => {
+                        if (!q[key]) return;
+                        const g = []; for (let i = 0; i < D; i++) if (isW[i] === we && can[k][pi][i]) g.push(i);
+                        const enCok = enCokAralikli(g);
+                        if (q[key] > enCok) out.push(`<strong>${esc(docs[k].name)}</strong> / <strong>${esc(allP[pi])}</strong>: ${turAdi(we)} kotası ${q[key]}, ancak izin / istenmeyen gün / kurallar nedeniyle bu birimde en fazla ${enCok} ${turAdi(we)} nöbeti yazılabiliyor.`);
+                    });
+                }
+                const enCokT = enCokAralikli(gunler);
+                if (toplam > enCokT) out.push(`<strong>${esc(docs[k].name)}</strong>: toplam ${toplam} nöbet verilmiş, ancak uygun günlerine nöbetler arası ${ARALIK} gün boşlukla en fazla ${enCokT} nöbet sığıyor.`);
+            }
+            if (out.length) return out.slice(0, 10);
+
+            // d) birim + gün türü: kişilerin kotaları o günlere dağıtılabiliyor mu? (blok = art arda 3 gün; bir kişi bir blokta en çok 1 nöbet tutabilir)
+            const kisiListe = ks => ks.slice(0, 8).map(k => esc(docs[k].name)).join(', ') + (ks.length > 8 ? ` … (+${ks.length - 8})` : '');
+            for (let pi = 0; pi < P && !out.length; pi++) for (const we of [false, true]) {
+                if (out.length) break;
+                const gunler = []; for (let i = 0; i < D; i++) if (isW[i] === we) gunler.push(i);
+                const cap = []; let topKota = 0; for (let k = 0; k < N; k++) { const c = kota[k][pi] ? (we ? kota[k][pi].e : kota[k][pi].w) : 0; cap.push(c); topKota += c; }
+                if (!gunler.length || !topKota) continue;
+                for (const off of [-1, 0, 1, 2]) {                 // -1: blok kuralı olmadan (yalın eşleştirme)
+                    const blok = i => off < 0 ? i : Math.floor((i + 3 - off) / 3), nB = off < 0 ? D : Math.floor((D + 2 - off) / 3) + 1;
+                    const SRC = 0, SNK = 1, dN = k => 2 + k, bN = (k, b) => 2 + N + k * nB + b, gN = i => 2 + N + N * nB + i;
+                    const F = createFlow(2 + N + N * nB + D), kullan = new Set();
+                    for (let k = 0; k < N; k++) {
+                        if (!cap[k]) continue; F.addEdge(SRC, dN(k), cap[k]);
+                        for (const i of gunler) if (can[k][pi][i]) { const b = blok(i), key = k * nB + b; if (!kullan.has(key)) { kullan.add(key); F.addEdge(dN(k), bN(k, b), 1); } F.addEdge(bN(k, b), gN(i), 1); }
+                    }
+                    gunler.forEach(i => F.addEdge(gN(i), SNK, 1));
+                    const akis = F.maxflow(SRC, SNK), gereken = pi < nReg ? gunler.length : topKota;
+                    if (akis >= gereken) continue;
+                    const R = F.kaynakTarafi(SRC);
+                    if (pi < nReg) {
+                        const eksik = gunler.filter(i => !R[gN(i)]), kisiler = []; for (let k = 0; k < N; k++) if (cap[k] && eksik.some(i => can[k][pi][i])) kisiler.push(k);
+                        out.push(`<strong>${esc(allP[pi])}</strong> – ${turAdi(we)}: <strong>${tarihListesi(M, eksik)}</strong> (${eksik.length} gün) için yeterli kişi/kota yok${off >= 0 ? ` (nöbetler arası ${ARALIK} gün kuralı da hesaba katıldığında)` : ''}; ${gunler.length} günün en fazla ${akis} tanesi doldurulabiliyor. Bu günlere yazılabilenler: ${kisiler.length ? kisiListe(kisiler) : 'yok'}. İzin / istenmeyen gün işaretlerini azaltın veya kotaları bu günlere yazılabilen kişilere kaydırın.`);
+                    } else {
+                        const dolan = []; for (let k = 0; k < N; k++) if (cap[k] && R[dN(k)]) dolan.push(k);
+                        out.push(`<strong>${esc(allP[pi])}</strong> – ${turAdi(we)}: toplam ${topKota} nöbetin en fazla ${akis} tanesi yerleştirilebiliyor${off >= 0 ? ` (nöbetler arası ${ARALIK} gün kuralı da hesaba katıldığında)` : ''}. Kotası sığmayanlar: ${kisiListe(dolan)}.`);
+                    }
+                    break;
+                }
+            }
+            if (out.length) return out;
+
+            // e) tüm birimler birlikte: art arda 3 günlük her blokta bir kişi en çok 1 nöbet tutabilir
+            for (const off of [0, 1, 2]) {
+                const blok = i => Math.floor((i + 3 - off) / 3), nB = Math.floor((D + 2 - off) / 3) + 1;
+                const SRC = 0, SNK = 1, dN = k => 2 + k, bN = (k, b) => 2 + N + k * nB + b, sN = (i, pi) => 2 + N + N * nB + i * nReg + pi;
+                const F = createFlow(2 + N + N * nB + D * nReg);
+                for (let k = 0; k < N; k++) {
+                    let top = 0; for (let pi = 0; pi < nReg; pi++) if (kota[k][pi]) top += kota[k][pi].w + kota[k][pi].e;
+                    if (!top) continue; F.addEdge(SRC, dN(k), top);
+                    for (let b = 0; b < nB; b++) F.addEdge(dN(k), bN(k, b), 1);
+                    for (let i = 0; i < D; i++) for (let pi = 0; pi < nReg; pi++) if (can[k][pi][i] && kota[k][pi] && (isW[i] ? kota[k][pi].e : kota[k][pi].w) > 0) F.addEdge(bN(k, blok(i)), sN(i, pi), 1);
+                }
+                for (let i = 0; i < D; i++) for (let pi = 0; pi < nReg; pi++) F.addEdge(sN(i, pi), SNK, 1);
+                const akis = F.maxflow(SRC, SNK);
+                if (akis >= D * nReg) continue;
+                const R = F.kaynakTarafi(SRC), eksikGun = [];
+                for (let i = 0; i < D; i++) { let e = false; for (let pi = 0; pi < nReg; pi++) if (!R[sN(i, pi)]) e = true; if (e) eksikGun.push(i); }
+                out.push(`Nöbetler arası ${ARALIK} gün kuralı nedeniyle <strong>${tarihListesi(M, eksikGun)}</strong> günlerindeki nöbetleri dolduracak sayıda uygun kişi yok: toplam ${D * nReg} nöbetin en fazla ${akis} tanesi yazılabiliyor. Bu döneme denk gelen izin / istenmeyen gün işaretlerini azaltın ya da daha fazla kişiye nöbet kotası verin.`);
+                return out;
+            }
+            // f) Cuma günleri: Cuma kuralları yüzünden yeterli kişi kalıyor mu?
+            const cumalar = []; for (let i = 0; i < D; i++) if (ufri[i]) cumalar.push(i);
+            if (cumalar.length && (M.cumaEnFazla1.some(Boolean) || M.birimCuma.some(Boolean))) {
+                const SRC = 0, SNK = 1, dN = k => 2 + k, pN = (k, pi) => 2 + N + k * nReg + pi, sN = (c, pi) => 2 + N + N * nReg + c * nReg + pi;
+                const F = createFlow(2 + N + N * nReg + cumalar.length * nReg);
+                for (let k = 0; k < N; k++) {
+                    F.addEdge(SRC, dN(k), M.cumaEnFazla1[k] ? 1 : cumalar.length);
+                    for (let pi = 0; pi < nReg; pi++) {
+                        if (!kota[k][pi] || !kota[k][pi].w) continue;
+                        F.addEdge(dN(k), pN(k, pi), M.birimCuma[pi] ? 1 : kota[k][pi].w);
+                        cumalar.forEach((i, c) => { if (can[k][pi][i]) F.addEdge(pN(k, pi), sN(c, pi), 1); });
+                    }
+                }
+                cumalar.forEach((i, c) => { for (let pi = 0; pi < nReg; pi++) F.addEdge(sN(c, pi), SNK, 1); });
+                const akis = F.maxflow(SRC, SNK), gereken = cumalar.length * nReg;
+                if (akis < gereken) { out.push(`Cuma kuralları nedeniyle Cuma nöbetleri doldurulamıyor: ${cumalar.length} Cuma × ${nReg} birim = ${gereken} Cuma nöbeti var, kurallara göre en fazla ${akis} tanesi yazılabiliyor. "Gün Bazlı Kısıtlamalar"daki Cuma kurallarını gevşetin veya Cuma tutabilecek kişi sayısını artırın.`); return out; }
+            }
+            // g) "hafta sonu günleri farklı olsun" kuralı: Cumartesi ve Pazar nöbetleri ayrı ayrı doldurulabiliyor mu?
+            if (M.haftaSonuDengesi) {
+                for (const [gun, ad] of [[6, 'Cumartesi'], [0, 'Pazar']]) {
+                    const gunler = []; for (let i = 0; i < D; i++) if (isW[i] && dow[i] === gun) gunler.push(i);
+                    if (!gunler.length) continue;
+                    const SRC = 0, SNK = 1, dN = k => 2 + k, pN = (k, pi) => 2 + N + k * nReg + pi, sN = (c, pi) => 2 + N + N * nReg + c * nReg + pi;
+                    const F = createFlow(2 + N + N * nReg + gunler.length * nReg);
+                    for (let k = 0; k < N; k++) {
+                        F.addEdge(SRC, dN(k), Math.ceil(M.hsSayisi[k] / 2));
+                        for (let pi = 0; pi < nReg; pi++) {
+                            if (!kota[k][pi] || !kota[k][pi].e) continue;
+                            F.addEdge(dN(k), pN(k, pi), kota[k][pi].e);
+                            gunler.forEach((i, c) => { if (can[k][pi][i]) F.addEdge(pN(k, pi), sN(c, pi), 1); });
+                        }
+                    }
+                    gunler.forEach((i, c) => { for (let pi = 0; pi < nReg; pi++) F.addEdge(sN(c, pi), SNK, 1); });
+                    const akis = F.maxflow(SRC, SNK), gereken = gunler.length * nReg;
+                    if (akis < gereken) { out.push(`"Hafta sonu nöbet günleri farklı olsun" kuralı nedeniyle ${ad} nöbetleri doldurulamıyor: ${gereken} ${ad} nöbeti var, en fazla ${akis} tanesi yazılabiliyor. Kuralı kapatın veya hafta sonu kotalarını daha fazla kişiye dağıtın.`); return out; }
+                }
+            }
+            // h) art arda gelen her gün aralığı için: o aralıktaki nöbetleri dolduracak kadar kişi var mı?
+            const qW = [], qE = [];
+            for (let k = 0; k < N; k++) { let w = 0, e = 0; for (let pi = 0; pi < nReg; pi++) if (kota[k][pi]) { w += kota[k][pi].w; e += kota[k][pi].e; } qW.push(w); qE.push(e); }
+            const regGun = [];
+            for (let k = 0; k < N; k++) { const g = new Uint8Array(D); for (let i = 0; i < D; i++) for (let pi = 0; pi < nReg; pi++) if (can[k][pi][i] && kota[k][pi] && (isW[i] ? kota[k][pi].e : kota[k][pi].w) > 0) g[i] = 1; regGun.push(g); }
+            let enIyi = null;
+            for (let a = 0; a < D; a++) {
+                const sonAll = new Int32Array(N).fill(-99), sonW = new Int32Array(N).fill(-99), sonE = new Int32Array(N).fill(-99);
+                const cAll = new Int32Array(N), cW = new Int32Array(N), cE = new Int32Array(N);
+                for (let b = a; b < D; b++) {
+                    let kap = 0;
+                    for (let k = 0; k < N; k++) {
+                        if (regGun[k][b]) {
+                            if (b - sonAll[k] > ARALIK) { cAll[k]++; sonAll[k] = b; }
+                            if (isW[b]) { if (b - sonE[k] > ARALIK) { cE[k]++; sonE[k] = b; } } else if (b - sonW[k] > ARALIK) { cW[k]++; sonW[k] = b; }
+                        }
+                        kap += Math.min(cAll[k], Math.min(cW[k], qW[k]) + Math.min(cE[k], qE[k]));
+                    }
+                    const gereken = (b - a + 1) * nReg;
+                    if (kap < gereken && (!enIyi || (b - a) < (enIyi.b - enIyi.a))) enIyi = { a: a, b: b, kap: kap, gereken: gereken };
+                }
+            }
+            if (enIyi) out.push(`<strong>${esc(dates[enIyi.a].full)} – ${esc(dates[enIyi.b].full)}</strong> arasındaki ${enIyi.gereken} nöbet için yeterli kişi yok: izin / istenmeyen günler ve nöbetler arası ${ARALIK} gün kuralı nedeniyle bu aralıkta en fazla ${enIyi.kap} nöbet yazılabiliyor. Bu döneme denk gelen izin / istenmeyen gün işaretlerini azaltın ya da daha fazla kişiye nöbet kotası verin.`);
+            return out;
+        }
+
+        // ---------- 4) Modeli mantık çözücüye yaz ----------
+        function encode(M, rnd) {
+            const S = createSat(rnd);
+            const { D, N, P, nReg, isW, dow, ufri, can, kota } = M;
+            const TRUE = -1, FALSE = -2;
+            const neg = l => l === TRUE ? FALSE : (l === FALSE ? TRUE : l ^ 1);
+            const add = lits => { const o = []; for (const l of lits) { if (l === TRUE) return; if (l !== FALSE) o.push(l); } S.addClause(o); };
+            // "listeden en az j tanesi doğru" çıktıları (j = 1..m); iki yönlü tanımlıdır
+            const sayac = (L, m) => {
+                const n = L.length; let prev = [];
+                for (let i = 1; i <= n; i++) {
+                    const cur = [], top = Math.min(i, m);
+                    for (let j = 1; j <= top; j++) {
+                        const s = S.newVar(false, false) << 1; cur[j] = s;
+                        const a = (j <= i - 1) ? prev[j] : FALSE, b = (j === 1) ? TRUE : prev[j - 1];
+                        add([neg(a), s]); add([neg(L[i - 1]), neg(b), s]); add([neg(s), a, L[i - 1]]); add([neg(s), b]);
+                    }
+                    prev = cur;
+                }
+                const out = []; for (let j = 1; j <= m; j++) out[j] = (j <= n) ? prev[j] : FALSE;
+                return out;
+            };
+            const enFazla1 = L => {
+                if (L.length < 2) return;
+                if (L.length <= 10) { for (let a = 0; a < L.length; a++) for (let b = a + 1; b < L.length; b++) add([neg(L[a]), neg(L[b])]); }
+                else add([neg(sayac(L, 2)[2])]);
+            };
+            const tamOlarak = (L, k) => {
+                const n = L.length;
+                if (k > n) { S.addClause([]); return; }
+                if (k === 0) { L.forEach(l => add([neg(l)])); return; }
+                if (k === n) { L.forEach(l => add([l])); return; }
+                if (k === 1 && n <= 10) { add(L); enFazla1(L); return; }
+                const o = sayac(L, k + 1); add([o[k]]); add([neg(o[k + 1])]);
+            };
+            // x[k][pi][i] : k kişisi i günü pi biriminde nöbetçi
+            const X = new Int32Array(N * P * D);
+            const xi = (k, pi, i) => (k * P + pi) * D + i;
+            for (let k = 0; k < N; k++) for (let pi = 0; pi < P; pi++) for (let i = 0; i < D; i++) if (can[k][pi][i]) X[xi(k, pi, i)] = S.newVar(true, rnd() < 0.15) << 1;
+            // y[k][i] : k kişisi i günü (herhangi bir birimde) nöbetçi
+            const Y = new Int32Array(N * D);
+            for (let k = 0; k < N; k++) for (let i = 0; i < D; i++) {
+                const xs = []; for (let pi = 0; pi < P; pi++) if (X[xi(k, pi, i)]) xs.push(X[xi(k, pi, i)]);
+                if (xs.length === 0) continue;
+                if (xs.length === 1) { Y[k * D + i] = xs[0]; continue; }
+                const y = S.newVar(false, false) << 1; Y[k * D + i] = y;
+                xs.forEach(x => add([neg(x), y])); add([neg(y)].concat(xs));
+                enFazla1(xs);                                           // aynı gün tek birim
+            }
+            // her gün her birimde tam 1 kişi (Refakatçi: en fazla 1)
+            for (let pi = 0; pi < P; pi++) for (let i = 0; i < D; i++) {
+                const xs = []; for (let k = 0; k < N; k++) if (X[xi(k, pi, i)]) xs.push(X[xi(k, pi, i)]);
+                if (pi < nReg) { if (xs.length === 0) S.addClause([]); else { add(xs); enFazla1(xs); } }
+                else enFazla1(xs);
+            }
+            for (let k = 0; k < N; k++) {
+                // nöbetler arası boşluk
+                for (let i = 0; i < D; i++) { const a = Y[k * D + i]; if (!a) continue; for (let j = i + 1; j <= i + ARALIK && j < D; j++) { const b = Y[k * D + j]; if (b) add([neg(a), neg(b)]); } }
+                // kotalar
+                for (let pi = 0; pi < P; pi++) {
+                    const q = kota[k][pi]; if (!q) continue;
+                    const hi = [], hs = [];
+                    for (let i = 0; i < D; i++) { const x = X[xi(k, pi, i)]; if (x) (isW[i] ? hs : hi).push(x); }
+                    tamOlarak(hi, q.w); tamOlarak(hs, q.e);
+                    if (M.birimCuma[pi]) { const fr = []; for (let i = 0; i < D; i++) if (ufri[i] && X[xi(k, pi, i)]) fr.push(X[xi(k, pi, i)]); enFazla1(fr); }
+                }
+                // fazlalık (aynı anlamı taşıyan ek) kısıtlar: kişinin tüm birimlerdeki toplam hafta içi / hafta sonu nöbet sayısı.
+                // Çözüm kümesini değiştirmez; aramanın çıkmaz yolları çok daha erken görmesini sağlar.
+                if (M.P > 1 && (M.girdi.places.length > 1 || M.girdi.refMode)) {
+                    let tw = 0, te = 0, cokBirim = 0; for (let pi = 0; pi < P; pi++) if (kota[k][pi]) { tw += kota[k][pi].w; te += kota[k][pi].e; cokBirim++; }
+                    if (cokBirim > 1) {
+                        const hiY = [], hsY = []; for (let i = 0; i < D; i++) { const y = Y[k * D + i]; if (y) (isW[i] ? hsY : hiY).push(y); }
+                        tamOlarak(hiY, tw); tamOlarak(hsY, te);
+                    }
+                }
+                if (M.cumaEnFazla1[k]) { const fr = []; for (let i = 0; i < D; i++) if (ufri[i] && Y[k * D + i]) fr.push(Y[k * D + i]); enFazla1(fr); }
+                if (M.haftaSonuDengesi) {
+                    // Cumartesi ve Pazar nöbet sayıları arasındaki fark en çok 1 (2 hafta sonu nöbeti olan: biri Cumartesi, biri Pazar)
+                    const cmt = [], paz = [];
+                    for (let i = 0; i < D; i++) { const y = Y[k * D + i]; if (!y || !isW[i]) continue; if (dow[i] === 6) cmt.push(y); else if (dow[i] === 0) paz.push(y); }
+                    const m = Math.max(cmt.length, paz.length);
+                    if (m >= 2) {
+                        const c = sayac(cmt, m), p = sayac(paz, m);
+                        for (let j = 1; j + 1 <= m; j++) { add([neg(c[j + 1]), p[j]]); add([neg(p[j + 1]), c[j]]); }
+                    }
+                }
+            }
+            // fazlalık kısıt ("zorunlu aralık"): bir kişinin T nöbeti uygun günlerine aralık kuralıyla ancak sığıyorsa,
+            // belirli gün aralıklarında en az 1 nöbet tutması şarttır (aralığın dışına yeterince nöbet sığmaz).
+            const aralikZorunlu = (gunler, lits, T) => {
+                const n = gunler.length; if (!T || n === 0) return;
+                const pre = new Int32Array(n + 1), suf = new Int32Array(n + 2);
+                { let c = 0, son = -99; for (let j = 0; j < n; j++) { if (gunler[j] - son > ARALIK) { c++; son = gunler[j]; } pre[j + 1] = c; } }
+                { let c = 0, son = 1e9; for (let j = n - 1; j >= 0; j--) { if (son - gunler[j] > ARALIK) { c++; son = gunler[j]; } suf[j] = c; } }
+                let onceki = null;
+                for (let a = 0, b = 0; a < n; a++) {
+                    if (b < a) b = a;
+                    while (b < n && pre[a] + suf[b + 1] >= T) b++;
+                    if (b >= n) break;
+                    if (onceki && onceki[1] === b) onceki[0] = a; else { if (onceki) add(lits.slice(onceki[0], onceki[1] + 1)); onceki = [a, b]; }
+                }
+                if (onceki && (onceki[1] - onceki[0] + 1) < n) add(lits.slice(onceki[0], onceki[1] + 1));
+            };
+            for (let k = 0; k < N; k++) {
+                let top = 0, tw = 0, te = 0;
+                for (let pi = 0; pi < P; pi++) {
+                    const q = kota[k][pi]; if (!q) continue; top += q.w + q.e; tw += q.w; te += q.e;
+                    for (const we of [false, true]) { const g = [], l = []; for (let i = 0; i < D; i++) { const x = X[xi(k, pi, i)]; if (x && isW[i] === we) { g.push(i); l.push(x); } } aralikZorunlu(g, l, we ? q.e : q.w); }
+                }
+                const g = [], l = [], gw = [], lw = [], ge = [], le = [];
+                for (let i = 0; i < D; i++) { const y = Y[k * D + i]; if (!y) continue; g.push(i); l.push(y); if (isW[i]) { ge.push(i); le.push(y); } else { gw.push(i); lw.push(y); } }
+                aralikZorunlu(g, l, top); aralikZorunlu(gw, lw, tw); aralikZorunlu(ge, le, te);
+            }
+            // fazlalık kısıt ("pencere" kuralı): art arda 3 günde bir kişi en çok 1 nöbet tutabildiği için,
+            //  - bir birimin art arda 3 günlük nöbetini 3 FARKLI kişi tutar,
+            //  - tüm birimlerin art arda 3 günlük nöbetlerini 3 × (birim sayısı) FARKLI kişi tutar.
+            // Kadro darsa bu, "şu kişi bu 3 günden birinde mutlaka nöbetçi" sonucunu doğrudan verir ve aramayı çok hızlandırır.
+            const PENCERE_SINIR = 2;
+            const veya = xs => { if (xs.length === 1) return xs[0]; const z = S.newVar(false, false) << 1; xs.forEach(x => add([neg(x), z])); add([neg(z)].concat(xs)); return z; };
+            const enAz = (Z, k) => {
+                if (Z.length < k) { S.addClause([]); return; }
+                if (Z.length - k > PENCERE_SINIR) return;                 // kadro genişse bu kısıt bir şey kazandırmaz
+                if (Z.length === k) { Z.forEach(z => add([z])); return; }
+                const o = sayac(Z, k); add([o[k]]);
+            };
+            for (let i = 0; i + ARALIK < D; i++) {
+                for (let pi = 0; pi < nReg; pi++) {
+                    const Z = [];
+                    for (let k = 0; k < N; k++) { const xs = []; for (let j = i; j <= i + ARALIK; j++) { const x = X[xi(k, pi, j)]; if (x) xs.push(x); } if (xs.length) Z.push(xs); }
+                    if (Z.length - (ARALIK + 1) <= PENCERE_SINIR) enAz(Z.map(veya), ARALIK + 1);
+                }
+                if (nReg > 1) {
+                    const Z = [];
+                    for (let k = 0; k < N; k++) { const ys = []; for (let j = i; j <= i + ARALIK; j++) { const y = Y[k * D + j]; if (y) ys.push(y); } if (ys.length) Z.push(ys); }
+                    if (Z.length - (ARALIK + 1) * nReg <= PENCERE_SINIR) enAz(Z.map(veya), (ARALIK + 1) * nReg);
+                }
+            }
+            M.ciftler.forEach(([a, b]) => { for (let i = 0; i < D; i++) { const ya = Y[a * D + i], yb = Y[b * D + i]; if (ya && yb) add([neg(ya), neg(yb)]); } });
+            M.istenen.forEach(w => { const x = X[xi(w.k, w.pi, w.i)]; if (x) add([x]); else S.addClause([]); });
+            const decode = () => {
+                const out = [];
+                for (let i = 0; i < D; i++) { const row = new Array(P).fill(-1); for (let pi = 0; pi < P; pi++) for (let k = 0; k < N; k++) { const x = X[xi(k, pi, i)]; if (x && S.isTrue(x >> 1)) { row[pi] = k; break; } } out.push(row); }
+                return out;
+            };
+            return { S, decode };
+        }
+
+        // ---------- 5) Bağımsız son denetim: üretilen liste bütün kesin kurallara uyuyor mu? ----------
+        function denetle(girdi, atama) {
+            const M = prepare(girdi, {}), V = [];
+            const { D, N, P, nReg, allP, dates, isW, dow, ufri, docs } = M, R = girdi.rules || {};
+            const gorev = []; for (let k = 0; k < N; k++) gorev.push(new Int8Array(D).fill(-1));
+            if (!Array.isArray(atama) || atama.length !== D) return ['Liste satır sayısı tarih sayısıyla uyuşmuyor.'];
+            for (let i = 0; i < D; i++) for (let pi = 0; pi < P; pi++) {
+                const k = atama[i][pi];
+                if (k === -1 || k === undefined || k === null) { if (pi < nReg) V.push(`${dates[i].full} ${allP[pi]} boş kaldı.`); continue; }
+                if (!M.can[k][pi][i]) V.push(`${docs[k].name}: ${dates[i].full} ${allP[pi]} nöbeti yazılamaz (izin / istenmeyen gün / birim / önceki dönem / Cuma kuralı).`);
+                if (gorev[k][i] !== -1) V.push(`${docs[k].name}: ${dates[i].full} tarihinde iki birimde birden.`);
+                gorev[k][i] = pi;
+            }
+            for (let k = 0; k < N; k++) {
+                const ad = docs[k].name; let son = -99, cuma = 0, cmt = 0, paz = 0;
+                const say = []; for (let pi = 0; pi < P; pi++) say.push({ w: 0, e: 0, f: 0 });
+                for (let i = 0; i < D; i++) {
+                    const pi = gorev[k][i]; if (pi === -1) continue;
+                    if (i - son <= ARALIK) V.push(`${ad}: ${dates[son].full} ve ${dates[i].full} nöbetleri arasında ${ARALIK} gün boşluk yok.`);
+                    son = i; if (isW[i]) say[pi].e++; else say[pi].w++;
+                    if (ufri[i]) { cuma++; say[pi].f++; }
+                    if (isW[i] && dow[i] === 6) cmt++; if (isW[i] && dow[i] === 0) paz++;
+                }
+                for (let pi = 0; pi < P; pi++) {
+                    const q = M.kota[k][pi]; if (!q) continue;
+                    if (q.w !== say[pi].w || q.e !== say[pi].e) V.push(`${ad} / ${allP[pi]}: hedef ${q.w} Hİ + ${q.e} HS, oluşan ${say[pi].w} Hİ + ${say[pi].e} HS.`);
+                    if (M.birimCuma[pi] && say[pi].f > 1) V.push(`${ad}: ${allP[pi]} biriminde birden fazla Cuma nöbeti.`);
+                }
+                if (M.cumaEnFazla1[k] && cuma > 1) V.push(`${ad}: birden fazla Cuma nöbeti.`);
+                if (R.weDifferentDays && Math.abs(cmt - paz) > 1) V.push(`${ad}: Cumartesi (${cmt}) ve Pazar (${paz}) nöbet sayıları dengesiz.`);
+            }
+            M.ciftler.forEach(([a, b]) => { for (let i = 0; i < D; i++) if (gorev[a][i] !== -1 && gorev[b][i] !== -1) V.push(`${docs[a].name} ile ${docs[b].name} aynı gün nöbetçi (${dates[i].full}).`); });
+            M.istenen.forEach(w => { if (gorev[w.k][w.i] !== w.pi) V.push(`${docs[w.k].name}: istenen ${dates[w.i].full} ${allP[w.pi]} nöbeti verilmedi.`); });
+            if (M.celiski.length) V.push('İstenen nöbetlerden biri kurallarla çelişiyor.');
+            return V;
+        }
+
+        // ---------- 6) Çözüm döngüsü ----------
+        // sonuç: 'sat' | 'unsat' | 'bilinmiyor' (süre doldu)
+        // Aynı modelin farklı rastgele başlangıçlı kopyaları sırayla çalıştırılır (portföy).
+        // Bu, "şanssız" bir arama yolunda takılıp kalmayı önler; her kopya tamdır, yani sonuç değişmez, sadece hızlanır.
+        async function calistir(M, rnd, sec, sureMs) {
+            const t0 = now(), kopyalar = [], ekleZamani = [0, 250, 900, 2500, 6000];
+            const ist = () => { const o = { conflicts: 0, decisions: 0, restarts: 0, vars: 0, clauses: 0, kopya: kopyalar.length }; kopyalar.forEach(k => { const s = k.E.S.stats; o.conflicts += s.conflicts; o.decisions += s.decisions; o.restarts += s.restarts; o.vars = s.vars; o.clauses = s.clauses; }); return o; };
+            let sira = 0;
+            for (;;) {
+                const gecen = now() - t0;
+                if (kopyalar.length < ekleZamani.length && gecen >= ekleZamani[kopyalar.length]) kopyalar.push({ E: encode(M, rnd), parca: 400 });
+                const K = kopyalar[sira % kopyalar.length]; sira++;
+                const t1 = now(), r = K.E.S.run(K.parca), dt = now() - t1;
+                if (r === 1) return { durum: 'sat', atama: K.E.decode(), ist: ist() };
+                if (r === -1) return { durum: 'unsat', ist: ist() };
+                if (now() - t0 > sureMs) return { durum: 'bilinmiyor', ist: ist() };
+                if (dt < 15) K.parca = Math.min(20000, K.parca * 2); else if (dt > 45) K.parca = Math.max(100, K.parca >> 1);
+                if (sec.tick) await sec.tick(ist());
+            }
+        }
+
+        const AILELER = [
+            { key: 'unwanted', ad: 'İstenmeyen gün işaretleri', var: g => g.docs.some(d => Object.values(d.avail || {}).some(a => Object.values(a || {}).includes('unwanted'))) },
+            { key: 'wanted', ad: 'İstenen (yeşil) gün işaretleri', var: g => g.docs.some(d => Object.values(d.avail || {}).some(a => Object.values(a || {}).includes('wanted'))) },
+            { key: 'pairs', ad: 'Kişi bazlı kısıtlamalar', var: g => (g.constraints || []).length > 0 },
+            { key: 'friday', ad: 'Gün bazlı Cuma kuralları', var: g => { const R = g.rules || {}; return !!(R.fridayRule || R.fridayMaxOne || R.fridayAbsolute || R.fridayWeMaxOne || R.fridayWe1MaxOne); } },
+            { key: 'placeFriday', ad: 'Nöbet yerine özel Cuma kuralları', var: g => Object.values((g.rules || {}).placeFriday || {}).some(Boolean) },
+            { key: 'weDiff', ad: '"Hafta sonu nöbet günleri farklı olsun" kuralı', var: g => !!(g.rules || {}).weDifferentDays },
+            { key: 'prev', ad: 'Önceki dönem nöbetçileri', var: g => { const p = g.prevDuty || {}; return Object.values(p.d1 || {}).some(Boolean) || Object.values(p.d2 || {}).some(Boolean); } },
+            { key: 'permit', ad: 'İzinli günler', var: g => g.docs.some(d => Object.values(d.avail || {}).some(a => Object.values(a || {}).includes('permit'))) }
+        ];
+
+        // Çözüm olmadığı kanıtlandıktan sonra: hangi kural(lar) kaldırılırsa çözüm çıkıyor?
+        async function nedenBul(girdi, rnd, sec) {
+            const aktif = AILELER.filter(a => a.var(girdi)), tDeadline = now() + (sec.taniSureMs || 6000);
+            const dene = async gevsek => {
+                const kalan = tDeadline - now(); if (kalan <= 50) return 'bilinmiyor';
+                const M = prepare(girdi, gevsek);
+                if (hizliDenetim(M).length) return 'unsat';
+                return (await calistir(M, rnd, sec, Math.min(kalan, 1500))).durum;
+            };
+            if (!aktif.length) return { tekler: [], birlikte: [], temel: 'unsat' };
+            const hepsi = {}; aktif.forEach(a => { hepsi[a.key] = true; });
+            const temel = await dene(hepsi);
+            if (temel !== 'sat') return { tekler: [], birlikte: [], temel: temel };
+            const tekler = [];
+            for (const a of aktif) { const g = {}; g[a.key] = true; if ((await dene(g)) === 'sat') tekler.push(a.ad); }
+            let birlikte = [];
+            if (!tekler.length) {
+                const R = Object.assign({}, hepsi);
+                for (const a of aktif) { const g = Object.assign({}, R); delete g[a.key]; if ((await dene(g)) === 'sat') delete R[a.key]; }
+                birlikte = aktif.filter(a => R[a.key]).map(a => a.ad);
+            }
+            return { tekler: tekler, birlikte: birlikte, temel: 'sat' };
+        }
+
+        // Ana giriş. sec: { random, tick(async), tani (varsayılan true), taniSureMs }
+        // dönen: { durum:'tamam', atama:[[kisiIndeksi|-1,...],...] } | { durum:'imkansiz', nedenler:[html], ipucu:{...} } | { durum:'hata', nedenler:[...] }
+        async function coz(girdi, sec) {
+            sec = sec || {}; const rnd = sec.random || Math.random;
+            const M = prepare(girdi, {});
+            const hizli = hizliDenetim(M);
+            if (hizli.length) return { durum: 'imkansiz', kesin: true, nedenler: hizli, ipucu: null };
+            const r = await calistir(M, rnd, sec, Infinity);
+            if (r.durum === 'sat') {
+                const hatalar = denetle(girdi, r.atama);
+                if (hatalar.length) return { durum: 'hata', nedenler: hatalar, ist: r.ist };
+                return { durum: 'tamam', atama: r.atama, ist: r.ist };
+            }
+            let ipucu = null;
+            if (sec.tani !== false) { if (sec.taniBasladi) sec.taniBasladi(); ipucu = await nedenBul(girdi, rnd, sec); }
+            return { durum: 'imkansiz', kesin: true, nedenler: [], ipucu: ipucu, ist: r.ist };
+        }
+
+        return { coz, denetle, prepare, hizliDenetim, AILELER };
+    })();
+
     async function startSolve() {
         const __prevSchedule = schedule; const __restore = () => { if (Array.isArray(__prevSchedule) && __prevSchedule.length) schedule = __prevSchedule; };
         document.getElementById('loadingOverlay').style.display = 'flex'; document.getElementById('cancelSolveBtn').style.display = 'none'; isSolvingCancelled = false; cancelTimer = setTimeout(() => { document.getElementById('cancelSolveBtn').style.display = 'flex'; }, 3000);
@@ -3925,26 +4636,47 @@ function getFridayCount(doc) {
 
         const conflict = checkGlobalConflicts(); if(conflict.error) { __restore(); clearTimeout(cancelTimer); document.getElementById('alertBox').innerHTML = conflict.msg; document.getElementById('alertBox').style.display='block'; document.getElementById('loadingOverlay').style.display = 'none'; nav(5); return; }
         try {
-            const __t0 = performance.now(); let __lastFail = ''; let __ok = false;
-            for(let __try = 0; __try < 300 && !__ok; __try++) {
-                if(__try > 0 && performance.now() - __t0 > 8000) break;
-                docs.forEach(d => { d.cur = {}; [...activePlaces, "Refakatçi"].forEach(p => d.cur[p]={w:0, e:0}); });
-                schedule = []; for(let i=0; i<dates.length; i++) { schedule[i] = { date: dates[i], assign: {} }; [...activePlaces, "Refakatçi"].forEach(p => schedule[i].assign[p] = null); }
-                assignWantedShifts();
-                let __fail = '';
-                const __placeOrder = __try === 0 ? activePlaces.slice() : activePlaces.slice().sort(() => Math.random() - 0.5);
-                for(let p of __placeOrder) {
-                    const __weFirst = __try === 0 ? true : Math.random() < 0.5;
-                    if(!(await solveBatchAsync(p, __weFirst))) { __fail = `${p} - ${__weFirst ? 'Hafta Sonu' : 'Hafta İçi'} listesi oluşturulamadı.`; break; }
-                    if(!(await solveBatchAsync(p, !__weFirst))) { __fail = `${p} - ${!__weFirst ? 'Hafta Sonu' : 'Hafta İçi'} listesi oluşturulamadı.`; break; }
+            // Kesin çözücü: çözüm varsa mutlaka bulur, yoksa imkânsız olduğunu kanıtlayıp nedenini bildirir.
+            const __allP = refakatciMode ? [...activePlaces, "Refakatçi"] : activePlaces.slice();
+            const __girdi = {
+                dates: dates.map(d => ({ str: d.str, full: d.full, isW: !!d.isW, dow: getLocalDayNumber(d.str) })),
+                places: activePlaces.slice(),
+                refMode: !!refakatciMode,
+                docs: docs.map(d => ({ name: d.name, allowed: (d.allowed || []).slice(), targets: d.targets || {}, avail: d.avail || {} })),
+                constraints: (constraints || []).map(c => [c.p1, c.p2]),
+                rules: { fridayRule: !!fridayRuleEnabled, fridayMaxOne: !!fridayMaxOneRule, fridayAbsolute: !!fridayAbsoluteRule, fridayWeMaxOne: !!fridayWeMaxOneRule, fridayWe1MaxOne: !!fridayWe1MaxOneRule, weDifferentDays: !!weDifferentDaysRule, placeFriday: Object.assign({}, placeFridayRules || {}) },
+                prevDuty: (jokerConfig && jokerConfig.prevDuty) ? jokerConfig.prevDuty : { d1: {}, d2: {} }
+            };
+            let __sonYield = performance.now();
+            const __sonuc = await NobetCozucu.coz(__girdi, {
+                tani: true, taniSureMs: 6000,
+                tick: async () => {
+                    if (isSolvingCancelled) throw 'cancelled';
+                    if (performance.now() - __sonYield > 25) { await new Promise(r => setTimeout(r, 0)); __sonYield = performance.now(); }
+                    if (isSolvingCancelled) throw 'cancelled';
                 }
-                if(!__fail && refakatciMode) {
-                    if(!(await solveBatchAsync('Refakatçi', true))) __fail = "Refakatçi - Hafta Sonu kotaları oluşturulamadı.";
-                    else if(!(await solveBatchAsync('Refakatçi', false))) __fail = "Refakatçi - Hafta İçi kotaları oluşturulamadı.";
-                }
-                if(!__fail) __ok = true; else __lastFail = __fail;
+            });
+            if (isSolvingCancelled) throw 'cancelled';
+            if (__sonuc.durum === 'imkansiz') {
+                let __m = 'Bu ayarlarla <strong>kurallara tam uyan bir nöbet listesi matematiksel olarak mümkün değil</strong> (tüm olasılıklar tarandı).';
+                if (__sonuc.nedenler && __sonuc.nedenler.length) __m += `<ul>${__sonuc.nedenler.map(x => `<li>${x}</li>`).join('')}</ul>`;
+                const __ip = __sonuc.ipucu;
+                if (__ip && __ip.tekler && __ip.tekler.length) __m += `<div style="margin-top:6px">Aşağıdakilerden <strong>herhangi biri</strong> kaldırılırsa/gevşetilirse liste oluşabiliyor:<ul>${__ip.tekler.map(x => `<li>${x}</li>`).join('')}</ul></div>`;
+                else if (__ip && __ip.birlikte && __ip.birlikte.length) __m += `<div style="margin-top:6px">Sorun şu kuralların <strong>birlikte</strong> uygulanmasından kaynaklanıyor:<ul>${__ip.birlikte.map(x => `<li>${x}</li>`).join('')}</ul></div>`;
+                else if (__ip && __ip.temel === 'unsat') __m += '<div style="margin-top:6px">Sorun kota dağılımından kaynaklanıyor: izin, istek ve kurallar kaldırılsa bile bu kotalarla liste oluşmuyor. Kişilerin hafta içi / hafta sonu kotalarını ve birimlerini kontrol edin.</div>';
+                throw __m;
             }
-            if(!__ok) throw __lastFail;
+            if (__sonuc.durum !== 'tamam') throw `Liste son doğrulamadan geçemedi:<ul>${(__sonuc.nedenler || []).slice(0, 20).map(x => `<li>${x}</li>`).join('')}</ul>`;
+            docs.forEach(d => { d.cur = {}; [...activePlaces, "Refakatçi"].forEach(p => d.cur[p] = {w:0, e:0}); });
+            schedule = []; for(let i=0; i<dates.length; i++) { schedule[i] = { date: dates[i], assign: {} }; [...activePlaces, "Refakatçi"].forEach(p => schedule[i].assign[p] = null); }
+            __sonuc.atama.forEach((row, i) => {
+                row.forEach((k, pi) => {
+                    if (k < 0) return;
+                    const d = docs[k], p = __allP[pi];
+                    schedule[i].assign[p] = d;
+                    if (dates[i].isW) d.cur[p].e++; else d.cur[p].w++;
+                });
+            });
 
             const finalCheck = validateSolvedSchedule();
             if(finalCheck.error) throw finalCheck.msg;
@@ -4179,11 +4911,10 @@ function getFridayCount(doc) {
 function checkConstraints(d, dayIdx, unit) {
     // Dinamik Nöbet Yeri Cuma Kısıtlaması (Birime Özel Cuma Kontrolü)
     const currentDayNum = getLocalDayNumber(dates[dayIdx].str);
-    if (currentDayNum === 5 && placeFridayRules[unit]) {
+    if (isUserFriday(dayIdx) && placeFridayRules[unit]) {
         let fridayCountInThisUnit = 0;
         for (let i = 0; i < dates.length; i++) {
-            const dayNum = getLocalDayNumber(dates[i].str);
-            if (dayNum === 5 && schedule[i].assign[unit] && schedule[i].assign[unit].id === d.id) {
+            if (isUserFriday(i) && schedule[i].assign[unit] && schedule[i].assign[unit].id === d.id) {
                 fridayCountInThisUnit++;
             }
         }
@@ -4200,21 +4931,16 @@ function checkConstraints(d, dayIdx, unit) {
 
         // Sadece gerçek hafta sonu günleri (Cumartesi veya Pazar) için geçerli, resmi tatiller serbest
         if (targetDayNum === 0 || targetDayNum === 6) {
+            const checkPlaces = [...activePlaces]; if(refakatciMode) checkPlaces.push("Refakatçi");
+            let ayni = 0, diger = 0;
             for (let i = 0; i < dates.length; i++) {
-                if (i !== dayIdx && dates[i].isW) {
-                    const existingDayNum = getLocalDayNumber(dates[i].str);
-
-                    // İkisi de Cumartesi veya ikisi de Pazar ise engelle
-                    if (targetDayNum === existingDayNum) {
-                        const checkPlaces = [...activePlaces]; if(refakatciMode) checkPlaces.push("Refakatçi");
-                        for (let u of checkPlaces) {
-                            if (schedule[i].assign[u] && schedule[i].assign[u].id === d.id) {
-                                return false;
-                            }
-                        }
-                    }
-                }
+                if (i === dayIdx || !dates[i].isW) continue;
+                const gn = getLocalDayNumber(dates[i].str);
+                if (gn !== 0 && gn !== 6) continue;
+                if (checkPlaces.some(u => schedule[i].assign[u] && schedule[i].assign[u].id === d.id)) { if (gn === targetDayNum) ayni++; else diger++; }
             }
+            // Cumartesi ve Pazar nöbet sayıları arasındaki fark en çok 1 olabilir
+            if (ayni + 1 - diger > 1) return false;
         }
     }
 
@@ -7475,18 +8201,21 @@ function checkSwapEligibilityCore(src, tgt) {
             if (fridayWeMaxOneRule && we2 >= 2 && fr0 >= 2) return false;
             if (fridayWe1MaxOneRule && we2 >= 1 && fr0 >= 2) return false;
         }
-        if (unit && getLocalDayNumber(dates[targetDayIdx].str) === 5 && placeFridayRules[unit]) {
+        if (unit && isUserFriday(targetDayIdx) && placeFridayRules[unit]) {
             for (let i = 0; i < dates.length; i++) {
-                if (i !== ignoreDayIdx && getLocalDayNumber(dates[i].str) === 5 && hasDuty(i, unit)) return false;
+                if (i !== ignoreDayIdx && isUserFriday(i) && hasDuty(i, unit)) return false;
             }
         }
         if (weDifferentDaysRule && dates[targetDayIdx].isW) {
+            // Cumartesi ve Pazar nöbet sayıları arasındaki fark en çok 1 olmalı (2 HS nöbeti olan: biri Cumartesi, biri Pazar)
             const tn = getLocalDayNumber(dates[targetDayIdx].str);
             if (tn === 0 || tn === 6) {
-                for (let i = 0; i < dates.length; i++) {
-                    if (i === ignoreDayIdx || i === targetDayIdx || !dates[i].isW) continue;
-                    if (getLocalDayNumber(dates[i].str) === tn && anyDuty(i)) return false;
-                }
+                const sayGun = (gun, haric) => { let c = 0; for (let i = 0; i < dates.length; i++) { if (i === haric || !dates[i].isW) continue; if (getLocalDayNumber(dates[i].str) === gun && anyDuty(i)) c++; } return c; };
+                const onceFark = Math.abs(sayGun(6, -1) - sayGun(0, -1));
+                const sonraCmt = sayGun(6, ignoreDayIdx) + (tn === 6 ? 1 : 0) - (targetDayIdx !== ignoreDayIdx && tn === 6 && anyDuty(targetDayIdx) ? 1 : 0);
+                const sonraPaz = sayGun(0, ignoreDayIdx) + (tn === 0 ? 1 : 0) - (targetDayIdx !== ignoreDayIdx && tn === 0 && anyDuty(targetDayIdx) ? 1 : 0);
+                const sonraFark = Math.abs(sonraCmt - sonraPaz);
+                if (sonraFark > 1 && sonraFark >= onceFark) return false;
             }
         }
         return true;
@@ -7962,6 +8691,382 @@ document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') flushNobetAutoSave();
 });
 window.addEventListener('pagehide', flushNobetAutoSave);
+
+// ============================================================
+// SES SİSTEMİ — Sesler dosyadan değil, Web Audio ile kodla üretilir
+// ============================================================
+(function () {
+    'use strict';
+
+    const PREF_KEY = 'nobetSoundEnabled';   // Ses tercihi (Sıfırla düğmesinden etkilenmez)
+    let enabled = true;
+    try { enabled = localStorage.getItem(PREF_KEY) !== '0'; } catch (e) {}
+
+    let ctx = null, master = null, noiseBuf = null;
+    let gestureSeen = false, userActed = false, welcomed = false;
+    let suppressNav = 0, alertCount = 0, solving = false, kneeRun = 0, animEvt = 0, kneeTimer = null, lastWarnKey = '';
+    const lastPlayed = {};
+
+    function getCtx() {
+        if (ctx) return ctx;
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return null;
+        try {
+            ctx = new AC();
+            master = ctx.createGain();
+            master.gain.value = 0.8;
+            master.connect(ctx.destination);
+        } catch (e) { ctx = null; }
+        return ctx;
+    }
+
+    // Tek bir nota (osilatör + zarf)
+    function tone(freq, start, dur, o) {
+        o = o || {};
+        const attack = Math.min(o.attack || 0.008, dur / 3);
+        const peak = o.gain == null ? 0.2 : o.gain;
+        const osc = ctx.createOscillator();
+        const g = ctx.createGain();
+        osc.type = o.type || 'sine';
+        osc.frequency.setValueAtTime(freq, start);
+        if (o.slideTo) osc.frequency.exponentialRampToValueAtTime(o.slideTo, start + dur);
+        g.gain.setValueAtTime(0.0001, start);
+        g.gain.exponentialRampToValueAtTime(peak, start + attack);
+        g.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+        osc.connect(g);
+        if (o.lowpass) {
+            const f = ctx.createBiquadFilter();
+            f.type = 'lowpass';
+            f.frequency.value = o.lowpass;
+            g.connect(f);
+            f.connect(master);
+        } else {
+            g.connect(master);
+        }
+        osc.start(start);
+        osc.stop(start + dur + 0.03);
+    }
+
+    // Kısa gürültü patlaması (vuruş / tık sesleri için)
+    function noise(start, dur, o) {
+        o = o || {};
+        if (!noiseBuf) {
+            const len = Math.floor(ctx.sampleRate * 0.25);
+            noiseBuf = ctx.createBuffer(1, len, ctx.sampleRate);
+            const d = noiseBuf.getChannelData(0);
+            let s = 22695477;   // Kendi küçük üretecimiz: uygulamanın Math.random dizisine dokunmaz
+            for (let i = 0; i < len; i++) { s = (Math.imul(s, 1664525) + 1013904223) >>> 0; d[i] = s / 2147483648 - 1; }
+        }
+        const src = ctx.createBufferSource();
+        src.buffer = noiseBuf;
+        const f = ctx.createBiquadFilter();
+        f.type = o.type || 'bandpass';
+        f.frequency.value = o.freq || 1500;
+        f.Q.value = o.q || 1;
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(o.gain == null ? 0.2 : o.gain, start);
+        g.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+        src.connect(f);
+        f.connect(g);
+        g.connect(master);
+        src.start(start);
+        src.stop(start + dur + 0.02);
+    }
+
+    const SOUNDS = {
+        // Sayfa ilerleme: hafif tık
+        tick: t => { tone(1500, t, 0.05, { type: 'triangle', gain: 0.10 }); },
+        // Açılış: kısa karşılama (yükselen üç nota)
+        welcome: t => {
+            [523.25, 659.25, 783.99].forEach((f, i) => tone(f, t + i * 0.1, 0.3, { gain: 0.13 }));
+            tone(1046.5, t + 0.3, 0.5, { gain: 0.09 });
+        },
+        // Liste hazır: yükselen dörtlü
+        success: t => {
+            [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => tone(f, t + i * 0.09, 0.34, { type: 'triangle', gain: 0.15 }));
+        },
+        // Oluşturamama / uyarılar: kısa, alçak, alçalan iki nota
+        error: t => {
+            tone(196, t, 0.17, { type: 'sawtooth', gain: 0.13, lowpass: 700 });
+            tone(147, t + 0.16, 0.26, { type: 'sawtooth', gain: 0.13, lowpass: 600 });
+        },
+        // Joker uyarısı: iki kısa bip
+        warn: t => {
+            tone(466, t, 0.09, { type: 'triangle', gain: 0.17 });
+            tone(466, t + 0.15, 0.12, { type: 'triangle', gain: 0.17 });
+        },
+        // Silme / sıfırlama onayı: alçak "dikkat"
+        caution: t => { tone(233, t, 0.3, { type: 'triangle', gain: 0.2, slideTo: 196 }); },
+        // Dosya indirme: çift "bip"
+        download: t => {
+            tone(988, t, 0.08, { gain: 0.14 });
+            tone(988, t + 0.14, 0.08, { gain: 0.14 });
+        },
+        // Vazgeç / iptal: kısa alçalan ses
+        cancel: t => { tone(660, t, 0.1, { type: 'triangle', gain: 0.12, slideTo: 420 }); },
+        // Patella (diz refleksi) vuruşu
+        knee: t => {
+            tone(190, t, 0.14, { gain: 0.5, slideTo: 60, attack: 0.002 });
+            noise(t, 0.04, { type: 'bandpass', freq: 1200, q: 1, gain: 0.25 });
+        },
+        // Fener / muayene "tık"ı
+        flash: t => {
+            noise(t, 0.015, { type: 'highpass', freq: 3000, gain: 0.22 });
+            tone(1800, t, 0.035, { type: 'square', gain: 0.05, lowpass: 5000 });
+        }
+    };
+
+    function play(name) {
+        if (!enabled) return false;
+        const def = SOUNDS[name];
+        if (!def) return false;
+        if (!gestureSeen) return false;   // Tarayıcılar, kullanıcı etkileşimi olmadan sese izin vermez
+        if (!userActed && name !== 'welcome' && name !== 'flash') return false;   // Kullanıcı daha bir şeye basmadan, sayfanın kendiliğinden yaptığı işlemler (kayıtlı sayfayı açma vb.) ses çıkarmaz
+        const c = getCtx();
+        if (!c) return false;
+        const now = Date.now();
+        if (lastPlayed[name] && now - lastPlayed[name] < 60) return false;
+        lastPlayed[name] = now;
+        try {
+            if (c.state === 'suspended') { const p = c.resume(); if (p && p.catch) p.catch(() => {}); }
+            def(c.currentTime + 0.01);
+            return true;
+        } catch (e) {
+            console.warn('Ses çalınamadı:', name, e);
+            return false;
+        }
+    }
+    function justPlayed(names, ms) {
+        const now = Date.now();
+        return names.some(n => lastPlayed[n] && now - lastPlayed[n] < ms);
+    }
+
+    // Sayfaya ilk tıklama / tuş: sesi açar ve karşılama sesini çalar
+    function onFirstGesture(e) {
+        userActed = true;
+        if (gestureSeen) return;
+        gestureSeen = true;
+        const c = getCtx();
+        if (c && c.state === 'suspended') { try { const p = c.resume(); if (p && p.catch) p.catch(() => {}); } catch (err) {} }
+        const onToggle = e && e.target && e.target.closest && e.target.closest('#soundToggleBtn');
+        if (!welcomed && !onToggle) { welcomed = true; setTimeout(() => play('welcome'), 40); }
+    }
+    ['pointerdown', 'mousedown', 'keydown', 'touchstart'].forEach(evn => document.addEventListener(evn, onFirstGesture, { capture: true, passive: true }));
+
+    // Tarayıcı otomatik oynatmaya izin veriyorsa karşılama sesi açılışta kendiliğinden çalar
+    function tryAutoplayWelcome() {
+        try {
+            if (!enabled || !navigator.getAutoplayPolicy) return;
+            if (navigator.getAutoplayPolicy('audiocontext') !== 'allowed') return;
+            gestureSeen = true;
+            welcomed = true;
+            getCtx();
+            play('welcome');
+        } catch (e) {}
+    }
+
+    // Köşedeki 🔊 / 🔇 düğmesi (tercih hatırlanır)
+    function mountToggle() {
+        if (document.getElementById('soundToggleBtn')) return;
+        const btn = document.createElement('button');
+        btn.id = 'soundToggleBtn';
+        btn.type = 'button';
+        btn.setAttribute('aria-label', 'Sesleri aç veya kapat');
+        btn.style.cssText = 'width:34px; height:34px; padding:0; border:none; border-radius:50%; background:rgba(255,255,255,0.12); color:#ffffff; font-size:1rem; line-height:1; cursor:pointer; display:inline-flex; align-items:center; justify-content:center;';
+        const refresh = () => {
+            btn.textContent = enabled ? '🔊' : '🔇';
+            btn.title = enabled ? 'Sesler açık (kapatmak için tıklayın)' : 'Sesler kapalı (açmak için tıklayın)';
+            btn.style.opacity = enabled ? '1' : '0.6';
+        };
+        refresh();
+        btn.addEventListener('click', () => {
+            enabled = !enabled;
+            try { localStorage.setItem(PREF_KEY, enabled ? '1' : '0'); } catch (e) {}
+            refresh();
+            if (enabled) { gestureSeen = true; userActed = true; getCtx(); play('tick'); }
+        });
+        // Dar ekranlarda (telefon) başlık sıkışık olduğundan düğme sağ alt köşeye sabitlenir
+        if (!document.getElementById('soundToggleStyle')) {
+            const st = document.createElement('style');
+            st.id = 'soundToggleStyle';
+            st.textContent = '@media (max-width: 720px) { #soundToggleBtn { position: fixed !important; right: 14px; bottom: 14px; z-index: 900; background: #0f172a !important; box-shadow: 0 2px 10px rgba(0,0,0,0.35); } }';
+            document.head.appendChild(st);
+        }
+        const status = document.getElementById('saveStatus');
+        if (status && status.parentNode) {
+            status.parentNode.appendChild(btn);
+        } else {
+            btn.style.position = 'fixed';
+            btn.style.right = '16px';
+            btn.style.bottom = '16px';
+            btn.style.zIndex = '900';
+            btn.style.background = '#0f172a';
+            document.body.appendChild(btn);
+        }
+    }
+
+    // Patella refleksi: çekiç dizkapağına her 5 saniyelik döngünün %35'inde (1,75. saniye) değer
+    function playKnee() {
+        const ov = document.getElementById('loadingOverlay');
+        if (ov && getComputedStyle(ov).display !== 'none' && !isSolvingCancelled) { kneeRun++; play('knee'); }
+    }
+    function mountKnee() {
+        const hammer = document.querySelector('#loadingOverlay .reflex-hammer-container');
+        if (!hammer) return;
+        const hit = e => { if (e.animationName === 'hammerDrop') { animEvt++; clearTimeout(kneeTimer); kneeTimer = setTimeout(playKnee, 1750); } };
+        hammer.addEventListener('animationstart', hit);
+        hammer.addEventListener('animationiteration', hit);
+    }
+
+    // Açılış animasyonları: ışık refleksinde fener, İNO'da parmak "tık"ı
+    function scheduleSplashSounds() {
+        const cont = document.getElementById('splashAnimContainer');
+        if (!cont) return;
+        let times = [];
+        if (cont.querySelector('.light-source')) times = [1370, 3300];
+        else if (cont.querySelector('.ino-target')) times = [760, 2520];
+        times.forEach(ms => setTimeout(() => play('flash'), ms));
+    }
+
+    // Mevcut fonksiyonları sarmalayarak seslerini bağlar (asıl kodlara dokunmaz)
+    function wrap(name, make) {
+        try {
+            const orig = window[name];
+            if (typeof orig !== 'function' || orig.__sesSarili) return;
+            const fn = make(orig);
+            fn.__sesSarili = true;
+            window[name] = fn;
+        } catch (e) { console.warn('Ses bağlantısı kurulamadı:', name, e); }
+    }
+
+    // Sayfa ilerleme tıkı; geçiş engellenirse hata sesi
+    wrap('nav', orig => function (n) {
+        const before = Number(window.__currentNavigationStep || 0);
+        const r = orig.apply(this, arguments);
+        const after = Number(window.__currentNavigationStep || 0);
+        if (suppressNav === 0) {
+            if (after !== before) { if (!justPlayed(['warn', 'error'], 250)) play('tick'); }
+            else if (n !== before) play('error');
+        }
+        return r;
+    });
+
+    // Nöbet listesi: hazırlanırken patella vuruşu, bitince başarı / hata sesi
+    wrap('startSolve', orig => async function () {
+        const hBefore = history.length ? history[history.length - 1] : null;
+        suppressNav++;
+        solving = true;
+        const k0 = kneeRun, a0 = animEvt;
+        const fallback = setTimeout(() => { if (solving && kneeRun === k0 && animEvt === a0) playKnee(); }, 1900);   // animasyon olayı hiç gelmezse yedek
+        let threw = false;
+        try {
+            return await orig.apply(this, arguments);
+        } catch (err) {
+            threw = true;
+            throw err;
+        } finally {
+            clearTimeout(fallback);
+            solving = false;
+            suppressNav--;
+            try {
+                const hAfter = history.length ? history[history.length - 1] : null;
+                if (threw) play('error');
+                else if (hAfter && hAfter !== hBefore) play('success');
+                else if (!isSolvingCancelled) play('error');
+            } catch (err2) {}
+        }
+    });
+
+    // Uyarı pencereleri: Başarılı → başarı, Bilgi → hafif tık, diğerleri (Hata, Uyarı, Kota Doldu, Kural İhlali) → hata sesi
+    wrap('showModernAlert', orig => function (title) {
+        const r = orig.apply(this, arguments);
+        alertCount++;
+        const t = String(title || '').toLocaleLowerCase('tr-TR');
+        if (t.indexOf('başar') === 0) play('success');
+        else if (t.indexOf('bilgi') === 0) play('tick');
+        else play('error');
+        return r;
+    });
+
+    // Silme / sıfırlama / temizleme onayları: alçak "dikkat" sesi
+    wrap('confirmAction', orig => function (title) {
+        const r = orig.apply(this, arguments);
+        if (/(sil|sıfırla|temizle|çıkar)/.test(String(title || '').toLocaleLowerCase('tr-TR'))) play('caution');
+        return r;
+    });
+    wrap('openModernClearConfirmModal', orig => function () {
+        const r = orig.apply(this, arguments);
+        play('caution');
+        return r;
+    });
+
+    // Joker uyarıları: yeni bir uyarı çıkınca uyarı sesi
+    wrap('displayJokerWarnings', orig => function (w) {
+        const r = orig.apply(this, arguments);
+        const key = (Array.isArray(w) ? w : []).join('|');
+        if (key && key !== lastWarnKey) play('warn');
+        lastWarnKey = key;
+        return r;
+    });
+
+    // Dosya indirme: çift "bip" (uyarı çıkarsa çalmaz)
+    ['exportWord', 'exportPDF', 'exportNobetPNG', 'exportJokerWord', 'exportJokerPDF', 'exportJokerPNG', 'exportWorkplacesPDF', 'exportWorkplacesPNG'].forEach(function (name) {
+        wrap(name, orig => function () {
+            const before = alertCount;
+            let r;
+            try { r = orig.apply(this, arguments); }
+            catch (err) { play('error'); throw err; }
+            if (alertCount === before) play('download');
+            return r;
+        });
+    });
+
+    // Eski liste aktarımı / becayiş kaydı: kendi başarı sesi çalar, sayfa tıkı çalmaz
+    ['importOldDutyListDirectly', 'saveSwapChanges'].forEach(function (name) {
+        wrap(name, orig => function () {
+            suppressNav++;
+            try { return orig.apply(this, arguments); }
+            finally { suppressNav--; }
+        });
+    });
+
+    // Vazgeç / İptal düğmeleri: kısa iptal sesi
+    document.addEventListener('click', function (e) {
+        const b = e.target && e.target.closest ? e.target.closest('button, #cancelSolveBtn') : null;
+        if (!b) return;
+        const t = (b.textContent || '').trim().toLocaleLowerCase('tr-TR');
+        if (t === 'vazgeç' || t === 'iptal' || t === 'iptal et') play('cancel');
+    }, true);
+
+    // "Joker Listesini Hesapla" düğmesi: hazırsa başarı, uyarı varsa uyarı sesi
+    document.addEventListener('click', function (e) {
+        const b = e.target && e.target.closest ? e.target.closest('button[onclick="calculateJokerSchedule()"]') : null;
+        if (!b) return;
+        setTimeout(function () {
+            if (jokerWarnings.length > 0) { if (!justPlayed(['warn'], 500)) play('warn'); }
+            else if (jokerSchedule.length > 0) play('success');
+        }, 0);
+    });
+
+    // Becayiş: takas için uygun olmayan (soluk) hücreye tıklanırsa hata sesi
+    document.addEventListener('click', function (e) {
+        const grid = document.getElementById('swapGridLeftTable');
+        if (!grid || !e.target || !grid.contains(e.target)) return;
+        if (selectedShiftSource && /^(TR|TBODY|TABLE)$/.test(e.target.tagName)) play('error');
+    }, true);
+
+    function init() {
+        mountToggle();
+        tryAutoplayWelcome();
+        scheduleSplashSounds();
+        mountKnee();
+    }
+    if (document.readyState === 'loading') window.addEventListener('DOMContentLoaded', init);   // açılış animasyonu yerleştirildikten sonra çalışır
+    else init();
+
+    window.NobetSes = { play: play, isEnabled: function () { return enabled; } };
+})();
+
 
 </script>
 
