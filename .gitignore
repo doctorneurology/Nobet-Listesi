@@ -1,0 +1,11 @@
+# Bağımlılıklar ve yerel dosyalar
+node_modules/
+tests/node_modules/
+supabase/.branches/
+supabase/.temp/
+.env
+.env.*
+*.local.env
+# Kişisel veri içerebilecek dışa aktarımlar
+*.seed.private.sql
+yedek/
