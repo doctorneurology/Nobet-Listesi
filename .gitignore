@@ -9,3 +9,4 @@ supabase/.temp/
 # Kişisel veri içerebilecek dışa aktarımlar
 *.seed.private.sql
 yedek/
+.tools/

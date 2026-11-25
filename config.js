@@ -11,9 +11,9 @@
         staffEmailDomain: "personel.nobet.invalid"
       }
     : {
-        // Canlı ortam – Supabase projesi oluşturulunca doldurulacak
-        supabaseUrl: "",
-        supabaseAnonKey: "",
+        // Canlı ortam (Supabase projesi: nobet-listesi, Frankfurt). anon anahtarı herkese açıktır; yetkiyi RLS belirler.
+        supabaseUrl: "https://advrjlqcsprlxkzdwntj.supabase.co",
+        supabaseAnonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFkdnJqbHFjc3BybHhremR3bnRqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTU2MzI0MDMsImV4cCI6MjExMTIwODQwM30.g9wssPH-Gw0FpJpT_VvHXuA5FfIXBAv7zcUtc59vVBI",
         staffEmailDomain: "personel.nobet.invalid"
       };
 })();
