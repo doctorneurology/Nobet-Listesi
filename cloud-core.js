@@ -12,20 +12,29 @@
   var client = null;
 
   function safeGet(store, k) { try { return store.getItem(k); } catch (e) { return null; } }
-  function safeSet(store, k, v) { try { store.setItem(k, v); } catch (e) {} }
+  function safeSet(store, k, v) { try { store.setItem(k, v); return true; } catch (e) { return false; } }
   function safeDel(store, k) { try { store.removeItem(k); } catch (e) {} }
+  // Son çare: tarayıcı depolaması dolu/kapalıysa oturum bu sekmenin belleğinde tutulur.
+  var memStore = {};
 
   function getRemember() { return safeGet(localStorage, REMEMBER_KEY) !== '0'; }
   function setRemember(on) { safeSet(localStorage, REMEMBER_KEY, on ? '1' : '0'); }
 
   // "Oturumu açık tut" seçili değilse oturum yalnızca bu sekme/tarayıcı oturumu boyunca saklanır.
+  // localStorage dolu olabilir (aynı adresteki uygulamalar 5 MB'lık alanı paylaşır); o durumda
+  // oturum sessionStorage'a, o da olmazsa belleğe yazılır. Okuma her zaman en güncel yazılan yerden yapılır.
   var authStorage = {
-    getItem: function (k) { return safeGet(localStorage, k) || safeGet(sessionStorage, k); },
-    setItem: function (k, v) {
-      if (getRemember()) { safeSet(localStorage, k, v); safeDel(sessionStorage, k); }
-      else { safeSet(sessionStorage, k, v); safeDel(localStorage, k); }
+    getItem: function (k) {
+      if (Object.prototype.hasOwnProperty.call(memStore, k)) return memStore[k];
+      return safeGet(localStorage, k) || safeGet(sessionStorage, k);
     },
-    removeItem: function (k) { safeDel(localStorage, k); safeDel(sessionStorage, k); }
+    setItem: function (k, v) {
+      var ok = false;
+      if (getRemember()) { ok = safeSet(localStorage, k, v); if (ok) safeDel(sessionStorage, k); }
+      if (!ok) { ok = safeSet(sessionStorage, k, v); if (ok) safeDel(localStorage, k); }
+      if (ok) delete memStore[k]; else memStore[k] = v;
+    },
+    removeItem: function (k) { delete memStore[k]; safeDel(localStorage, k); safeDel(sessionStorage, k); }
   };
 
   function getClient() {
