@@ -1,0 +1,29 @@
+# Her gönderimde yayınlanacak dosyalarda gizli anahtar ve kişisel veri taraması yapar.
+# Bulursa işlem başarısız olur ve GitHub size e-posta ile bildirir.
+name: Guvenlik taramasi
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  tarama:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Gizli anahtar taraması
+        run: |
+          set -e
+          FILES=$(git ls-files | grep -v '^tests/package-lock.json$' || true)
+          FAIL=0
+          # Supabase service_role JWT (yükü base64 içinde "service_role" geçen anahtarlar) ve yeni tip gizli anahtarlar
+          if grep -nE 'sb_secret_[A-Za-z0-9_-]{10,}' $FILES; then echo "::error::Supabase gizli anahtarı bulundu"; FAIL=1; fi
+          for tok in $(grep -ohE 'eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}' $FILES | sort -u); do
+            payload=$(echo "$tok" | cut -d. -f2 | tr '_-' '/+'); pad=$(( (4 - ${#payload} % 4) % 4 ))
+            dec=$(printf '%s%s' "$payload" "$(printf '=%.0s' $(seq 1 $pad))" | base64 -d 2>/dev/null || true)
+            if echo "$dec" | grep -q '"role":"service_role"'; then echo "::error::service_role anahtarı bulundu"; FAIL=1; fi
+          done
+          if grep -nE '(ghp_|github_pat_)[A-Za-z0-9_]{20,}|AKIA[0-9A-Z]{16}|-----BEGIN [A-Z ]*PRIVATE KEY-----' $FILES; then echo "::error::Erişim anahtarı bulundu"; FAIL=1; fi
+          # Ortam dosyaları depoya girmemeli
+          if git ls-files | grep -E '(^|/)\.env($|\.)'; then echo "::error::.env dosyası depoda"; FAIL=1; fi
+          exit $FAIL

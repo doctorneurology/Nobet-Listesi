@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<title>Nöbet İsteği – Personel</title>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js" integrity="sha384-0w2KAL2YHP6wKOkUDzkCDGgVvfmHnj02DHeQ6XcHOgTfFsGyonKOpShMH1x6nk9o" crossorigin="anonymous"></script>
+<script defer src="config.js?v=20261125"></script>
+<script defer src="cloud-core.js?v=20261125"></script>
+<style>
+  :root { --primary:#0f172a; --accent:#3b82f6; --ok:#16a34a; --err:#dc2626; --bg:#f1f5f9; --border:#e2e8f0; --muted:#64748b; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family:'Inter',system-ui,sans-serif; background:var(--bg); color:#0f172a; min-height:100vh; }
+  header { background:var(--primary); color:#fff; padding:18px 16px; }
+  header .in { max-width:720px; margin:0 auto; display:flex; justify-content:space-between; align-items:center; gap:12px; }
+  header h1 { margin:0; font-size:1.05rem; line-height:1.35; font-weight:700; }
+  header small { display:block; font-weight:400; opacity:.75; font-size:.8rem; }
+  main { max-width:720px; margin:24px auto; padding:0 16px 40px; }
+  .card { background:#fff; border:1px solid var(--border); border-radius:14px; padding:22px; box-shadow:0 4px 16px rgba(15,23,42,.06); margin-bottom:16px; }
+  h2 { margin:0 0 6px; font-size:1.2rem; }
+  p.sub { margin:0 0 16px; color:var(--muted); font-size:.9rem; }
+  label { display:block; font-size:.82rem; font-weight:700; color:#475569; margin:12px 0 5px; }
+  input[type=text], input[type=password], textarea { width:100%; padding:11px 12px; border:1px solid #cbd5e1; border-radius:9px; font:inherit; font-size:.95rem; background:#fff; }
+  input:focus, textarea:focus { outline:2px solid #93c5fd; border-color:var(--accent); }
+  textarea { min-height:220px; resize:vertical; line-height:1.5; }
+  .row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  .between { justify-content:space-between; }
+  .btn { border:none; border-radius:9px; padding:11px 18px; font:inherit; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:8px; justify-content:center; font-size:.92rem; }
+  .btn-primary { background:var(--primary); color:#fff; }
+  .btn-primary:disabled { opacity:.55; cursor:default; }
+  .btn-light { background:#fff; color:var(--primary); border:1px solid #cbd5e1; }
+  .btn-link { background:none; border:none; color:#2563eb; cursor:pointer; padding:4px 0; font:inherit; font-size:.88rem; text-decoration:underline; }
+  .check { display:inline-flex; align-items:center; gap:8px; font-size:.88rem; color:#334155; margin:14px 0 4px; cursor:pointer; font-weight:500; }
+  .msg { font-size:.88rem; margin:10px 0 0; min-height:1.2em; }
+  .msg.err { color:var(--err); } .msg.ok { color:var(--ok); }
+  .pill { display:inline-block; font-size:.75rem; font-weight:700; border-radius:12px; padding:3px 10px; }
+  .pill.green { background:#dcfce7; color:#166534; } .pill.gray { background:#e2e8f0; color:#475569; } .pill.amber { background:#fef3c7; color:#92400e; }
+  .who { font-size:1.15rem; font-weight:800; }
+  .period { background:#f8fafc; border:1px solid var(--border); border-radius:10px; padding:12px 14px; margin:12px 0; font-size:.9rem; }
+  .status { font-size:.85rem; color:var(--muted); }
+  .status.saved { color:var(--ok); font-weight:600; }
+  .hidden { display:none !important; }
+  .hint { font-size:.8rem; color:var(--muted); margin-top:6px; }
+  .past { border-top:1px solid var(--border); padding:10px 0; font-size:.88rem; }
+  .past pre { white-space:pre-wrap; overflow-wrap:anywhere; font:inherit; margin:6px 0 0; color:#334155; }
+  .center { text-align:center; }
+  @media (max-width:520px) { .card { padding:18px; } header h1 { font-size:.95rem; } .btn { width:100%; } .row.actions { flex-direction:column-reverse; align-items:stretch; } }
+</style>
+</head>
+<body>
+<header><div class="in">
+  <h1>Nöbet İsteği Mesajı<small>Selçuk Üniversitesi Nöroloji Anabilim Dalı</small></h1>
+  <button class="btn btn-light hidden" id="logoutBtn" type="button"><i class="fas fa-sign-out-alt"></i> Çıkış</button>
+</div></header>
+
+<main>
+  <div class="card center" id="viewLoading"><i class="fas fa-spinner fa-spin"></i> Yükleniyor…</div>
+
+  <div class="card hidden" id="viewConfig">
+    <h2>Sistem henüz hazır değil</h2>
+    <p class="sub">Bağlantı ayarları yapılmamış. Lütfen yöneticinize başvurun.</p>
+  </div>
+
+  <!-- Giriş -->
+  <div class="card hidden" id="viewLogin">
+    <h2>Giriş</h2>
+    <p class="sub">Kullanıcı adınız ve şifrenizle giriş yapın.</p>
+    <form id="loginForm" autocomplete="on">
+      <label for="liUser">Kullanıcı adı</label>
+      <input type="text" id="liUser" autocomplete="username" autocapitalize="none" spellcheck="false" required>
+      <label for="liPw">Şifre</label>
+      <input type="password" id="liPw" autocomplete="current-password" required>
+      <label class="check"><input type="checkbox" id="liRemember"> Oturumu açık tut</label>
+      <div class="msg err" id="liMsg"></div>
+      <div class="row between actions" style="margin-top:12px">
+        <button type="button" class="btn-link" data-go="viewForgot">Şifremi unuttum</button>
+        <button type="submit" class="btn btn-primary" id="liBtn"><i class="fas fa-sign-in-alt"></i> Giriş</button>
+      </div>
+    </form>
+    <hr style="border:none;border-top:1px solid var(--border);margin:18px 0">
+    <p class="sub" style="margin:0">İlk kez mi giriyorsunuz veya yöneticinizden kod mu aldınız?
+      <button type="button" class="btn-link" data-go="viewCode">Kod ile şifre belirleyin</button></p>
+  </div>
+
+  <!-- Aktivasyon / sıfırlama kodu ile şifre belirleme -->
+  <div class="card hidden" id="viewCode">
+    <h2>Kod ile Şifre Belirleme</h2>
+    <p class="sub">Yöneticinizin verdiği <b>kullanıcı adı</b> ve <b>tek kullanımlık kod</b> ile kendi şifrenizi belirleyin. Kod yalnızca bir kez kullanılabilir.</p>
+    <form id="codeForm" autocomplete="off">
+      <label for="cdUser">Kullanıcı adı</label>
+      <input type="text" id="cdUser" autocomplete="username" autocapitalize="none" spellcheck="false" required>
+      <label for="cdCode">Kod</label>
+      <input type="text" id="cdCode" placeholder="XXXXX-XXXXX" autocapitalize="characters" spellcheck="false" required>
+      <label for="cdPw1">Yeni şifre</label>
+      <input type="password" id="cdPw1" autocomplete="new-password" required>
+      <div class="hint">En az 8 karakter; en az bir harf ve bir rakam içermeli.</div>
+      <label for="cdPw2">Yeni şifre (tekrar)</label>
+      <input type="password" id="cdPw2" autocomplete="new-password" required>
+      <div class="msg err" id="cdMsg"></div>
+      <div class="row between actions" style="margin-top:12px">
+        <button type="button" class="btn-link" data-go="viewLogin">Girişe dön</button>
+        <button type="submit" class="btn btn-primary" id="cdBtn"><i class="fas fa-key"></i> Şifremi Belirle</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Şifremi unuttum -->
+  <div class="card hidden" id="viewForgot">
+    <h2>Şifremi Unuttum</h2>
+    <p class="sub">Kayıtlı e-posta adresiniz varsa size tek kullanımlık bir sıfırlama kodu gönderilir. E-posta adresiniz kayıtlı değilse yöneticinizden sıfırlama kodu isteyin; kodu aldıktan sonra "Kod ile şifre belirleyin" ekranını kullanın.</p>
+    <form id="forgotForm">
+      <label for="fgUser">Kullanıcı adı</label>
+      <input type="text" id="fgUser" autocapitalize="none" spellcheck="false" required>
+      <div class="msg" id="fgMsg"></div>
+      <div class="row between actions" style="margin-top:12px">
+        <button type="button" class="btn-link" data-go="viewLogin">Girişe dön</button>
+        <button type="submit" class="btn btn-primary" id="fgBtn"><i class="fas fa-paper-plane"></i> Kod Gönder</button>
+      </div>
+    </form>
+    <p class="sub" style="margin-top:14px"><button type="button" class="btn-link" data-go="viewCode">Kodum var, şifre belirleyeceğim</button></p>
+  </div>
+
+  <!-- Mesaj ekranı -->
+  <div class="hidden" id="viewMain">
+    <div class="card">
+      <div class="row between">
+        <div><div class="status">Hoş geldiniz</div><div class="who" id="mName"></div></div>
+        <span class="pill green" id="mUser"></span>
+      </div>
+      <div id="mPeriodBox"></div>
+      <div id="mEditor" class="hidden">
+        <label for="mText">Nöbet tercihleriniz / izin ve istekleriniz</label>
+        <textarea id="mText" maxlength="20000" placeholder="Örnek: 5 ve 6 Aralık kongre nedeniyle izinliyim. 24 Aralık nöbet tutmak istiyorum. Hafta sonu nöbetlerimin ayın ikinci yarısında olmasını tercih ederim."></textarea>
+        <div class="row between" style="margin-top:6px">
+          <span class="hint" id="mCount">0 / 20000</span>
+          <span class="status" id="mStatus"></span>
+        </div>
+        <div class="row" style="justify-content:flex-end; margin-top:12px">
+          <button class="btn btn-primary" id="mSend" type="button"><i class="fas fa-paper-plane"></i> Gönder</button>
+        </div>
+        <div class="msg" id="mMsg"></div>
+        <p class="hint">Mesajınızı yalnızca yönetici görebilir. Dönem açık olduğu sürece düzenleyebilirsiniz; her yeni gönderim önceki mesajınızın yerine geçer.</p>
+      </div>
+    </div>
+    <div class="card hidden" id="mPastCard">
+      <h2 style="font-size:1rem">Önceki dönem mesajlarım</h2>
+      <div id="mPast"></div>
+    </div>
+  </div>
+</main>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  'use strict';
+  var C = window.NobetCore;
+  var $ = function (id) { return document.getElementById(id); };
+  var views = ['viewLoading', 'viewConfig', 'viewLogin', 'viewCode', 'viewForgot', 'viewMain'];
+  var state = { me: null, periods: [], period: null, message: null };
+  var DRAFT_PREFIX = 'nobetMsgDraft_';
+
+  function show(v) {
+    views.forEach(function (x) { $(x).classList.toggle('hidden', x !== v); });
+    $('logoutBtn').classList.toggle('hidden', v !== 'viewMain');
+  }
+  function setMsg(id, text, ok) { var el = $(id); el.textContent = text || ''; el.className = 'msg ' + (ok ? 'ok' : 'err'); }
+  document.querySelectorAll('[data-go]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var target = b.getAttribute('data-go');
+      var u = $('liUser').value || $('cdUser').value || $('fgUser').value;
+      ['liUser', 'cdUser', 'fgUser'].forEach(function (i) { if (!$(i).value) $(i).value = u; });
+      show(target);
+    });
+  });
+
+  if (!C || !C.configured) { show('viewConfig'); return; }
+  var client = C.getClient();
+  $('liRemember').checked = C.getRemember();
+
+  // ---------------- giriş
+  $('loginForm').addEventListener('submit', async function (e) {
+    e.preventDefault();
+    var btn = $('liBtn'); btn.disabled = true; setMsg('liMsg', '');
+    try {
+      var user = C.normalizeUsername($('liUser').value);
+      if (!/^[a-z0-9][a-z0-9._-]{2,31}$/.test(user)) throw new Error('Kullanıcı adı veya şifre hatalı.');
+      C.setRemember($('liRemember').checked);
+      var r = await client.auth.signInWithPassword({ email: C.staffEmail(user), password: $('liPw').value });
+      if (r.error) throw r.error;
+      $('liPw').value = '';
+      await enter();
+    } catch (err) {
+      var m = C.friendlyError(err);
+      setMsg('liMsg', /hatalı/.test(m) ? 'Kullanıcı adı veya şifre hatalı.' : m);
+    } finally { btn.disabled = false; }
+  });
+
+  // ---------------- kod ile şifre belirleme
+  $('codeForm').addEventListener('submit', async function (e) {
+    e.preventDefault();
+    var btn = $('cdBtn'); setMsg('cdMsg', '');
+    var p1 = $('cdPw1').value, p2 = $('cdPw2').value;
+    if (p1 !== p2) { setMsg('cdMsg', 'Şifreler aynı değil.'); return; }
+    if (p1.length < 8 || !/[0-9]/.test(p1) || !/[A-Za-zÇĞİÖŞÜçğıöşü]/.test(p1)) { setMsg('cdMsg', 'Şifre en az 8 karakter olmalı ve harf ile rakam içermelidir.'); return; }
+    btn.disabled = true;
+    try {
+      var user = C.normalizeUsername($('cdUser').value);
+      await C.callFunction('account-public', { action: 'redeem', username: user, code: $('cdCode').value, password: p1 });
+      var r = await client.auth.signInWithPassword({ email: C.staffEmail(user), password: p1 });
+      $('cdPw1').value = ''; $('cdPw2').value = ''; $('cdCode').value = '';
+      if (r.error) { show('viewLogin'); $('liUser').value = user; setMsg('liMsg', 'Şifreniz belirlendi. Şimdi giriş yapabilirsiniz.', true); return; }
+      await enter();
+    } catch (err) { setMsg('cdMsg', C.friendlyError(err)); }
+    finally { btn.disabled = false; }
+  });
+
+  // ---------------- şifremi unuttum
+  $('forgotForm').addEventListener('submit', async function (e) {
+    e.preventDefault();
+    var btn = $('fgBtn'); btn.disabled = true; setMsg('fgMsg', '');
+    try {
+      var r = await C.callFunction('account-public', { action: 'request_reset', username: C.normalizeUsername($('fgUser').value) });
+      setMsg('fgMsg', r.message || 'İstek alındı.', true);
+    } catch (err) { setMsg('fgMsg', C.friendlyError(err)); }
+    finally { btn.disabled = false; }
+  });
+
+  $('logoutBtn').addEventListener('click', async function () {
+    await client.auth.signOut();
+    state = { me: null, periods: [], period: null, message: null };
+    show('viewLogin');
+  });
+
+  // ---------------- mesaj ekranı
+  async function enter() {
+    var role = await client.rpc('my_role');
+    if (role.error) throw role.error;
+    var me = role.data && role.data.assistant;
+    if (!me || !me.is_active) {
+      await client.auth.signOut();
+      show('viewLogin');
+      setMsg('liMsg', role.data && role.data.is_admin ? 'Bu sayfa personel içindir. Yönetici olarak ana uygulamayı kullanın.' : 'Hesabınız pasif durumdadır veya kayıtlı değildir. Lütfen yöneticinize başvurun.');
+      return;
+    }
+    state.me = me;
+    $('mName').textContent = me.full_name;
+    $('mUser').textContent = '@' + me.username;
+    show('viewMain');
+    await loadPeriod();
+  }
+
+  function draftKey() { return DRAFT_PREFIX + (state.me ? state.me.id : '') + '_' + (state.period ? state.period.id : ''); }
+
+  async function loadPeriod() {
+    var pr = await client.from('request_periods').select('*').order('start_date', { ascending: false });
+    if (pr.error) { $('mPeriodBox').innerHTML = '<div class="msg err">' + C.esc(C.friendlyError(pr.error)) + '</div>'; return; }
+    state.periods = pr.data || [];
+    var open = state.periods.filter(function (p) { return p.is_open; });
+    var mr = await client.from('request_messages').select('*').eq('assistant_id', state.me.id);
+    var mine = mr.data || [];
+    if (!state.period || !open.some(function (p) { return p.id === state.period.id; })) state.period = open[0] || null;
+
+    var box = $('mPeriodBox');
+    if (!state.period) {
+      box.innerHTML = '<div class="period"><span class="pill gray">Kapalı</span> Şu anda mesaj gönderilebilecek açık bir nöbet dönemi yok.</div>';
+      $('mEditor').classList.add('hidden');
+    } else {
+      box.innerHTML = (open.length > 1
+        ? '<label for="mPeriodSel">Nöbet dönemi</label><select id="mPeriodSel" style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:9px;font:inherit">' + open.map(function (p) { return '<option value="' + p.id + '"' + (p.id === state.period.id ? ' selected' : '') + '>' + C.esc(p.title) + ' (' + C.fmtDate(p.start_date) + ' – ' + C.fmtDate(p.end_date) + ')</option>'; }).join('') + '</select>'
+        : '') +
+        '<div class="period"><span class="pill green">Açık</span> <b>' + C.esc(state.period.title) + '</b> · ' + C.fmtDate(state.period.start_date) + ' – ' + C.fmtDate(state.period.end_date) + '</div>';
+      var sel = $('mPeriodSel');
+      if (sel) sel.onchange = function () { state.period = state.periods.find(function (p) { return p.id === sel.value; }); loadPeriod(); };
+      state.message = mine.find(function (m) { return m.period_id === state.period.id; }) || null;
+      var draft = null; try { draft = sessionStorage.getItem(draftKey()); } catch (e) {}
+      $('mText').value = draft != null ? draft : (state.message ? state.message.body : '');
+      $('mEditor').classList.remove('hidden');
+      updateStatus(draft != null && (!state.message || draft !== state.message.body));
+    }
+    // geçmiş (kapalı veya diğer dönemlerdeki kendi mesajları – salt okunur)
+    var past = mine.filter(function (m) { return !state.period || m.period_id !== state.period.id; });
+    $('mPastCard').classList.toggle('hidden', past.length === 0);
+    $('mPast').innerHTML = past.sort(function (a, b) { return Date.parse(b.updated_at) - Date.parse(a.updated_at); }).map(function (m) {
+      var p = state.periods.find(function (x) { return x.id === m.period_id; });
+      return '<div class="past"><b>' + C.esc(p ? p.title : 'Dönem') + '</b> <span class="status">· ' + C.esc(C.fmtDateTime(m.updated_at)) + (p && !p.is_open ? ' · kapalı' : '') + '</span><pre>' + C.esc(m.body) + '</pre></div>';
+    }).join('');
+  }
+
+  function updateStatus(unsaved) {
+    var t = $('mText').value;
+    $('mCount').textContent = t.length + ' / 20000';
+    var st = $('mStatus');
+    if (unsaved) { st.className = 'status'; st.innerHTML = '<span class="pill amber">Gönderilmedi</span>'; }
+    else if (state.message) { st.className = 'status saved'; st.innerHTML = '<i class="fas fa-check-circle"></i> Kaydedildi: ' + C.esc(C.fmtDateTime(state.message.updated_at)); }
+    else { st.className = 'status'; st.textContent = 'Henüz mesaj gönderilmedi'; }
+    $('mSend').innerHTML = state.message ? '<i class="fas fa-save"></i> Güncelle' : '<i class="fas fa-paper-plane"></i> Gönder';
+  }
+  $('mText').addEventListener('input', function () {
+    try { sessionStorage.setItem(draftKey(), $('mText').value); } catch (e) {}
+    updateStatus(!state.message || $('mText').value !== state.message.body);
+  });
+
+  $('mSend').addEventListener('click', async function () {
+    var body = $('mText').value;
+    setMsg('mMsg', '');
+    if (!body.trim()) { setMsg('mMsg', 'Lütfen bir mesaj yazın.'); return; }
+    var btn = $('mSend'); btn.disabled = true;
+    try {
+      var r = state.message
+        ? await client.from('request_messages').update({ body: body }).eq('id', state.message.id).select().maybeSingle()
+        : await client.from('request_messages').insert({ period_id: state.period.id, assistant_id: state.me.id, body: body }).select().maybeSingle();
+      if (r.error) throw r.error;
+      if (!r.data) throw new Error('Mesaj kaydedilemedi. Dönem kapatılmış veya hesabınız pasife alınmış olabilir.');
+      state.message = r.data;
+      try { sessionStorage.removeItem(draftKey()); } catch (e) {}
+      updateStatus(false);
+      setMsg('mMsg', 'Mesajınız kaydedildi.', true);
+    } catch (err) {
+      var m = C.friendlyError(err);
+      if (/yetkiniz yok/.test(m)) m = 'Mesaj kaydedilemedi. Dönem kapatılmış veya hesabınız pasife alınmış olabilir. Yazdığınız metin bu sekmede saklanıyor.';
+      setMsg('mMsg', m);
+      loadPeriod().catch(function () {});
+    } finally { btn.disabled = false; }
+  });
+
+  // ---------------- açılış
+  (async function () {
+    try {
+      var s = (await client.auth.getSession()).data.session;
+      if (s) { await enter(); return; }
+    } catch (e) { console.warn(e); }
+    show('viewLogin');
+  })();
+  client.auth.onAuthStateChange(function (evt) {
+    if (evt === 'SIGNED_OUT' && !$('viewMain').classList.contains('hidden')) { show('viewLogin'); setMsg('liMsg', 'Oturum kapandı. Lütfen yeniden giriş yapın.'); }
+  });
+});
+</script>
+</body>
+</html>

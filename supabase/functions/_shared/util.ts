@@ -44,7 +44,7 @@ export function isValidUsername(u: string): boolean {
   return /^[a-z0-9][a-z0-9._-]{2,31}$/.test(u);
 }
 
-// Türkçe adı kullanıcı adına çevirir: "Kadir Gülşen" -> "kadir.gulsen"
+// Türkçe adı kullanıcı adına çevirir: "Ayşe Çağlar Öztürk" -> "ayse.ozturk"
 export function suggestUsername(fullName: string): string {
   const map: Record<string, string> = { "ç": "c", "ğ": "g", "ı": "i", "i̇": "i", "ö": "o", "ş": "s", "ü": "u", "â": "a", "î": "i", "û": "u" };
   const parts = fullName.toLocaleLowerCase("tr-TR").replace(/[çğıöşüâîû]|i̇/g, (c) => map[c] ?? c)

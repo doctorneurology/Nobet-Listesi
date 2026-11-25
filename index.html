@@ -9,6 +9,11 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
+    <!-- Supabase (merkezi tanımlar + Asistan İstek Mesajları). Bağlantı yoksa uygulama yerel kayıtlarla çalışmaya devam eder. -->
+    <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js" integrity="sha384-0w2KAL2YHP6wKOkUDzkCDGgVvfmHnj02DHeQ6XcHOgTfFsGyonKOpShMH1x6nk9o" crossorigin="anonymous"></script>
+    <script defer src="config.js?v=20261125"></script>
+    <script defer src="cloud-core.js?v=20261125"></script>
+    <script defer src="cloud-admin.js?v=20261125"></script>
 
     <style>
 /* Becayiş Tablosunda Tarih Sütununu Genişletme */
@@ -1138,7 +1143,7 @@ div[id*="becayis"] .modal-content {
             <h1>Selçuk Üniversitesi Nöroloji Anabilim Dalı<br>Nöbet Listesi Düzenleme Aracı</h1>
             <div class="author-sign">Dr. Kadir GÜLŞEN</div>
         </div>
-        <div style="display:flex; align-items:center; gap:12px;"><div id="headerMonthLabel" style="display:none; background:#ffffff; color:#0f172a; font-weight:800; font-size:0.95rem; padding:6px 16px; border-radius:20px; white-space:nowrap;"></div><div class="save-badge" id="saveStatus"><i class="fas fa-check"></i> Hazır</div></div>
+        <div style="display:flex; align-items:center; gap:12px;"><button type="button" id="ncAdminBtn" class="nc-admin-btn" style="display:none;"><i class="fas fa-user-shield"></i> Admin Paneli</button><div id="headerMonthLabel" style="display:none; background:#ffffff; color:#0f172a; font-weight:800; font-size:0.95rem; padding:6px 16px; border-radius:20px; white-space:nowrap;"></div><div class="save-badge" id="saveStatus"><i class="fas fa-check"></i> Hazır</div><button type="button" id="ncLoginBtn" class="nc-login-btn" style="display:none;" title="Yönetici girişi" aria-label="Yönetici girişi"><i class="fas fa-lock"></i></button></div>
     </div>
 
     <div class="stepper">
@@ -1297,6 +1302,7 @@ div[id*="becayis"] .modal-content {
             <div style="display:flex; flex-direction:column; align-items:stretch; justify-content:center; gap:12px; flex:0 0 260px; min-width:240px;">
                 <button type="button" class="btn btn-warning" style="width:100%; min-height:44px;" onclick="window.openConstraintModal()"><i class="fas fa-ban"></i> Kişi Bazlı Kısıtlamalar</button>
                 <button class="btn btn-ghost" style="width:100%; min-height:44px; border:1px solid #cbd5e1; color:#475569; font-weight:600; padding:8px 15px; border-radius:20px; background:#f1f5f9;" onclick="openFridayModal()"><i class="fas fa-calendar-times" style="color:#3b82f6;"></i> Gün Bazlı Kısıtlamalar</button>
+                <button type="button" id="ncMessagesBtn" class="btn btn-primary" style="display:none; width:100%; min-height:44px; background:var(--primary);"><i class="fas fa-envelope-open-text"></i> Asistan İstek Mesajları</button>
             </div>
         </div>
 
@@ -2096,7 +2102,12 @@ window.addEventListener('DOMContentLoaded', () => {
     let activePlaces = ["Yoğun Bakım", "Servis"]; 
     const GAP = 2; 
     const MAX_HISTORY = 20;
-    const DEFAULT_MASTER = ["Begüm Asena Doğruer", "Leyla Öztürk Sönmez", "Merve Nur Çelik", "Merve Akbaş", "Tuğbanur Baytok", "Çağatay Şahin", "Duygu Ateş", "Şamil Yıldız", "Mustafa Gültekin", "Burak Yiğiter", "Mevlüt Örs", "Shams Gurbanzade", "Tuğba Öztürk", "Gülnur Çifci", "Fatmanur Serin Ayhan", "Nureddin Karakşe", "Ahmet Şenocak", "Kadir Gülşen", "Omar El Qutob", "Murat Faruk Tutar", "Mehmet Zahid Aydın", "Ayşe Avcı", "Cahit Ayan", "Alperen Kapama"];
+    // Asistan ana listesi artık Supabase'te tutulur (Admin Paneli → Asistanlar); kişisel veri koda yazılmaz.
+    // Bağlantı yokken bu bilgisayarda en son kaydedilen liste (nobetData.masterList) kullanılır.
+    const DEFAULT_MASTER = [];
+    function resolveSavedMasterList(saved) {
+        return (Array.isArray(saved) && saved.length) ? saved.filter(n => typeof n === 'string' && n.trim()).slice() : DEFAULT_MASTER.slice();
+    }
     const MONTH_NAMES = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
     // Dini bayramlar: R = Ramazan Bayramı 1. günü (3 gün), K = Kurban Bayramı 1. günü (4 gün).
     // 2025-2027: Diyanet İşleri Başkanlığı dini günler takvimi. 2028 ve sonrası: astronomik hesapla tahmin (±1 gün);
@@ -2140,6 +2151,108 @@ window.addEventListener('DOMContentLoaded', () => {
     let schedule = [];
     let jokerSchedule = [];
     let jokerWarnings = [];
+
+    // ===== Joker öncelik sırası (Supabase → Admin Paneli → Joker Öncelik Sıralaması) =====
+    // Her nöbet listesi oluşturulduğu andaki onaylı sırayı kendi kaydında saklar (scheduleJokerHierarchy).
+    // Bu bilgiyi taşımayan eski listeler ('legacy') eski sabit sırayla hesaplanır; böylece sonuçları değişmez.
+    const LEGACY_JOKER_HIERARCHY = ["Pol-1", "Pol-2", "Pol-3", "Konsültan", "Yoğun Bakım", "MS Merkezi", "Servis Kıdemlisi"];
+    let scheduleJokerHierarchy = null;   // dizi | 'legacy' | null
+    function currentApprovedJokerHierarchy() {
+        const h = (window.NobetCloud && typeof window.NobetCloud.getJokerHierarchy === 'function') ? window.NobetCloud.getJokerHierarchy() : null;
+        return (Array.isArray(h) && h.length) ? h.slice() : LEGACY_JOKER_HIERARCHY.slice();
+    }
+    function stampNewScheduleJokerHierarchy() {
+        scheduleJokerHierarchy = currentApprovedJokerHierarchy();
+        return scheduleJokerHierarchy.slice();
+    }
+    function getScheduleJokerHierarchy() {
+        return Array.isArray(scheduleJokerHierarchy) ? scheduleJokerHierarchy.slice() : LEGACY_JOKER_HIERARCHY.slice();
+    }
+
+    // ===== Supabase tanımlarının uygulamaya aktarılması (cloud-admin.js çağırır) =====
+    // Yalnızca listeleri (asistan ana listesi, özellikli birimler, görev yerleri) günceller.
+    // Bu dönemin asistanları (docs), istek takvimi, geçmiş listeler ve Joker sonuçları değiştirilmez.
+    const PRE_CLOUD_BACKUP_KEY = 'nobetPreCloudBackup_v1';
+    function backupBeforeFirstCloudApply() {
+        try {
+            if (localStorage.getItem(PRE_CLOUD_BACKUP_KEY)) return;
+            const raw = localStorage.getItem(STORAGE_KEY);
+            const saved = raw ? JSON.parse(raw) : null;
+            const backup = {
+                savedAt: Date.now(),
+                masterList: (saved && Array.isArray(saved.masterList) && saved.masterList.length) ? saved.masterList : masterList.slice(),
+                docNames: docs.map(d => d.name),
+                specialUnits: specialUnits.slice(),
+                workplaceUnits: workplaceUnits.slice(),
+                owners: JSON.parse(JSON.stringify((jokerConfig && jokerConfig.owners) || {})),
+                workplaceAssignments: JSON.parse(JSON.stringify((jokerConfig && jokerConfig.workplaceAssignments) || {}))
+            };
+            localStorage.setItem(PRE_CLOUD_BACKUP_KEY, JSON.stringify(backup));
+            // Tam yedek: mevcut kayıt IndexedDB'de ayrı bir anahtara bir kez kopyalanır (geri dönüş için).
+            if (saved) openNobetDatabase().then(db => {
+                if (!db) return;
+                try {
+                    const tx = db.transaction('snapshots', 'readwrite');
+                    const store = tx.objectStore('snapshots');
+                    const req = store.get('before-supabase');
+                    req.onsuccess = () => { if (!req.result) store.put({ id: 'before-supabase', savedAt: Date.now(), payload: saved }); };
+                } catch (e) {}
+            });
+        } catch (e) { console.warn('Supabase öncesi yedek alınamadı:', e); }
+    }
+    window.__nobetLocalSnapshot = function () {
+        let b = null;
+        try { b = JSON.parse(localStorage.getItem(PRE_CLOUD_BACKUP_KEY) || 'null'); } catch (e) {}
+        return b || { masterList: masterList.slice(), docNames: docs.map(d => d.name), specialUnits: specialUnits.slice(), workplaceUnits: workplaceUnits.slice() };
+    };
+    function renderPassiveDocsWarning(inactiveNames) {
+        const page = document.getElementById('p2');
+        if (!page) return;
+        let box = document.getElementById('ncPasifWarn');
+        const lower = (inactiveNames || []).map(n => String(n).toLocaleLowerCase('tr-TR'));
+        const hits = docs.filter(d => lower.includes(String(d.name).toLocaleLowerCase('tr-TR'))).map(d => d.name);
+        if (!hits.length) { if (box) box.remove(); return; }
+        if (!box) { box = document.createElement('div'); box.id = 'ncPasifWarn'; box.className = 'nc-pasif-warn'; page.insertBefore(box, page.firstChild); }
+        box.innerHTML = '<i class="fas fa-user-slash"></i> <strong>Pasif asistan bu dönemin listesinde:</strong> ' + hits.map(escHtml).join(', ') +
+            '. Yeni nöbet listesine dahil edilmemesi için aşağıdaki tablodan çıkarabilirsiniz. (Otomatik silinmez; geçmiş listeler korunur.)';
+    }
+    window.__nobetApplyDefinitions = function (defs) {
+        if (!defs) return;
+        backupBeforeFirstCloudApply();
+        const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+        const hasKey = (o, k) => o && Object.prototype.hasOwnProperty.call(o, k);
+        let changed = false;
+
+        // 1) Ad değişiklikleri: sorumlu/görev atamaları ve kayıtlı Joker sıraları yeni ada taşınır.
+        (defs.renames && defs.renames.special || []).forEach(([from, to]) => {
+            if (jokerConfig.owners && hasKey(jokerConfig.owners, from) && !hasKey(jokerConfig.owners, to)) { jokerConfig.owners[to] = jokerConfig.owners[from]; delete jokerConfig.owners[from]; }
+            const ren = arr => arr.map(x => x === from ? to : x);
+            scheduleJokerHierarchy = ren(Array.isArray(scheduleJokerHierarchy) ? scheduleJokerHierarchy : LEGACY_JOKER_HIERARCHY);
+            history.forEach(h => { if (h && !Array.isArray(h)) h.jokerHierarchy = ren(Array.isArray(h.jokerHierarchy) ? h.jokerHierarchy : LEGACY_JOKER_HIERARCHY); });
+            changed = true;
+        });
+        (defs.renames && defs.renames.work || []).forEach(([from, to]) => {
+            const wa = jokerConfig.workplaceAssignments;
+            if (wa && hasKey(wa, from) && !hasKey(wa, to)) { wa[to] = wa[from]; delete wa[from]; }
+            changed = true;
+        });
+
+        // 2) Listeler (Supabase'te henüz asistan yoksa yerel ana liste korunur)
+        if (defs.masterList.length && !same(masterList, defs.masterList)) { masterList = defs.masterList.slice(); changed = true; }
+        if (defs.specialUnits.length && !same(specialUnits, defs.specialUnits)) { specialUnits = defs.specialUnits.slice(); changed = true; }
+        if (defs.workplaceUnits.length && !same(workplaceUnits, defs.workplaceUnits)) { workplaceUnits = defs.workplaceUnits.slice(); changed = true; }
+
+        // 3) Ekranları güncelle (sayfa yenilemeden)
+        if (changed) {
+            try { renderSpecialUnitsGrid(); } catch (e) { console.warn(e); }
+            try { renderWorkplaceGrid(); } catch (e) { console.warn(e); }
+            try { syncAllDropdowns(); } catch (e) { console.warn(e); }
+            const sel = document.getElementById('modalSelect');
+            if (sel && sel.style.display === 'flex') { try { openSelectModal(); } catch (e) {} }
+            if (!defs.fromCache) saveData();
+        }
+        renderPassiveDocsWarning(defs.inactiveNames);
+    };
     let dragSrcEl = null;
     let masterList = [];
     let history = []; 
@@ -2257,6 +2370,9 @@ let extraServisAssignments = {}; // { "2026-07-01": ["Ahmet Yılmaz","Ayşe Kaya
         // Eski sürümde 3-6 adımları bir sıra erkendi; eski kayıtları yeni 7 adımlı düzene taşı.
         if (Number(window.__restoredNavigationVersion || 1) < 3 && savedPage >= 3) savedPage += 1;
         if (savedPage >= 1 && savedPage <= 7) nav(savedPage);
+
+        // Merkezi tanımlar (Supabase). Bağlantı olmasa da uygulama yerel kayıtla çalışmaya devam eder.
+        try { if (window.NobetCloud) window.NobetCloud.start(); } catch (e) { console.warn('Supabase başlatılamadı:', e); }
     };
 
     function saveData() {
@@ -2289,6 +2405,7 @@ let extraServisAssignments = {}; // { "2026-07-01": ["Ahmet Yılmaz","Ayşe Kaya
             specialUnits: clone(specialUnits || []),
             workplaceUnits: clone(workplaceUnits || []),
             workplaceMigrated: true,
+            jokerHierarchy: Array.isArray(scheduleJokerHierarchy) ? scheduleJokerHierarchy.slice() : null,
             schedule: clone(schedule || []),
             history: clone(history || []),
             activeHistoryIndex: activeHistoryIndex,
@@ -2383,7 +2500,7 @@ let extraServisAssignments = {}; // { "2026-07-01": ["Ahmet Yılmaz","Ayşe Kaya
         holidays = new Set(data.hols || []);
         docs = data.docs || [];
         docs.forEach(d => { if (!d.avail) d.avail = {}; });
-        masterList = DEFAULT_MASTER;
+        masterList = resolveSavedMasterList(data.masterList);
         constraints = data.constraints || [];
         lastDutyMemory = (data.lastDutyMemory && typeof data.lastDutyMemory === 'object' && !Array.isArray(data.lastDutyMemory)) ? data.lastDutyMemory : {};
         singleWorkplaceAssignmentRule = data.singleWorkplaceAssignmentRule !== undefined
@@ -2458,6 +2575,8 @@ let extraServisAssignments = {}; // { "2026-07-01": ["Ahmet Yılmaz","Ayşe Kaya
             }
         }
 
+        // Bu listenin oluşturulduğu andaki Joker öncelik sırası. Eski kayıtlarda yoksa eski sabit sıra kullanılır (sonuç değişmez).
+        scheduleJokerHierarchy = Array.isArray(data.jokerHierarchy) ? data.jokerHierarchy.slice() : 'legacy';
         window.preservedIcapciMap = data.preservedIcapciMap || null;
         window.originalLoadedSchedule = data.originalLoadedSchedule || null;
         window.__restoredActivePage = Number(data.activePage || 1);
@@ -2488,7 +2607,8 @@ let extraServisAssignments = {}; // { "2026-07-01": ["Ahmet Yılmaz","Ayşe Kaya
         const jokersToggle = document.getElementById('singleAssignmentToggleJokers');
         if (tasksToggle) tasksToggle.checked = true;
         if (jokersToggle) jokersToggle.checked = true;
-        masterList = DEFAULT_MASTER;
+        masterList = DEFAULT_MASTER.slice();
+        scheduleJokerHierarchy = null;
         schedule = [];
         history = [];
         activeHistoryIndex = -1;
@@ -4693,8 +4813,9 @@ function getFridayCount(doc) {
                 schedule: JSON.parse(JSON.stringify(schedule)),
                 extraServis: JSON.parse(JSON.stringify(extraServisAssignments)),
                 jokerSchedule: [],
-                jokerWarnings: []
-            }; 
+                jokerWarnings: [],
+                jokerHierarchy: stampNewScheduleJokerHierarchy()
+            };
             history.push(snapshot); 
             activeHistoryIndex = history.length - 1; 
             saveData();
@@ -4992,6 +5113,7 @@ function syncActiveHistoryState() {
     snap.extraServis = JSON.parse(JSON.stringify(extraServisAssignments || {}));
     snap.jokerSchedule = JSON.parse(JSON.stringify(jokerSchedule || []));
     snap.jokerWarnings = JSON.parse(JSON.stringify(jokerWarnings || []));
+    snap.jokerHierarchy = Array.isArray(scheduleJokerHierarchy) ? scheduleJokerHierarchy.slice() : null;
 }
 
 function loadHistory(index) { 
@@ -5010,6 +5132,7 @@ function loadHistory(index) {
         jokerSchedule = JSON.parse(JSON.stringify(history[index].jokerSchedule || []));
         jokerWarnings = JSON.parse(JSON.stringify(history[index].jokerWarnings || []));
     }
+    scheduleJokerHierarchy = (!Array.isArray(history[index]) && Array.isArray(history[index].jokerHierarchy)) ? history[index].jokerHierarchy.slice() : 'legacy';
 
     docs.forEach(d => {
         d.cur = {};
@@ -6218,7 +6341,8 @@ function hesaplaVeGuncelleServisAktifSayilari() {
             if(el) owners[u] = el.value;
         });
 
-        const __builtInHierarchy = ["Pol-1", "Pol-2", "Pol-3", "Konsültan", "Yoğun Bakım", "MS Merkezi", "Servis Kıdemlisi"];
+        // Öncelik sırası artık Admin Paneli → Joker Öncelik Sıralaması'ndan gelir; her liste kendi oluşturulduğu andaki sırayı kullanır.
+        const __builtInHierarchy = getScheduleJokerHierarchy();
         // Sonradan eklenen özel birimler yerleşik birimlerden SONRA, eklenme sırasıyla sıralanır (en düşük öncelik).
         // İzin Jokeri en düşük öncelikli ihtiyaçtan başladığı için bu birimleri de kapatabilir.
         const hierarchy = __builtInHierarchy.concat((Array.isArray(specialUnits) ? specialUnits : []).filter(u => u !== "Yoğun Bakım 1" && u !== "Yoğun Bakım 2" && !__builtInHierarchy.includes(u)));
@@ -7898,7 +8022,8 @@ if (icapciColIdx !== -1) {
             schedule: JSON.parse(JSON.stringify(schedule)),
             extraServis: {},
             jokerSchedule: [],
-            jokerWarnings: []
+            jokerWarnings: [],
+            jokerHierarchy: stampNewScheduleJokerHierarchy()
         });
         activeHistoryIndex = history.length - 1;
         tempSwapSchedule = JSON.parse(JSON.stringify(schedule));
@@ -8339,7 +8464,9 @@ function saveSwapChanges() {
             schedule: JSON.parse(JSON.stringify(schedule)),
             extraServis: JSON.parse(JSON.stringify(extraServisAssignments || {})),
             jokerSchedule: [],
-            jokerWarnings: []
+            jokerWarnings: [],
+            // Yeni Word listesi yeni sırayı alır; becayiş mevcut listenin sırasını korur.
+            jokerHierarchy: importedNewList ? stampNewScheduleJokerHierarchy() : (Array.isArray(scheduleJokerHierarchy) ? scheduleJokerHierarchy.slice() : null)
         });
         activeHistoryIndex = history.length - 1;
     } else {
