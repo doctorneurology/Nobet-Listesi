@@ -327,7 +327,7 @@
     if (tab) S.tab = tab;
     ensureModal('ncAdminModal', '<div class="modal-content nc-modal-lg">' +
       '<div class="modal-header"><h2><i class="fas fa-user-shield" style="color:var(--primary)"></i> Admin Paneli</h2>' +
-      '<div class="nc-head-right"><span id="ncSyncStatus" class="nc-sync"></span><span class="close-modal" onclick="NobetCloud.close(\'ncAdminModal\')">&times;</span></div></div>' +
+      '<div class="nc-head-right"><span class="nc-sync"><i class="fas fa-link"></i> Personel giriş adresi: <a href="personel.html" target="_blank" rel="noopener">personel.html</a></span><span id="ncSyncStatus" class="nc-sync"></span><span class="close-modal" onclick="NobetCloud.close(\'ncAdminModal\')">&times;</span></div></div>' +
       '<div class="nc-tabs" id="ncTabs"></div><div id="ncPanelBody"></div>' +
       '<div class="nc-foot"><span class="nc-muted" id="ncWho"></span></div></div>');
     setStatus(S.status);
@@ -394,7 +394,8 @@
     h += '<div class="nc-toolbar"><input class="nc-input" id="ncNewAsName" placeholder="Ad Soyad yazıp Ekle\'ye basın" onkeydown="if(event.key===\'Enter\')NobetCloud.addAssistant()">' +
       '<button class="btn btn-success" onclick="NobetCloud.addAssistant()"><i class="fas fa-plus"></i> Ekle</button></div>';
     h += '<div class="nc-toolbar"><button class="btn btn-primary" onclick="NobetCloud.bulkActivation()" ' + (noAccount ? '' : 'disabled') + '><i class="fas fa-id-card"></i> Hesabı olmayanlara aktivasyon kodu üret (' + noAccount + ')</button>' +
-      '<span class="nc-muted">Personel giriş adresi: <a href="personel.html" target="_blank" rel="noopener">personel.html</a></span></div>';
+      '<button class="btn btn-primary" onclick="NobetCloud.allCodes()" ' + (act.length ? '' : 'disabled') + ' title="Hesabı olmayanlara aktivasyon kodu, hesabı olanlara şifre sıfırlama kodu"><i class="fas fa-users"></i> Tüm personele kod üret (' + act.length + ')</button>' +
+      '<span id="ncPeriodQuick">' + periodQuickHtml() + '</span></div>';
     h += '<h3 class="nc-h3">Aktif Asistanlar <span class="nc-count">' + act.length + '</span></h3>';
     h += '<p class="nc-hint"><i class="fas fa-arrows-alt-v"></i> Sırayı değiştirmek için satırı tutup sürükleyin veya oklara basın. Bu sıra "Asistan Seç" ekranında kullanılır.</p>';
     h += '<div class="nc-list" data-dnd="assistants">' + act.map(function (a, i) { return assistantRow(a, i, act.length); }).join('') + '</div>';
@@ -594,6 +595,63 @@
       try { var r = await C.callFunction('admin-accounts', { action: 'issue_activation', assistant_ids: ids }); showCodes(r.results || [], 'Aktivasyon Kodları'); }
       catch (e) { alertBox('Kod üretilemedi', C.friendlyError(e)); }
       fetchDefinitions();
+    });
+  }
+
+  // Tüm aktif personel: hesabı olmayana aktivasyon kodu, hesabı olana şifre sıfırlama kodu
+  function allCodes() {
+    if (!S.isAdmin) return openLogin(function () { openAdminPanel('assistants'); allCodes(); });
+    var act = (S.defs.assistants || []).filter(function (a) { return a.is_active; }).sort(byOrder);
+    var noAcc = act.filter(function (a) { return a.account_status !== 'active'; });
+    var withAcc = act.filter(function (a) { return a.account_status === 'active'; });
+    if (!act.length) return;
+    confirmBox('Tüm Personele Kod Üret', act.length + ' aktif personel için kod üretilecek: ' +
+      noAcc.length + ' kişiye 72 saat geçerli aktivasyon kodu, ' + withAcc.length + ' kişiye 24 saat geçerli şifre sıfırlama kodu. ' +
+      'Önceki kullanılmamış kodlar geçersiz olur. Hesabı olanların mevcut şifresi, yeni şifre belirleyene kadar çalışmaya devam eder. Devam edilsin mi?', async function () {
+      var results = [];
+      try {
+        if (noAcc.length) {
+          var r = await C.callFunction('admin-accounts', { action: 'issue_activation', assistant_ids: noAcc.map(function (a) { return a.id; }) });
+          results = results.concat(r.results || []);
+        }
+        for (var i = 0; i < withAcc.length; i++) {
+          try { results.push(await C.callFunction('admin-accounts', { action: 'issue_reset', assistant_id: withAcc[i].id })); }
+          catch (e) { results.push({ assistant_id: withAcc[i].id, full_name: withAcc[i].full_name, error: C.friendlyError(e) }); }
+        }
+        var order = {}; act.forEach(function (a, k) { order[a.id] = k; });
+        results.sort(function (x, y) { return (order[x.assistant_id] || 0) - (order[y.assistant_id] || 0); });
+        showCodes(results, 'Personel Kodları');
+      } catch (e) { alertBox('Kod üretilemedi', C.friendlyError(e)); }
+      fetchDefinitions();
+    });
+  }
+
+  // ---- Asistanlar sekmesindeki hızlı dönem aç/kapat düğmesi
+  function periodQuickHtml() {
+    if (!S.quickPeriods) { loadPeriodState(); return '<span class="nc-muted"><i class="fas fa-spinner fa-spin"></i></span>'; }
+    var open = S.quickPeriods.find(function (p) { return p.is_open; });
+    if (open) return '<button class="btn btn-warning" onclick="NobetCloud.quickPeriod()" title="Personel bu döneme mesaj yazabiliyor"><i class="fas fa-lock"></i> Dönemi Kapat: ' + esc(open.title) + '</button>';
+    return '<button class="btn btn-success" onclick="NobetCloud.quickPeriod()" title="Personelin mesaj yazabileceği yeni nöbet dönemini açar"><i class="fas fa-lock-open"></i> Nöbet Dönemi Aç</button>';
+  }
+  async function loadPeriodState() {
+    if (S._periodLoading) return;
+    S._periodLoading = true;
+    try {
+      var r = await C.getClient().from('request_periods').select('*').order('start_date', { ascending: false }).limit(10);
+      S.quickPeriods = r.error ? [] : (r.data || []);
+    } finally { S._periodLoading = false; }
+    var el = $('ncPeriodQuick'); if (el) el.innerHTML = periodQuickHtml();
+  }
+  function quickPeriod() {
+    var open = (S.quickPeriods || []).find(function (p) { return p.is_open; });
+    var after = function () { S.quickPeriods = null; loadPeriodState(); };
+    if (!open) return periodForm(null, after);
+    confirmBox('Dönemi Kapat', '"' + open.title + '" kapatılacak. Personel bu döneme mesaj yazamaz ve mevcut mesajını düzenleyemez. Mesajlar silinmez; dönemi "Asistan İstek Mesajları" penceresinden tekrar açabilirsiniz.', async function () {
+      var r = await C.getClient().from('request_periods').update({ is_open: false }).eq('id', open.id).eq('version', open.version).select();
+      if (r.error) alertBox('İşlem yapılamadı', C.friendlyError(r.error));
+      else if (!r.data || !r.data.length) alertBox('Çakışma', 'Dönem başka bir oturumda değiştirildi; güncel hâli yüklendi.');
+      else toast('Dönem kapatıldı', 'ok');
+      after();
     });
   }
 
@@ -875,7 +933,7 @@
         '<div class="nc-msg-body">' + esc(r.body) + '</div></div>';
     }).join('') : '<div class="nc-empty">Sonuç yok.</div>';
   }
-  function periodForm(p) {
+  function periodForm(p, after) {
     var sd = (p && p.start_date) || ($('startDate') && $('startDate').value) || '';
     var ed = (p && p.end_date) || ($('endDate') && $('endDate').value) || '';
     var title = (p && p.title) || (typeof window.getFormattedMonthYear === 'function' && sd ? window.getFormattedMonthYear() : '');
@@ -895,7 +953,10 @@
                 : await c.from('request_periods').insert({ title: t, start_date: s, end_date: e, is_open: true }).select();
       if (r.error) { $('ncPErr').textContent = C.friendlyError(r.error); return; }
       if (!r.data || !r.data.length) { $('ncPErr').textContent = 'Dönem başka bir oturumda değiştirildi; pencereyi kapatıp tekrar deneyin.'; return; }
-      NobetCloud.close('ncEditModal'); toast(p ? 'Dönem güncellendi' : 'Dönem oluşturuldu', 'ok'); loadPeriods(r.data[0].id);
+      NobetCloud.close('ncEditModal'); toast(p ? 'Dönem güncellendi' : 'Dönem oluşturuldu ve açıldı', 'ok');
+      S.quickPeriods = null;
+      if (typeof after === 'function') after();
+      if ($('ncMsgBody')) loadPeriods(r.data[0].id);
     };
     show('ncEditModal');
   }
@@ -906,6 +967,7 @@
       if (r.error) alertBox('İşlem yapılamadı', C.friendlyError(r.error));
       else if (!r.data.length) alertBox('Çakışma', 'Dönem başka bir oturumda değiştirildi; güncel hâli yüklendi.');
       else toast(p.is_open ? 'Dönem kapatıldı' : 'Dönem açıldı', 'ok');
+      S.quickPeriods = null;
       loadPeriods(p.id);
     };
     if (p.is_open) confirmBox('Dönemi Kapat', '"' + p.title + '" kapatılacak. Personel bu döneme mesaj yazamaz ve mevcut mesajını düzenleyemez. Mesajlar silinmez; dönemi tekrar açabilirsiniz.', go); else go();
@@ -1045,6 +1107,7 @@
     newPeriod: function () { periodForm(null); },
     editPeriod: function () { periodForm(S.msg.periods.find(function (x) { return x.id === S.msg.periodId; })); },
     togglePeriod: togglePeriod, copyMsg: copyMsg,
+    allCodes: allCodes, quickPeriod: quickPeriod,
     exportBackup: function () { if (typeof window.exportSettings === 'function') window.exportSettings(); },
     importBackup: function () { var i = $('importSettingsInput'); if (i) i.click(); },
     _state: S, _derive: deriveDefinitions
