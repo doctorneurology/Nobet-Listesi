@@ -37,16 +37,56 @@
     removeItem: function (k) { delete memStore[k]; safeDel(localStorage, k); safeDel(sessionStorage, k); }
   };
 
+  // Oturumun erişim anahtarı bellekte de tutulur. Bazı tarayıcılarda (depolama kilidi, çok sekme vb.)
+  // kütüphane oturumu depodan geri okuyamayınca istek "oturumsuz" gidiyordu; bu sarmalayıcı veri ve
+  // fonksiyon isteklerine bellekteki anahtarı ekler. Yetki kararı yine sunucuda verilir.
+  var currentToken = null;
+  function setToken(t) { currentToken = t || null; }
+  function authFetch(input, init) {
+    try {
+      var url = typeof input === 'string' ? input : (input && input.url) || '';
+      if (currentToken && /\/(rest|functions)\/v1\//.test(url)) {
+        init = init || {};
+        var h = new Headers(init.headers || (typeof input !== 'string' && input.headers) || undefined);
+        var a = h.get('Authorization');
+        if (!a || a === 'Bearer ' + cfg.supabaseAnonKey) {
+          h.set('Authorization', 'Bearer ' + currentToken);
+          init = Object.assign({}, init, { headers: h });
+        }
+      }
+    } catch (e) {}
+    return fetch(input, init);
+  }
+
   function getClient() {
     if (!configured) return null;
     if (!client) {
       client = window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey, {
         // Yönetici (index.html) ve personel (personel.html) oturumları ayrı saklanır; aynı tarayıcıda birbirini kapatmaz.
         auth: { storage: authStorage, storageKey: /personel\.html$/i.test(location.pathname) ? 'nobet-staff-auth' : 'nobet-admin-auth', persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: 'implicit' },
-        realtime: { params: { eventsPerSecond: 5 } }
+        realtime: { params: { eventsPerSecond: 5 } },
+        global: { fetch: authFetch }
       });
+      client.auth.onAuthStateChange(function (evt, session) { setToken(session && session.access_token); });
     }
     return client;
+  }
+
+  // Giriş sonrası yetki kontrolü başarısız olursa nedenini ayırt etmek için kısa tanı (gizli bilgi içermez).
+  async function diagnose(token) {
+    var d = { oturum: token ? 'var' : 'yok' };
+    try {
+      var stored = (await getClient().auth.getSession()).data.session;
+      d.depo = stored ? (stored.access_token === token ? 'aynı' : 'farklı') : 'okunamadı';
+    } catch (e) { d.depo = 'hata'; }
+    try {
+      var r = await fetch(cfg.supabaseUrl + '/rest/v1/rpc/my_role', { method: 'POST', headers: { apikey: cfg.supabaseAnonKey, Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' }, body: '{}' });
+      var t = await r.text();
+      d.dogrudan = r.status + (r.ok ? (/"is_admin":\s*true/.test(t) ? ' yönetici' : ' yönetici değil') : ' ' + t.replace(/[{}"]/g, '').slice(0, 80));
+      var srv = Date.parse(r.headers.get('date') || '');
+      if (srv) d.saat_farki_dk = Math.round((Date.now() - srv) / 60000);
+    } catch (e) { d.dogrudan = 'ağ hatası'; }
+    return d;
   }
 
   async function callFunction(name, body) {
@@ -54,7 +94,8 @@
     if (!c) throw new Error('Sunucu bağlantısı yapılandırılmamış.');
     var s = (await c.auth.getSession()).data.session;
     var headers = { 'Content-Type': 'application/json', apikey: cfg.supabaseAnonKey };
-    if (s) headers.Authorization = 'Bearer ' + s.access_token;
+    var tok = (s && s.access_token) || currentToken;
+    if (tok) headers.Authorization = 'Bearer ' + tok;
     var r;
     try {
       r = await fetch(cfg.supabaseUrl + '/functions/v1/' + name, { method: 'POST', headers: headers, body: JSON.stringify(body || {}) });
@@ -97,6 +138,7 @@
   window.NobetCore = {
     configured: configured, config: cfg, getClient: getClient, callFunction: callFunction,
     staffEmail: staffEmail, normalizeUsername: normalizeUsername, esc: esc, friendlyError: friendlyError,
-    getRemember: getRemember, setRemember: setRemember, fmtDateTime: fmtDateTime, fmtDate: fmtDate
+    getRemember: getRemember, setRemember: setRemember, fmtDateTime: fmtDateTime, fmtDate: fmtDate,
+    setToken: setToken, diagnose: diagnose
   };
 })();

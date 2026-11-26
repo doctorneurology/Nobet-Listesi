@@ -243,8 +243,15 @@
         var c = C.getClient();
         var r = await c.auth.signInWithPassword({ email: $('ncLoginEmail').value.trim(), password: $('ncLoginPw').value });
         if (r.error) throw r.error;
+        var tok = r.data && r.data.session && r.data.session.access_token;
+        C.setToken(tok); // depodan okunamasa bile sonraki istekler bu anahtarla gider
         var role = await c.rpc('my_role');
-        if (role.error) throw role.error;
+        if (role.error) {
+          var d = await C.diagnose(tok);
+          var de = new Error(C.friendlyError(role.error) + ' [Tanı: ' + Object.keys(d).map(function (k) { return k + '=' + d[k]; }).join(', ') + ']');
+          de.isDiag = true;
+          throw de;
+        }
         if (!role.data || !role.data.is_admin) {
           await c.auth.signOut();
           throw new Error('Bu hesabın yönetici yetkisi yok. Personel girişi için personel sayfasını kullanın.');
@@ -252,7 +259,8 @@
         $('ncLoginPw').value = '';
         NobetCloud.close('ncLoginModal');
         toast('Yönetici girişi yapıldı', 'ok');
-      } catch (e) { $('ncLoginErr').textContent = C.friendlyError(e); }
+        handleSession(r.data.session); // onAuthStateChange gecikse de paneli hemen aç
+      } catch (e) { $('ncLoginErr').textContent = e && e.isDiag ? e.message : C.friendlyError(e); }
       finally { btn.disabled = false; }
     };
     $('ncForgotBtn').onclick = async function () {
