@@ -3,8 +3,23 @@
 import { createClient } from "jsr:@supabase/supabase-js@2.45.4";
 import {
   corsHeaders, json, HttpError, serviceClient, staffEmail, normalizeUsername, isValidUsername,
-  suggestUsername, generateCode, hashCode,
+  suggestUsername, generateCode, hashCode, STAFF_PW_PREFIX,
 } from "../_shared/util.ts";
+
+// Yönetici şifresi de serbest (kullanıcı kararı): Supabase'in 6 karakter alt sınırı için ön ekle saklanır.
+// Eski (ön eksiz) şifreler de kabul edilir; giriş sayfası önce ön ekli, sonra ön eksiz dener.
+const adminAuthPassword = (p: string) => STAFF_PW_PREFIX + p;
+
+// Mevcut şifreyi doğrular (ön ekli veya eski ön eksiz biçim)
+async function verifyCurrentPassword(email: string, current: string): Promise<boolean> {
+  if (!current) return false;
+  const anon = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, { auth: { persistSession: false, autoRefreshToken: false } });
+  for (const pw of [adminAuthPassword(current), current]) {
+    const { data, error } = await anon.auth.signInWithPassword({ email, password: pw });
+    if (!error && data?.session) { await anon.auth.signOut(); return true; }
+  }
+  return false;
+}
 
 const ACTIVATION_TTL_HOURS = 72;
 const RESET_TTL_HOURS = 24;
@@ -124,6 +139,34 @@ Deno.serve(async (req) => {
         if (a.auth_user_id) await setBan(svc, a.auth_user_id, !active);
         await audit(svc, actor, active ? "activate" : "deactivate", a.id, {});
         return json(req, { assistant: upd });
+      }
+
+      // Yönetici kendi giriş e-postasını / şifresini değiştirir (mevcut şifre doğrulanır)
+      case "set_own_account": {
+        const { data: me } = await svc.auth.admin.getUserById(actor);
+        const currentEmail = me?.user?.email ?? "";
+        if (!(await verifyCurrentPassword(currentEmail, String(body.current_password ?? "")))) {
+          throw new HttpError(400, "Mevcut şifre hatalı.");
+        }
+        const patch: Record<string, unknown> = {};
+        const newEmail = String(body.email ?? "").trim().toLowerCase();
+        if (newEmail && newEmail !== currentEmail.toLowerCase()) {
+          if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(newEmail) || newEmail.length > 200) throw new HttpError(400, "Geçerli bir e-posta adresi yazın.");
+          patch.email = newEmail; patch.email_confirm = true;
+        }
+        if (body.password !== undefined && body.password !== null && body.password !== "") {
+          const pw = String(body.password);
+          if ([...pw].length > 64) throw new HttpError(400, "Şifre en fazla 64 karakter olabilir.");
+          patch.password = adminAuthPassword(pw);
+        }
+        if (!Object.keys(patch).length) throw new HttpError(400, "Değiştirilecek bir şey yok.");
+        const { data: upd, error } = await svc.auth.admin.updateUserById(actor, patch);
+        if (error) {
+          if (/already|exists|registered/i.test(error.message)) throw new HttpError(409, "Bu e-posta başka bir hesapta kullanılıyor.");
+          throw new HttpError(500, "Hesap bilgileri güncellenemedi.");
+        }
+        await audit(svc, actor, "admin_set_own_account", null, { email_changed: !!patch.email, password_changed: !!patch.password });
+        return json(req, { ok: true, email: upd.user?.email ?? currentEmail });
       }
 
       case "set_username": {

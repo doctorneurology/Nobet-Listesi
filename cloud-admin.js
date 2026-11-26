@@ -335,7 +335,9 @@
     if (adminBtn) adminBtn.style.display = S.isAdmin ? 'inline-flex' : 'none';
     if (loginBtn) { loginBtn.style.display = (C.configured && !S.isAdmin) ? 'inline-flex' : 'none'; loginBtn.title = 'Yönetici girişi'; loginBtn.setAttribute('aria-label', 'Yönetici girişi'); }
     if (msgBtn) msgBtn.style.display = S.isAdmin ? 'inline-flex' : 'none';
-    var who = $('ncWho'); if (who) who.innerHTML = '<i class="fas fa-user-check"></i> Yönetici: ' + esc(S.userEmail) + ' · <a href="#" onclick="NobetCloud.logout();return false;">çıkış</a>';
+    var who = $('ncWho'); if (who) who.innerHTML = '<i class="fas fa-user-check"></i> Yönetici: ' + esc(S.userEmail) +
+      ' · <button class="btn btn-ghost nc-ghost" style="padding:4px 10px;font-size:.8rem" onclick="NobetCloud.accountSettings()"><i class="fas fa-user-cog"></i> E-posta / Şifre Değiştir</button>' +
+      ' · <a href="#" onclick="NobetCloud.logout();return false;">çıkış</a>';
   }
 
   // ------------------------------------------------------------------ giriş penceresi
@@ -359,7 +361,7 @@
       try {
         C.setRemember($('ncLoginRemember').checked);
         var c = C.getClient();
-        var r = await c.auth.signInWithPassword({ email: $('ncLoginEmail').value.trim(), password: $('ncLoginPw').value });
+        var r = await adminSignIn($('ncLoginEmail').value.trim(), $('ncLoginPw').value);
         if (r.error) throw r.error;
         var tok = r.data && r.data.session && r.data.session.access_token;
         C.setToken(tok); // depodan okunamasa bile sonraki istekler bu anahtarla gider
@@ -394,18 +396,60 @@
     setTimeout(function () { $('ncLoginEmail').focus(); }, 50);
   }
 
+  // Yönetici şifresi serbest: yeni şifreler ön ekle saklanır; eski (ön eksiz) şifre de kabul edilir.
+  async function adminSignIn(email, pw) {
+    var c = C.getClient();
+    var r = await c.auth.signInWithPassword({ email: email, password: C.staffAuthPassword(pw) });
+    if (r.error && /invalid login/i.test(r.error.message || '') && pw) r = await c.auth.signInWithPassword({ email: email, password: pw });
+    return r;
+  }
+
+  // Yönetici hesap ayarları: giriş e-postası ve şifre (mevcut şifre ile doğrulanır)
+  function openAccountSettings() {
+    if (!S.isAdmin) return openLogin(openAccountSettings);
+    ensureModal('ncAccModal', '<div class="modal-content nc-modal-sm">' +
+      '<div class="modal-header"><h2><i class="fas fa-user-cog" style="color:var(--primary)"></i> Yönetici Hesap Ayarları</h2><span class="close-modal" onclick="NobetCloud.close(\'ncAccModal\')">&times;</span></div>' +
+      '<label class="nc-label">Giriş e-postası</label><input class="nc-input" type="email" id="ncAccEmail" value="' + esc(S.userEmail) + '" autocomplete="username">' +
+      '<label class="nc-label">Yeni şifre (değiştirmeyecekseniz boş bırakın)</label><input class="nc-input" type="password" id="ncAccPw1" autocomplete="new-password" maxlength="64">' +
+      '<label class="nc-label">Yeni şifre (tekrar)</label><input class="nc-input" type="password" id="ncAccPw2" autocomplete="new-password" maxlength="64">' +
+      '<p class="nc-hint">Şifrede uzunluk, harf veya rakam zorunluluğu yoktur.</p>' +
+      '<label class="nc-label">Mevcut şifre (onay için)</label><input class="nc-input" type="password" id="ncAccCur" autocomplete="current-password">' +
+      '<div id="ncAccErr" class="nc-err"></div>' +
+      '<div class="nc-row-end"><button class="btn btn-ghost nc-ghost" onclick="NobetCloud.close(\'ncAccModal\')">Vazgeç</button><button class="btn btn-primary" id="ncAccSave"><i class="fas fa-save"></i> Kaydet</button></div></div>');
+    $('ncAccSave').onclick = async function () {
+      var err = $('ncAccErr'); err.textContent = '';
+      var email = $('ncAccEmail').value.trim(), p1 = $('ncAccPw1').value, p2 = $('ncAccPw2').value, cur = $('ncAccCur').value;
+      if (p1 !== p2) { err.textContent = 'Yeni şifreler aynı değil.'; return; }
+      if (!cur) { err.textContent = 'Onay için mevcut şifrenizi yazın.'; return; }
+      var emailChanged = email && email.toLowerCase() !== S.userEmail.toLowerCase();
+      if (!emailChanged && !p1) { err.textContent = 'Değiştirilecek bir şey yok.'; return; }
+      var btn = $('ncAccSave'); btn.disabled = true;
+      try {
+        var r = await C.callFunction('admin-accounts', { action: 'set_own_account', current_password: cur, email: emailChanged ? email : '', password: p1 || '' });
+        // Oturumu yeni bilgilerle tazele
+        var s = await adminSignIn(r.email || email, p1 || cur);
+        if (!s.error) { C.setToken(s.data.session.access_token); S.userEmail = r.email || email; }
+        updateChrome();
+        NobetCloud.close('ncAccModal');
+        toast('Hesap bilgileri güncellendi' + (emailChanged ? '; yeni giriş e-postası: ' + (r.email || email) : ''), 'ok');
+      } catch (e) { err.textContent = C.friendlyError(e); }
+      finally { btn.disabled = false; }
+    };
+    show('ncAccModal');
+  }
+
   function openNewPasswordModal() {
     ensureModal('ncNewPwModal', '<div class="modal-content nc-modal-sm">' +
       '<div class="modal-header"><h2><i class="fas fa-key" style="color:var(--primary)"></i> Yeni Şifre Belirle</h2></div>' +
-      '<label class="nc-label">Yeni şifre (en az 8 karakter, harf ve rakam)</label><input class="nc-input" type="password" id="ncNewPw1" autocomplete="new-password">' +
+      '<label class="nc-label">Yeni şifre (istediğiniz şifre)</label><input class="nc-input" type="password" id="ncNewPw1" autocomplete="new-password">' +
       '<label class="nc-label">Yeni şifre (tekrar)</label><input class="nc-input" type="password" id="ncNewPw2" autocomplete="new-password">' +
       '<div id="ncNewPwErr" class="nc-err"></div>' +
       '<div class="nc-row-end"><button class="btn btn-primary" id="ncNewPwSave">Kaydet</button></div></div>');
     $('ncNewPwSave').onclick = async function () {
       var a = $('ncNewPw1').value, b = $('ncNewPw2').value;
       if (a !== b) { $('ncNewPwErr').textContent = 'Şifreler aynı değil.'; return; }
-      if (a.length < 8 || !/[0-9]/.test(a) || !/[A-Za-zÇĞİÖŞÜçğıöşü]/.test(a)) { $('ncNewPwErr').textContent = 'Şifre en az 8 karakter olmalı ve harf ile rakam içermelidir.'; return; }
-      var r = await C.getClient().auth.updateUser({ password: a });
+      if (!a) { $('ncNewPwErr').textContent = 'Şifre boş olamaz.'; return; }
+      var r = await C.getClient().auth.updateUser({ password: C.staffAuthPassword(a) });
       if (r.error) { $('ncNewPwErr').textContent = C.friendlyError(r.error); return; }
       NobetCloud.close('ncNewPwModal'); toast('Şifreniz güncellendi', 'ok');
     };
@@ -1018,8 +1062,8 @@
     var sent = M.rows.filter(function (r) { return r.message_id; }), notSent = M.rows.filter(function (r) { return !r.message_id && r.is_active; });
     h += '<div class="nc-period ' + (p.is_open ? 'open' : 'closed') + '"><div><b>' + esc(p.title) + '</b> · ' + C.fmtDate(p.start_date) + ' – ' + C.fmtDate(p.end_date) +
       ' · <span class="nc-badge ' + (p.is_open ? 'green' : 'gray') + '">' + (p.is_open ? 'Açık – personel yazabilir/düzenleyebilir' : 'Kapalı – düzenleme yapılamaz') + '</span></div>' +
-      '<div class="nc-actions"><button title="Dönemi düzenle" onclick="NobetCloud.editPeriod()"><i class="fas fa-pen"></i></button>' +
-      '<button class="btn ' + (p.is_open ? 'btn-warning' : 'btn-success') + '" onclick="NobetCloud.togglePeriod()">' + (p.is_open ? '<i class="fas fa-lock"></i> Dönemi Kapat' : '<i class="fas fa-lock-open"></i> Dönemi Aç') + '</button></div></div>';
+      '<div class="nc-period-actions"><button class="nc-pedit" title="Dönemi düzenle" onclick="NobetCloud.editPeriod()"><i class="fas fa-pen"></i></button>' +
+      '<button class="nc-ptoggle ' + (p.is_open ? 'close' : 'open') + '" onclick="NobetCloud.togglePeriod()">' + (p.is_open ? '<i class="fas fa-lock"></i> Dönemi Kapat' : '<i class="fas fa-lock-open"></i> Dönemi Aç') + '</button></div></div>';
     var allCount = sent.length + notSent.length;
     var chip = function (key, cls, label, n) { return '<button class="nc-chip ' + cls + (M.filter === key ? ' active' : '') + '" onclick="NobetCloud.msgFilter(\'' + key + '\')">' + label + ' (' + n + ')</button>'; };
     h += '<div class="nc-stats">' + chip('all', '', 'Tümü', allCount) + chip('sent', 'green', 'Gönderenler', sent.length) + chip('notsent', 'amber', 'Göndermeyenler', notSent.length) +
@@ -1179,7 +1223,7 @@
       '.nc-chip{border:1px solid #cbd5e1;background:#fff;color:#334155;border-radius:16px;padding:5px 12px;font-weight:700;font-size:.82rem;cursor:pointer}',
       '.nc-chip.active{background:var(--primary,#0f172a);color:#fff;border-color:var(--primary,#0f172a)}.nc-chip.green.active{background:#166534;border-color:#166534}.nc-chip.amber.active{background:#b45309;border-color:#b45309}',
       'input[type=date].nc-input{cursor:pointer}',
-      '#ncLoginModal,#ncEditModal,#ncCodesModal,#ncNewPwModal{z-index:1100}',
+      '#ncLoginModal,#ncEditModal,#ncCodesModal,#ncNewPwModal,#ncAccModal{z-index:1100}',
       '#generalConfirmModal,#generalAlertModal{z-index:2000}',
       '.nc-modal-lg{width:980px!important;max-width:96%!important;max-height:90vh!important;padding:22px!important}',
       '.nc-modal-sm{width:440px!important;max-width:94%!important;padding:22px!important}',
@@ -1209,7 +1253,9 @@
       '.nc-arrows{display:inline-flex;gap:2px}.nc-arrows button,.nc-actions button,.nc-copy{background:#fff;border:1px solid #e2e8f0;border-radius:6px;width:28px;height:28px;cursor:pointer;color:#475569;display:inline-flex;align-items:center;justify-content:center}',
       '.nc-arrows button:disabled{opacity:.3;cursor:default}',
       '.nc-actions{margin-left:auto;display:inline-flex;gap:4px;align-items:center}.nc-actions .warn{color:#b45309}.nc-actions .ok{color:#15803d}.nc-actions .danger{color:#b91c1c}',
-      '.nc-actions button.btn{width:auto;height:auto;padding:6px 12px;white-space:nowrap;color:#fff}',
+      '.nc-period-actions{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-left:auto}',
+      '.nc-pedit{background:#fff;border:1px solid #cbd5e1;border-radius:6px;width:30px;height:30px;cursor:pointer;color:#475569}',
+      '.nc-ptoggle{border:none;border-radius:8px;padding:7px 14px;font-weight:700;font-size:.85rem;color:#fff;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:6px}.nc-ptoggle.close{background:#d97706}.nc-ptoggle.open{background:#16a34a}.nc-ptoggle:hover{filter:brightness(.95)}',
       '.nc-name{font-weight:600;color:#0f172a;display:flex;flex-direction:column;min-width:0;overflow-wrap:anywhere}.nc-name small{font-weight:400;color:#64748b;font-size:.75rem}',
       '.nc-lock{color:#94a3b8;font-size:.75rem}',
       '.nc-rank{font-weight:800;color:var(--primary,#0f172a);width:22px;text-align:center}',
@@ -1298,7 +1344,7 @@
     newPeriod: function () { periodForm(null); },
     editPeriod: function () { periodForm(S.msg.periods.find(function (x) { return x.id === S.msg.periodId; })); },
     togglePeriod: togglePeriod, copyMsg: copyMsg,
-    allCodes: allCodes, quickPeriod: quickPeriod, syncNow: syncExtraDefinitions,
+    allCodes: allCodes, quickPeriod: quickPeriod, syncNow: syncExtraDefinitions, accountSettings: openAccountSettings,
     exportBackup: function () { if (typeof window.exportSettings === 'function') window.exportSettings(); },
     importBackup: function () { var i = $('importSettingsInput'); if (i) i.click(); },
     _state: S, _derive: deriveDefinitions
