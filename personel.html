@@ -5,12 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex, nofollow">
 <meta name="referrer" content="no-referrer">
-<title>Nöbet İsteği – Personel</title>
+<title>Nöbet İstek Alanı</title>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js" integrity="sha384-0w2KAL2YHP6wKOkUDzkCDGgVvfmHnj02DHeQ6XcHOgTfFsGyonKOpShMH1x6nk9o" crossorigin="anonymous"></script>
-<script defer src="config.js?v=20261126l"></script>
-<script defer src="cloud-core.js?v=20261126l"></script>
+<script defer src="config.js?v=20261127a"></script>
+<script defer src="cloud-core.js?v=20261127a"></script>
 <style>
   :root { --primary:#0f172a; --accent:#3b82f6; --ok:#16a34a; --err:#dc2626; --bg:#f1f5f9; --border:#e2e8f0; --muted:#64748b; }
   * { box-sizing: border-box; }
@@ -48,12 +48,38 @@
   .past { border-top:1px solid var(--border); padding:10px 0; font-size:.88rem; }
   .past pre { white-space:pre-wrap; overflow-wrap:anywhere; font:inherit; margin:6px 0 0; color:#334155; }
   .center { text-align:center; }
-  @media (max-width:520px) { .card { padding:18px; } header h1 { font-size:.95rem; } .btn { width:100%; } .row.actions { flex-direction:column-reverse; align-items:stretch; } }
+  /* Takvim */
+  .tools { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin:10px 0; }
+  .tool { border:2px solid transparent; border-radius:10px; padding:9px 4px; font:inherit; font-weight:700; font-size:.82rem; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:5px; }
+  .tool.t-wanted { background:#dcfce7; color:#166534; } .tool.t-unwanted { background:#fee2e2; color:#991b1b; }
+  .tool.t-permit { background:#fef3c7; color:#92400e; } .tool.t-eraser { background:#fff; color:#475569; border-color:#cbd5e1; }
+  .tool.active { border-color:var(--primary); box-shadow:0 0 0 2px rgba(15,23,42,.15); }
+  .month { margin-top:10px; }
+  .month h3 { margin:6px 0; font-size:.95rem; text-align:center; color:#334155; }
+  .cal { display:grid; grid-template-columns:repeat(7,1fr); gap:4px; user-select:none; -webkit-user-select:none; touch-action:none; }
+  .cal .dow { font-size:.7rem; font-weight:700; color:var(--muted); text-align:center; padding:2px 0; }
+  .cal .day { aspect-ratio:1/1; min-height:38px; border:1px solid var(--border); border-radius:8px; background:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:.9rem; cursor:pointer; color:#0f172a; }
+  .cal .day.we { background:#f8fafc; color:#64748b; }
+  .cal .day.off { visibility:hidden; }
+  .cal .day.wanted { background:#22c55e; border-color:#16a34a; color:#fff; }
+  .cal .day.unwanted { background:#ef4444; border-color:#dc2626; color:#fff; }
+  .cal .day.permit { background:#facc15; border-color:#eab308; color:#713f12; }
+  .cal.readonly .day { cursor:default; }
+  .calsum { font-size:.82rem; color:#334155; margin-top:8px; line-height:1.5; }
+  .past .marks { font-size:.82rem; color:#334155; margin-top:4px; }
+  .btn-del { background:#fff; color:#b91c1c; border:1px solid #fecaca; padding:6px 10px; font-size:.8rem; border-radius:8px; cursor:pointer; font-weight:700; }
+  @media (max-width:520px) {
+    .card { padding:14px; } main { margin:14px auto; padding:0 10px 30px; }
+    header h1 { font-size:.95rem; } .btn { width:100%; } header .btn { width:auto; padding:8px 12px; }
+    .row.actions { flex-direction:column-reverse; align-items:stretch; }
+    .tool { font-size:.75rem; padding:9px 2px; } .cal { gap:3px; } .cal .day { min-height:34px; font-size:.82rem; }
+    textarea { min-height:160px; }
+  }
 </style>
 </head>
 <body>
 <header><div class="in">
-  <h1>Nöbet İsteği Mesajı<small>Selçuk Üniversitesi Nöroloji Anabilim Dalı</small></h1>
+  <h1>Nöbet İstek Alanı<small>Selçuk Üniversitesi Nöroloji Anabilim Dalı</small></h1>
   <button class="btn btn-light hidden" id="logoutBtn" type="button"><i class="fas fa-sign-out-alt"></i> Çıkış</button>
 </div></header>
 
@@ -133,8 +159,18 @@
       </div>
       <div id="mPeriodBox"></div>
       <div id="mEditor" class="hidden">
-        <label for="mText">Nöbet tercihleriniz / izin ve istekleriniz</label>
-        <textarea id="mText" maxlength="20000" placeholder="Örnek: 5 ve 6 Aralık kongre nedeniyle izinliyim. 24 Aralık nöbet tutmak istiyorum. Hafta sonu nöbetlerimin ayın ikinci yarısında olmasını tercih ederim."></textarea>
+        <label>Takvim (isteğe bağlı)</label>
+        <div class="hint" style="margin-top:0">Önce aşağıdan bir renk seçin, sonra günlere dokunun. Parmağınızı/farenizi sürükleyerek birden çok günü boyayabilirsiniz.</div>
+        <div class="tools" id="calTools">
+          <button type="button" class="tool t-wanted active" data-tool="wanted"><i class="fas fa-check"></i> İstenen</button>
+          <button type="button" class="tool t-unwanted" data-tool="unwanted"><i class="fas fa-ban"></i> İstenmeyen</button>
+          <button type="button" class="tool t-permit" data-tool="permit"><i class="fas fa-umbrella-beach"></i> İzinli</button>
+          <button type="button" class="tool t-eraser" data-tool="eraser"><i class="fas fa-eraser"></i> Silgi</button>
+        </div>
+        <div id="calBox"></div>
+        <div class="calsum" id="calSum"></div>
+        <label for="mText">Mesajınız (isteğe bağlı)</label>
+        <textarea id="mText" maxlength="20000" placeholder="Örnek: 5 ve 6 Aralık kongre nedeniyle izinliyim. Hafta sonu nöbetlerimin ayın ikinci yarısında olmasını tercih ederim."></textarea>
         <div class="row between" style="margin-top:6px">
           <span class="hint" id="mCount">0 / 20000</span>
           <span class="status" id="mStatus"></span>
@@ -143,7 +179,7 @@
           <button class="btn btn-primary" id="mSend" type="button"><i class="fas fa-paper-plane"></i> Gönder</button>
         </div>
         <div class="msg" id="mMsg"></div>
-        <p class="hint">Mesajınızı yalnızca yönetici görebilir. Dönem açık olduğu sürece düzenleyebilirsiniz; her yeni gönderim önceki mesajınızın yerine geçer.</p>
+        <p class="hint">Takviminizi ve mesajınızı yalnızca yönetici görebilir. Dönem açık olduğu sürece düzenleyebilirsiniz; her yeni gönderim öncekinin yerine geçer.</p>
       </div>
     </div>
     <div class="card hidden" id="mPastCard">
@@ -318,52 +354,128 @@ document.addEventListener('DOMContentLoaded', function () {
       var sel = $('mPeriodSel');
       if (sel) sel.onchange = function () { state.period = state.periods.find(function (p) { return p.id === sel.value; }); loadPeriod(); };
       state.message = mine.find(function (m) { return m.period_id === state.period.id; }) || null;
-      var draft = null; try { draft = sessionStorage.getItem(draftKey()); } catch (e) {}
-      $('mText').value = draft != null ? draft : (state.message ? state.message.body : '');
+      var draft = null; try { draft = JSON.parse(sessionStorage.getItem(draftKey()) || 'null'); } catch (e) {}
+      $('mText').value = draft ? (draft.body || '') : (state.message ? state.message.body : '');
+      state.marks = Object.assign({}, draft ? (draft.marks || {}) : (state.message ? (state.message.marks || {}) : {}));
       $('mEditor').classList.remove('hidden');
-      updateStatus(draft != null && (!state.message || draft !== state.message.body));
+      renderCalendar();
+      updateStatus();
     }
-    // geçmiş (kapalı veya diğer dönemlerdeki kendi mesajları – salt okunur)
+    // geçmiş dönem mesajları (salt okunur; kapalı dönemdekiler silinebilir)
     var past = mine.filter(function (m) { return !state.period || m.period_id !== state.period.id; });
     $('mPastCard').classList.toggle('hidden', past.length === 0);
     $('mPast').innerHTML = past.sort(function (a, b) { return Date.parse(b.updated_at) - Date.parse(a.updated_at); }).map(function (m) {
       var p = state.periods.find(function (x) { return x.id === m.period_id; });
-      return '<div class="past"><b>' + C.esc(p ? p.title : 'Dönem') + '</b> <span class="status">· ' + C.esc(C.fmtDateTime(m.updated_at)) + (p && !p.is_open ? ' · kapalı' : '') + '</span><pre>' + C.esc(m.body) + '</pre></div>';
+      var closed = p && !p.is_open;
+      var mt = C.marksText(m.marks);
+      return '<div class="past"><div class="row between"><div><b>' + C.esc(p ? p.title : 'Dönem') + '</b> <span class="status">· ' + C.esc(C.fmtDateTime(m.updated_at)) + (closed ? ' · kapalı' : '') + '</span></div>' +
+        (closed ? '<button type="button" class="btn-del" data-del="' + m.id + '"><i class="fas fa-trash"></i> Sil</button>' : '') + '</div>' +
+        (mt ? '<div class="marks"><i class="fas fa-calendar-check"></i> ' + C.esc(mt) + '</div>' : '') +
+        (m.body && m.body.trim() ? '<pre>' + C.esc(m.body) + '</pre>' : '') + '</div>';
     }).join('');
+    $('mPast').querySelectorAll('[data-del]').forEach(function (b) {
+      b.onclick = async function () {
+        if (!confirm('Bu dönemdeki mesajınız ve takvim işaretleriniz kalıcı olarak silinecek. Emin misiniz?')) return;
+        var r = await client.from('request_messages').delete().eq('id', b.getAttribute('data-del')).select('id');
+        if (r.error || !r.data || !r.data.length) { alert('Silinemedi: ' + (r.error ? C.friendlyError(r.error) : 'yalnızca kapalı dönem mesajları silinebilir.')); return; }
+        loadPeriod();
+      };
+    });
   }
 
-  function updateStatus(unsaved) {
+  // ---------------- takvim
+  state.marks = {}; state.tool = 'wanted';
+  var DOW = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
+  function iso(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+  function parseIso(s) { var p = s.split('-'); return new Date(+p[0], +p[1] - 1, +p[2]); }
+  function renderCalendar() {
+    var box = $('calBox'); if (!state.period) { box.innerHTML = ''; return; }
+    var start = parseIso(state.period.start_date), end = parseIso(state.period.end_date);
+    var html = '', cur = new Date(start.getFullYear(), start.getMonth(), 1);
+    while (cur <= end) {
+      var y = cur.getFullYear(), mo = cur.getMonth();
+      html += '<div class="month"><h3>' + C.TR_MONTHS[mo] + ' ' + y + '</h3><div class="cal">' + DOW.map(function (d) { return '<div class="dow">' + d + '</div>'; }).join('');
+      var lead = (new Date(y, mo, 1).getDay() + 6) % 7;
+      for (var i = 0; i < lead; i++) html += '<div class="day off"></div>';
+      var days = new Date(y, mo + 1, 0).getDate();
+      for (var d = 1; d <= days; d++) {
+        var dt = new Date(y, mo, d), k = iso(dt), inP = dt >= start && dt <= end, wd = dt.getDay();
+        html += inP ? '<div class="day' + ((wd === 0 || wd === 6) ? ' we' : '') + (state.marks[k] ? ' ' + state.marks[k] : '') + '" data-d="' + k + '">' + d + '</div>'
+                    : '<div class="day off"></div>';
+      }
+      html += '</div></div>';
+      cur = new Date(y, mo + 1, 1);
+    }
+    box.innerHTML = html;
+    var t = C.marksText(state.marks);
+    $('calSum').innerHTML = t ? '<i class="fas fa-calendar-check"></i> ' + C.esc(t) : '<span class="hint">Takvimde henüz işaret yok.</span>';
+  }
+  function paintDay(el, toggle) {
+    var k = el && el.getAttribute('data-d'); if (!k) return;
+    var v = state.tool === 'eraser' ? null : state.tool;
+    if (toggle && v && state.marks[k] === v) v = null; // aynı renge tekrar dokunmak işareti kaldırır
+    if ((state.marks[k] || null) === v) return;
+    if (v) state.marks[k] = v; else delete state.marks[k];
+    el.className = 'day' + ((parseIso(k).getDay() % 6 === 0) ? ' we' : '') + (v ? ' ' + v : '');
+    saveDraft(); updateStatus();
+    var t = C.marksText(state.marks);
+    $('calSum').innerHTML = t ? '<i class="fas fa-calendar-check"></i> ' + C.esc(t) : '<span class="hint">Takvimde henüz işaret yok.</span>';
+  }
+  var dragging = false, lastEl = null;
+  $('calBox').addEventListener('pointerdown', function (e) {
+    var el = e.target.closest('.day[data-d]'); if (!el) return;
+    e.preventDefault(); dragging = true; lastEl = el; paintDay(el, true);
+  });
+  window.addEventListener('pointermove', function (e) {
+    if (!dragging) return;
+    var el = document.elementFromPoint(e.clientX, e.clientY); el = el && el.closest ? el.closest('.day[data-d]') : null;
+    if (el && el !== lastEl) { lastEl = el; paintDay(el, false); }
+  });
+  window.addEventListener('pointerup', function () { dragging = false; lastEl = null; });
+  window.addEventListener('pointercancel', function () { dragging = false; lastEl = null; });
+  document.querySelectorAll('#calTools .tool').forEach(function (b) {
+    b.addEventListener('click', function () {
+      state.tool = b.getAttribute('data-tool');
+      document.querySelectorAll('#calTools .tool').forEach(function (x) { x.classList.toggle('active', x === b); });
+    });
+  });
+
+  function sameMarks(a, b) { a = a || {}; b = b || {}; var ka = Object.keys(a), kb = Object.keys(b); return ka.length === kb.length && ka.every(function (k) { return a[k] === b[k]; }); }
+  function isDirty() {
+    if (!state.message) return !!$('mText').value.trim() || Object.keys(state.marks).length > 0;
+    return $('mText').value !== state.message.body || !sameMarks(state.marks, state.message.marks);
+  }
+  function saveDraft() { try { sessionStorage.setItem(draftKey(), JSON.stringify({ body: $('mText').value, marks: state.marks })); } catch (e) {} }
+  function updateStatus() {
     var t = $('mText').value;
     $('mCount').textContent = t.length + ' / 20000';
     var st = $('mStatus');
-    if (unsaved) { st.className = 'status'; st.innerHTML = '<span class="pill amber">Gönderilmedi</span>'; }
+    if (isDirty()) { st.className = 'status'; st.innerHTML = '<span class="pill amber">Gönderilmedi</span>'; }
     else if (state.message) { st.className = 'status saved'; st.innerHTML = '<i class="fas fa-check-circle"></i> Kaydedildi: ' + C.esc(C.fmtDateTime(state.message.updated_at)); }
-    else { st.className = 'status'; st.textContent = 'Henüz mesaj gönderilmedi'; }
+    else { st.className = 'status'; st.textContent = 'Henüz gönderilmedi'; }
     $('mSend').innerHTML = state.message ? '<i class="fas fa-save"></i> Güncelle' : '<i class="fas fa-paper-plane"></i> Gönder';
   }
-  $('mText').addEventListener('input', function () {
-    try { sessionStorage.setItem(draftKey(), $('mText').value); } catch (e) {}
-    updateStatus(!state.message || $('mText').value !== state.message.body);
-  });
+  $('mText').addEventListener('input', function () { saveDraft(); updateStatus(); });
 
   $('mSend').addEventListener('click', async function () {
     var body = $('mText').value;
     setMsg('mMsg', '');
-    if (!body.trim()) { setMsg('mMsg', 'Lütfen bir mesaj yazın.'); return; }
+    if (!body.trim() && !Object.keys(state.marks).length) { setMsg('mMsg', 'Lütfen takvimde işaretleme yapın veya bir mesaj yazın.'); return; }
     var btn = $('mSend'); btn.disabled = true;
     try {
+      var payload = { body: body, marks: state.marks };
       var r = state.message
-        ? await client.from('request_messages').update({ body: body }).eq('id', state.message.id).select().maybeSingle()
-        : await client.from('request_messages').insert({ period_id: state.period.id, assistant_id: state.me.id, body: body }).select().maybeSingle();
+        ? await client.from('request_messages').update(payload).eq('id', state.message.id).select().maybeSingle()
+        : await client.from('request_messages').insert(Object.assign({ period_id: state.period.id, assistant_id: state.me.id }, payload)).select().maybeSingle();
       if (r.error) throw r.error;
-      if (!r.data) throw new Error('Mesaj kaydedilemedi. Dönem kapatılmış veya hesabınız pasife alınmış olabilir.');
+      if (!r.data) throw new Error('Kaydedilemedi. Dönem kapatılmış veya hesabınız pasife alınmış olabilir.');
       state.message = r.data;
       try { sessionStorage.removeItem(draftKey()); } catch (e) {}
-      updateStatus(false);
-      setMsg('mMsg', 'Mesajınız kaydedildi.', true);
+      updateStatus();
+      setMsg('mMsg', 'İstekleriniz kaydedildi.', true);
     } catch (err) {
       var m = C.friendlyError(err);
-      if (/yetkiniz yok/.test(m)) m = 'Mesaj kaydedilemedi. Dönem kapatılmış veya hesabınız pasife alınmış olabilir. Yazdığınız metin bu sekmede saklanıyor.';
+      if (/yetkiniz yok/.test(m)) m = 'Kaydedilemedi. Dönem kapatılmış veya hesabınız pasife alınmış olabilir. Yaptıklarınız bu sekmede saklanıyor.';
       setMsg('mMsg', m);
       loadPeriod().catch(function () {});
     } finally { btn.disabled = false; }

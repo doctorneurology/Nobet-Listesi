@@ -312,6 +312,39 @@ check("Mesajı olmayan asistan silinebilir", delC.status === 200, JSON.stringify
 const { data: logs } = await admin.c.from("audit_log").select("action,table_name").gte("at", new Date(Date.now() - 600_000).toISOString());
 check("Değişiklikler denetim kaydına yazılır", (logs ?? []).some((l) => l.action === "deactivate") && (logs ?? []).some((l) => l.table_name === "app_settings"));
 
+// Takvim işaretleri, personelin eski mesajını silmesi, yöneticinin dönem silmesi
+{
+  const sAc = await login(`${ra.username}@${DOMAIN}`, SP(pwA));
+  const P2 = (await admin.c.from("request_periods").insert({ title: `Takvim ${RUN}`, start_date: "2027-03-01", end_date: "2027-03-31" }).select().single()).data;
+  const onlyMarks = await sAc.c.from("request_messages").insert({ period_id: P2.id, assistant_id: A.id, body: "", marks: { "2027-03-05": "wanted", "2027-03-06": "permit" } }).select().single();
+  check("Personel yalnızca takvimle (mesajsız) istek gönderebilir", !onlyMarks.error, onlyMarks.error?.message);
+  const emptyBoth = await sAc.c.from("request_messages").update({ body: " ", marks: {} }).eq("id", onlyMarks.data?.id).select();
+  check("Hem mesajı hem işareti boş kayıt reddedilir", !!emptyBoth.error);
+  const outOfRange = await sAc.c.from("request_messages").update({ marks: { "2027-04-02": "wanted" } }).eq("id", onlyMarks.data?.id).select();
+  check("Dönem dışı tarih işaretlenemez", !!outOfRange.error);
+  const badVal = await sAc.c.from("request_messages").update({ marks: { "2027-03-07": "hack" } }).eq("id", onlyMarks.data?.id).select();
+  check("Geçersiz işaret türü reddedilir", !!badVal.error);
+  const upd = await sAc.c.from("request_messages").update({ body: "Ek not", marks: { "2027-03-05": "unwanted" } }).eq("id", onlyMarks.data?.id).select().single();
+  check("İşaretler ve mesaj birlikte güncellenir", !upd.error && upd.data?.marks?.["2027-03-05"] === "unwanted", upd.error?.message);
+  const ov2 = await admin.c.rpc("admin_period_overview", { p_period: P2.id });
+  check("Yönetici işaretleri görür", (ov2.data ?? []).some((r) => r.marks?.["2027-03-05"] === "unwanted"));
+  const delOpen = await sAc.c.from("request_messages").delete().eq("id", onlyMarks.data?.id).select();
+  check("Personel açık dönemdeki mesajını silemez", !!delOpen.error || (delOpen.data ?? []).length === 0);
+  await admin.c.from("request_periods").update({ is_open: false }).eq("id", P2.id);
+  const delOther = await sB2.c.from("request_messages").delete().eq("id", onlyMarks.data?.id).select();
+  check("Personel başkasının eski mesajını silemez", !!delOther.error || (delOther.data ?? []).length === 0);
+  const delClosed = await sAc.c.from("request_messages").delete().eq("id", onlyMarks.data?.id).select();
+  check("Personel önceki (kapalı) dönem mesajını silebilir", !delClosed.error && (delClosed.data ?? []).length === 1, delClosed.error?.message);
+  await sAc.c.from("request_messages").insert({ period_id: P2.id, assistant_id: A.id, body: "x" }); // kapalı dönem: eklenemez
+  await admin.c.from("request_periods").update({ is_open: true }).eq("id", P2.id);
+  await sAc.c.from("request_messages").insert({ period_id: P2.id, assistant_id: A.id, body: "silinecek dönem" });
+  const stDelP = await sAc.c.rpc("admin_delete_period", { p_period: P2.id });
+  check("Personel dönem silemez", !!stDelP.error);
+  const delP = await admin.c.rpc("admin_delete_period", { p_period: P2.id });
+  const left = await svc.from("request_periods").select("id").eq("id", P2.id);
+  check("Yönetici dönemi mesajlarıyla birlikte silebilir", !delP.error && delP.data === 1 && (left.data ?? []).length === 0, delP.error?.message);
+}
+
 // ---------------------------------------------------------------- temizlik
 await svc.from("request_messages").delete().eq("period_id", P.id);
 await svc.from("request_periods").delete().eq("id", P.id);

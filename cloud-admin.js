@@ -1039,7 +1039,10 @@
     if (r.error) { $('ncMsgBody').innerHTML = '<div class="nc-err">' + esc(C.friendlyError(r.error)) + '</div>'; return; }
     S.msg.periods = r.data || [];
     if (selectId) S.msg.periodId = selectId;
-    if (!S.msg.periods.some(function (p) { return p.id === S.msg.periodId; })) S.msg.periodId = S.msg.periods.length ? S.msg.periods[0].id : null;
+    if (!S.msg.periods.some(function (p) { return p.id === S.msg.periodId; })) {
+      var openP = S.msg.periods.find(function (p) { return p.is_open; }); // önce açık dönem
+      S.msg.periodId = openP ? openP.id : (S.msg.periods.length ? S.msg.periods[0].id : null);
+    }
     await loadMessages();
   }
   async function loadMessages() {
@@ -1053,30 +1056,140 @@
   }
   function renderMessages() {
     var M = S.msg, p = M.periods.find(function (x) { return x.id === M.periodId; });
+    // 1) Dönem: seçici + Yeni Dönem Aç; seçili dönem kartı (Düzenle / Kapat-Aç / Sil)
     var h = '<div class="nc-toolbar">' +
-      (M.periods.length ? '<select class="nc-input nc-select" onchange="NobetCloud.msgPeriod(this.value)">' + M.periods.map(function (x) {
-        return '<option value="' + x.id + '"' + (x.id === M.periodId ? ' selected' : '') + '>' + esc(x.title) + ' (' + C.fmtDate(x.start_date) + ' – ' + C.fmtDate(x.end_date) + ')' + (x.is_open ? ' • Açık' : ' • Kapalı') + '</option>';
-      }).join('') + '</select>' : '<span class="nc-muted">Henüz dönem yok.</span>') +
-      '<button class="btn btn-success" onclick="NobetCloud.newPeriod()"><i class="fas fa-plus"></i> Yeni Dönem</button></div>';
-    if (!p) { $('ncMsgBody').innerHTML = h + '<div class="nc-empty">Personelin mesaj yazabilmesi için önce bir nöbet dönemi oluşturun.</div>'; return; }
+      (M.periods.length > 1 ? '<select class="nc-input nc-select" title="Dönem seçin" onchange="NobetCloud.msgPeriod(this.value)">' + M.periods.map(function (x) {
+        return '<option value="' + x.id + '"' + (x.id === M.periodId ? ' selected' : '') + '>' + esc(x.title) + (x.is_open ? ' • Açık' : ' • Kapalı') + '</option>';
+      }).join('') + '</select>' : '') +
+      '<button class="btn btn-success" onclick="NobetCloud.newPeriod()"><i class="fas fa-plus"></i> Yeni Dönem Aç</button></div>';
+    if (!p) { $('ncMsgBody').innerHTML = h + '<div class="nc-empty">Personelin istek gönderebilmesi için "Yeni Dönem Aç" ile bir nöbet dönemi oluşturun.</div>'; return; }
     var sent = M.rows.filter(function (r) { return r.message_id; }), notSent = M.rows.filter(function (r) { return !r.message_id && r.is_active; });
-    h += '<div class="nc-period ' + (p.is_open ? 'open' : 'closed') + '"><div><b>' + esc(p.title) + '</b> · ' + C.fmtDate(p.start_date) + ' – ' + C.fmtDate(p.end_date) +
-      ' · <span class="nc-badge ' + (p.is_open ? 'green' : 'gray') + '">' + (p.is_open ? 'Açık – personel yazabilir/düzenleyebilir' : 'Kapalı – düzenleme yapılamaz') + '</span></div>' +
+    h += '<div class="nc-period ' + (p.is_open ? 'open' : 'closed') + '"><div><b>' + esc(p.title) + '</b> <span class="nc-muted">' + C.fmtDate(p.start_date) + ' – ' + C.fmtDate(p.end_date) + '</span> ' +
+      '<span class="nc-badge ' + (p.is_open ? 'green' : 'gray') + '">' + (p.is_open ? 'Açık' : 'Kapalı') + '</span></div>' +
       '<div class="nc-period-actions"><button class="nc-pedit" title="Dönemi düzenle" onclick="NobetCloud.editPeriod()"><i class="fas fa-pen"></i></button>' +
-      '<button class="nc-ptoggle ' + (p.is_open ? 'close' : 'open') + '" onclick="NobetCloud.togglePeriod()">' + (p.is_open ? '<i class="fas fa-lock"></i> Dönemi Kapat' : '<i class="fas fa-lock-open"></i> Dönemi Aç') + '</button></div></div>';
-    var allCount = sent.length + notSent.length;
-    var chip = function (key, cls, label, n) { return '<button class="nc-chip ' + cls + (M.filter === key ? ' active' : '') + '" onclick="NobetCloud.msgFilter(\'' + key + '\')">' + label + ' (' + n + ')</button>'; };
-    h += '<div class="nc-stats">' + chip('all', '', 'Tümü', allCount) + chip('sent', 'green', 'Gönderenler', sent.length) + chip('notsent', 'amber', 'Göndermeyenler', notSent.length) +
-      '<button class="btn btn-ghost nc-ghost" onclick="NobetCloud.msgReload()"><i class="fas fa-sync"></i> Yenile</button></div>';
-    h += '<div class="nc-toolbar"><input class="nc-input" placeholder="Personel adına göre ara…" value="' + esc(M.search) + '" oninput="NobetCloud.msgSearch(this.value)">' +
-      '<select class="nc-input nc-select" onchange="NobetCloud.msgSort(this.value)">' + [['date_desc', 'En yeni mesaj önce'], ['date_asc', 'En eski mesaj önce'], ['name', 'Ada göre']].map(function (o) { return '<option value="' + o[0] + '"' + (M.sort === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></div>';
-    h += '<div class="nc-toolbar"><span class="nc-muted">Listelenenleri:</span>' +
+      '<button class="nc-ptoggle ' + (p.is_open ? 'close' : 'open') + '" onclick="NobetCloud.togglePeriod()">' + (p.is_open ? '<i class="fas fa-lock"></i> Kapat' : '<i class="fas fa-lock-open"></i> Aç') + '</button>' +
+      '<button class="nc-pedit nc-pdel" title="Dönemi sil" onclick="NobetCloud.deletePeriod()"><i class="fas fa-trash"></i></button></div></div>';
+    // 2) Dışa aktarma + takvimden aktarma + mesajları göster
+    h += '<div class="nc-toolbar">' +
       '<button class="btn btn-ghost nc-ghost" onclick="NobetCloud.msgExport(\'print\')"><i class="fas fa-print"></i> Yazdır</button>' +
       '<button class="btn btn-ghost nc-ghost" onclick="NobetCloud.msgExport(\'word\')"><i class="fas fa-file-word" style="color:#2b579a"></i> Word</button>' +
-      '<button class="btn btn-ghost nc-ghost" onclick="NobetCloud.msgExport(\'pdf\')"><i class="fas fa-file-pdf" style="color:#b91c1c"></i> PDF</button></div>';
-    h += '<div id="ncMsgList"></div>';
+      '<button class="btn btn-ghost nc-ghost" onclick="NobetCloud.msgExport(\'pdf\')"><i class="fas fa-file-pdf" style="color:#b91c1c"></i> PDF</button>' +
+      '<button class="btn btn-primary" onclick="NobetCloud.importCalendar()" title="Personelin takvim işaretlerini 4. İstekler takvimine aktarır"><i class="fas fa-file-import"></i> Takvimden Aktar</button>' +
+      '<button class="btn btn-dark" onclick="NobetCloud.toggleMsgList()"><i class="fas ' + (M.showList ? 'fa-chevron-up' : 'fa-chevron-down') + '"></i> ' + (M.showList ? 'Mesajları Gizle' : 'Mesajları Göster') + ' (' + sent.length + '/' + (sent.length + notSent.length) + ')</button></div>';
+    // 3) Gizlenebilir bölüm: filtreler, arama, sıralama, liste
+    if (M.showList) {
+      var chip = function (key, cls, label, n) { return '<button class="nc-chip ' + cls + (M.filter === key ? ' active' : '') + '" onclick="NobetCloud.msgFilter(\'' + key + '\')">' + label + ' (' + n + ')</button>'; };
+      h += '<div class="nc-msgsec"><div class="nc-stats">' + chip('all', '', 'Tümü', sent.length + notSent.length) + chip('sent', 'green', 'Gönderenler', sent.length) + chip('notsent', 'amber', 'Göndermeyenler', notSent.length) +
+        '<button class="btn btn-ghost nc-ghost" onclick="NobetCloud.msgReload()"><i class="fas fa-sync"></i> Yenile</button></div>' +
+        '<div class="nc-toolbar"><input class="nc-input" placeholder="Personel adına göre ara…" value="' + esc(M.search) + '" oninput="NobetCloud.msgSearch(this.value)">' +
+        '<select class="nc-input nc-select" onchange="NobetCloud.msgSort(this.value)">' + [['date_desc', 'En yeni önce'], ['date_asc', 'En eski önce'], ['name', 'Ada göre']].map(function (o) { return '<option value="' + o[0] + '"' + (M.sort === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></div>' +
+        '<div id="ncMsgList"></div></div>';
+    }
     $('ncMsgBody').innerHTML = h;
     renderMessageList();
+  }
+
+  function deletePeriod() {
+    var p = S.msg.periods.find(function (x) { return x.id === S.msg.periodId; }); if (!p) return;
+    var n = S.msg.rows.filter(function (r) { return r.message_id; }).length;
+    confirmBox('Dönemi Sil', '"' + p.title + '" dönemi ve bu döneme ait ' + n + ' personel isteği (mesaj ve takvim işaretleri) KALICI olarak silinecek. Bu işlem geri alınamaz. ' +
+      '(4. İstekler takvimine önceden aktarılmış işaretler etkilenmez.) Devam edilsin mi?', async function () {
+      var r = await C.getClient().rpc('admin_delete_period', { p_period: p.id });
+      if (r.error) { alertBox('Silinemedi', C.friendlyError(r.error)); return; }
+      toast('Dönem silindi', 'ok'); S.msg.periodId = null; S.quickPeriods = null;
+      loadPeriods();
+    });
+  }
+
+  // ---- Takvimden Aktar: personelin takvim işaretlerini uygulamanın 4. İstekler takvimine (docs[].avail) işler.
+  // Uygulamanın kendi kuralları uygulanır: istenen gün için kota ve nöbet arası boşluk kuralı; izin tüm yerleri kapsar.
+  /* global docs, dates, activePlaces, refakatciMode */
+  function planCalendarImport(overwrite, commit) {
+    var report = { persons: [], missing: [], total: 0 };
+    var appDocs = (typeof docs !== 'undefined' && Array.isArray(docs)) ? docs : [];
+    var appDates = (typeof dates !== 'undefined' && Array.isArray(dates)) ? dates : [];
+    var places = (typeof activePlaces !== 'undefined' ? activePlaces.slice() : []);
+    if (typeof refakatciMode !== 'undefined' && refakatciMode) places.push('Refakatçi');
+    S.msg.rows.filter(function (r) { return r.message_id && r.marks && Object.keys(r.marks).length; }).forEach(function (r) {
+      var real = appDocs.find(function (d) { return lc(d.name) === lc(r.full_name); });
+      if (!real) { report.missing.push(r.full_name); return; }
+      var d = commit ? real : JSON.parse(JSON.stringify(real));
+      if (!d.avail) d.avail = {};
+      var res = { name: r.full_name, applied: 0, outside: 0, existing: 0, rule: 0 };
+      Object.keys(r.marks).sort().forEach(function (ds) {
+        var type = r.marks[ds], dObj = appDates.find(function (x) { return x.str === ds; });
+        if (!dObj) { res.outside++; return; }
+        var has = d.avail[ds] && Object.keys(d.avail[ds]).length;
+        if (has && !overwrite) { res.existing++; return; }
+        var prev = d.avail[ds]; d.avail[ds] = {};
+        var myPlaces = (Array.isArray(d.allowed) && d.allowed.length ? d.allowed : places).filter(function (p) { return places.indexOf(p) >= 0; });
+        if (type === 'permit') {
+          places.forEach(function (p) { d.avail[ds][p] = 'permit'; }); d.avail[ds].GENERAL = 'permit'; res.applied++;
+        } else if (type === 'unwanted') {
+          (myPlaces.length ? myPlaces : places).forEach(function (p) { d.avail[ds][p] = 'unwanted'; }); res.applied++;
+        } else if (type === 'wanted') {
+          var ok = false;
+          for (var i = 0; i < myPlaces.length && !ok; i++) {
+            var p = myPlaces[i], t = d.targets && d.targets[p];
+            if (!t) continue;
+            var target = dObj.isW ? t.e : t.w;
+            if (typeof window.getMarkedCount === 'function' && window.getMarkedCount(d, p, dObj.isW) >= target) continue;
+            if (typeof window.checkGapViolation === 'function') {
+              var chk; try { chk = window.checkGapViolation(d, ds, p); } catch (e) { chk = null; }
+              if (chk && chk.error) continue;
+            }
+            d.avail[ds][p] = 'wanted'; ok = true;
+          }
+          if (ok) res.applied++; else res.rule++;
+        }
+        // Uygulanamayan (ör. kotası dolu) istekte eski işaret korunur
+        if (!Object.keys(d.avail[ds]).length) { if (prev && Object.keys(prev).length) d.avail[ds] = prev; else delete d.avail[ds]; }
+      });
+      report.total += res.applied;
+      report.persons.push(res);
+    });
+    return report;
+  }
+  function importCalendar() {
+    var p = S.msg.periods.find(function (x) { return x.id === S.msg.periodId; }); if (!p) return;
+    var withMarks = S.msg.rows.filter(function (r) { return r.message_id && r.marks && Object.keys(r.marks).length; });
+    if (!withMarks.length) { alertBox('Takvimden Aktar', 'Bu dönemde takvim işaretlemesi yapan personel yok.'); return; }
+    var appStart = $('startDate') && $('startDate').value, appEnd = $('endDate') && $('endDate').value;
+    var render = function () {
+      var ow = $('ncImpOverwrite') && $('ncImpOverwrite').checked;
+      var rep = planCalendarImport(ow, false);
+      var rowsHtml = rep.persons.map(function (x) {
+        var skip = [];
+        if (x.existing) skip.push(x.existing + ' gün zaten işaretli');
+        if (x.rule) skip.push(x.rule + ' istenen gün kota/boşluk kuralına uymadı');
+        if (x.outside) skip.push(x.outside + ' gün uygulamadaki tarih aralığı dışında');
+        return '<tr><td>' + esc(x.name) + '</td><td><b>' + x.applied + '</b></td><td class="nc-muted">' + esc(skip.join(', ') || '—') + '</td></tr>';
+      }).join('');
+      $('ncImpBody').innerHTML =
+        '<p class="nc-hint">Uygulamadaki nöbet dönemi: <b>' + esc(C.fmtDate(appStart) || '?') + ' – ' + esc(C.fmtDate(appEnd) || '?') + '</b>. İstek dönemi: <b>' + esc(p.title) + '</b>. Yalnızca bu dönemin listesinde (2. Asistanlar) bulunan kişilere aktarılır.</p>' +
+        '<table class="nc-table"><thead><tr><th>Asistan</th><th>Aktarılacak gün</th><th>Atlanan</th></tr></thead><tbody>' + (rowsHtml || '<tr><td colspan="3" class="nc-muted">Aktarılacak kişi yok.</td></tr>') + '</tbody></table>' +
+        (rep.missing.length ? '<p class="nc-warn" style="margin-top:8px">Bu dönemin asistan listesinde olmadığı için atlanacak: ' + rep.missing.map(esc).join(', ') + '</p>' : '') +
+        '<p class="nc-hint"><i class="fas fa-info-circle"></i> İzinli günler tüm nöbet yerlerine, istenmeyen günler kişinin çalıştığı tüm yerlere, istenen günler kotası uygun ilk nöbet yerine işlenir. Aktarımdan sonra 4. İstekler takviminde dilediğiniz gibi düzenleyebilirsiniz. ' +
+        'Aktarım, istek değişikliği olduğu için daha önce oluşturulmuş nöbet listesi sonuçlarını sıfırlar.</p>';
+      $('ncImpGo').disabled = rep.total === 0;
+      $('ncImpGo').innerHTML = '<i class="fas fa-file-import"></i> ' + rep.total + ' günü aktar';
+    };
+    ensureModal('ncImportModal', '<div class="modal-content nc-modal-lg">' +
+      '<div class="modal-header"><h2><i class="fas fa-file-import" style="color:var(--primary)"></i> Takvimden Aktar</h2><span class="close-modal" onclick="NobetCloud.close(\'ncImportModal\')">&times;</span></div>' +
+      '<label class="nc-check"><input type="checkbox" id="ncImpOverwrite"> Mevcut işaretlerin üzerine yaz (işaretlenmemişse yalnızca boş günler doldurulur)</label>' +
+      '<div id="ncImpBody"></div>' +
+      '<div class="nc-row-end"><button class="btn btn-ghost nc-ghost" onclick="NobetCloud.close(\'ncImportModal\')">Vazgeç</button><button class="btn btn-success" id="ncImpGo"></button></div></div>');
+    $('ncImpOverwrite').onchange = render;
+    $('ncImpGo').onclick = function () {
+      var rep = planCalendarImport($('ncImpOverwrite').checked, true);
+      try { if (typeof window.invalidateResults === 'function') window.invalidateResults(); } catch (e) {}
+      try { if (typeof window.saveData === 'function') window.saveData(); } catch (e) {}
+      try { if (typeof window.renderCal === 'function') window.renderCal(); } catch (e) {}
+      NobetCloud.close('ncImportModal');
+      toast(rep.total + ' gün 4. İstekler takvimine aktarıldı', 'ok');
+    };
+    show('ncImportModal');
+    render();
   }
   // Ekranda görünen (filtre + arama + sıralama uygulanmış) liste; dışa aktarmada da aynısı kullanılır
   function visibleMessageRows() {
@@ -1103,7 +1216,12 @@
     var rows = visibleMessageRows();
     if (!rows.length) { alertBox('Liste boş', 'Dışa aktarılacak kayıt yok.'); return; }
     var title = p.title + ' – Asistan İstekleri';
-    var msgOf = function (r) { return r.message_id ? r.body : '(mesaj göndermedi)'; };
+    // Takvim işaretleri metne çevrilip mesajın önüne eklenir
+    var msgOf = function (r) {
+      if (!r.message_id) return '(istek göndermedi)';
+      var mt = C.marksText(r.marks), b = String(r.body || '').trim();
+      return mt && b ? 'Takvim: ' + mt + '\n' + b : (mt ? 'Takvim: ' + mt : b);
+    };
     var fname = (p.title + ' - Asistan İstekleri').replace(/[\\/:*?"<>|]+/g, ' ').trim();
     var tableHtml = function (forWord) {
       return '<table' + (forWord ? ' width="100%" border="1" cellspacing="0" cellpadding="3"' : '') + '><colgroup><col style="width:24%"><col style="width:76%"></colgroup>' +
@@ -1155,11 +1273,13 @@
     var rows = visibleMessageRows();
     var el = $('ncMsgList'); if (!el) return;
     el.innerHTML = rows.length ? rows.map(function (r) {
-      if (!r.message_id) return '<div class="nc-msg none"><div class="nc-msg-head"><b>' + esc(r.full_name) + '</b><span class="nc-badge amber">Mesaj göndermedi</span></div></div>';
+      if (!r.message_id) return '<div class="nc-msg none"><div class="nc-msg-head"><b>' + esc(r.full_name) + '</b><span class="nc-badge amber">İstek göndermedi</span></div></div>';
+      var mt = C.marksText(r.marks);
       return '<div class="nc-msg"><div class="nc-msg-head"><b>' + esc(r.full_name) + '</b>' + (r.is_active ? '' : '<span class="nc-badge gray">Pasif</span>') +
         '<span class="nc-muted">' + esc(C.fmtDateTime(r.updated_at)) + (r.edit_count ? ' · ' + r.edit_count + ' kez düzenlendi (ilk: ' + esc(C.fmtDateTime(r.created_at)) + ')' : '') + '</span>' +
         '<button class="nc-copy" title="Kopyala" onclick="NobetCloud.copyMsg(\'' + r.message_id + '\')"><i class="fas fa-copy"></i></button></div>' +
-        '<div class="nc-msg-body">' + esc(r.body) + '</div></div>';
+        (mt ? '<div class="nc-msg-marks"><i class="fas fa-calendar-check"></i> ' + esc(mt) + '</div>' : '') +
+        (String(r.body || '').trim() ? '<div class="nc-msg-body">' + esc(r.body) + '</div>' : '') + '</div>';
     }).join('') : '<div class="nc-empty">Sonuç yok.</div>';
   }
   function periodForm(p, after) {
@@ -1203,7 +1323,8 @@
   }
   function copyMsg(id) {
     var r = S.msg.rows.find(function (x) { return x.message_id === id; }); if (!r) return;
-    navigator.clipboard.writeText(r.full_name + ':\n' + r.body).then(function () { toast('Kopyalandı', 'ok'); });
+    var mt = C.marksText(r.marks);
+    navigator.clipboard.writeText(r.full_name + ':\n' + (mt ? 'Takvim: ' + mt + '\n' : '') + (r.body || '')).then(function () { toast('Kopyalandı', 'ok'); });
   }
 
   // ------------------------------------------------------------------ arayüz iskeleti
@@ -1223,7 +1344,8 @@
       '.nc-chip{border:1px solid #cbd5e1;background:#fff;color:#334155;border-radius:16px;padding:5px 12px;font-weight:700;font-size:.82rem;cursor:pointer}',
       '.nc-chip.active{background:var(--primary,#0f172a);color:#fff;border-color:var(--primary,#0f172a)}.nc-chip.green.active{background:#166534;border-color:#166534}.nc-chip.amber.active{background:#b45309;border-color:#b45309}',
       'input[type=date].nc-input{cursor:pointer}',
-      '#ncLoginModal,#ncEditModal,#ncCodesModal,#ncNewPwModal,#ncAccModal{z-index:1100}',
+      '#ncLoginModal,#ncEditModal,#ncCodesModal,#ncNewPwModal,#ncAccModal,#ncImportModal{z-index:1100}',
+      '.nc-msg-marks{margin-top:6px;font-size:.85rem;color:#1e3a8a;background:#eff6ff;border-radius:6px;padding:4px 8px}.nc-pdel{color:#b91c1c}.nc-msgsec{border-top:1px solid #e2e8f0;margin-top:6px;padding-top:10px}',
       '#generalConfirmModal,#generalAlertModal{z-index:2000}',
       '.nc-modal-lg{width:980px!important;max-width:96%!important;max-height:90vh!important;padding:22px!important}',
       '.nc-modal-sm{width:440px!important;max-width:94%!important;padding:22px!important}',
@@ -1336,7 +1458,8 @@
     addUnit: addUnit, renameUnit: renameUnit, toggleUnit: toggleUnit, deleteUnit: deleteUnit, move: move,
     jokerSave: jokerSave, jokerReset: jokerReset, jokerDefault: jokerDefault,
     msgPeriod: function (id) { S.msg.periodId = id; loadMessages(); },
-    msgSearch: function (v) { S.msg.search = v; renderMessageList(); },
+    msgExport: msgExport, importCalendar: importCalendar, deletePeriod: deletePeriod,
+    toggleMsgList: function () { S.msg.showList = !S.msg.showList; renderMessages(); },
     msgFilter: function (v) { S.msg.filter = v; renderMessages(); },
     msgExport: msgExport,
     msgSort: function (v) { S.msg.sort = v; renderMessageList(); },

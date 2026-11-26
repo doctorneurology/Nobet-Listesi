@@ -132,6 +132,33 @@
     return m || 'Beklenmeyen bir hata oluştu.';
   }
 
+  // Takvim işaretlerini metne çevirir: { "2027-02-05": "wanted", ... } -> "İstenen: 5–7, 14 Şubat · İzinli: 20 Şubat"
+  var TR_MONTHS = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
+  var MARK_LABELS = { wanted: 'İstenen', unwanted: 'İstenmeyen', permit: 'İzinli' };
+  function fmtDays(isoList) {
+    var byMonth = {}, order = [];
+    isoList.slice().sort().forEach(function (iso) {
+      var k = iso.slice(0, 7);
+      if (!byMonth[k]) { byMonth[k] = []; order.push(k); }
+      byMonth[k].push(parseInt(iso.slice(8, 10), 10));
+    });
+    return order.map(function (k) {
+      var days = byMonth[k], out = [], i = 0;
+      while (i < days.length) {
+        var j = i; while (j + 1 < days.length && days[j + 1] === days[j] + 1) j++;
+        out.push(j - i >= 2 ? days[i] + '–' + days[j] : (j > i ? days[i] + ', ' + days[j] : String(days[i])));
+        i = j + 1;
+      }
+      return out.join(', ') + ' ' + TR_MONTHS[parseInt(k.slice(5, 7), 10) - 1];
+    }).join('; ');
+  }
+  function marksText(marks) {
+    var g = { wanted: [], unwanted: [], permit: [] };
+    Object.keys(marks || {}).forEach(function (d) { var v = marks[d]; if (g[v]) g[v].push(d); });
+    return ['wanted', 'unwanted', 'permit'].filter(function (t) { return g[t].length; })
+      .map(function (t) { return MARK_LABELS[t] + ': ' + fmtDays(g[t]); }).join(' · ');
+  }
+
   function fmtDateTime(iso) {
     if (!iso) return '';
     try { return new Date(iso).toLocaleString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }); }
@@ -147,6 +174,7 @@
     configured: configured, config: cfg, getClient: getClient, callFunction: callFunction,
     staffEmail: staffEmail, normalizeUsername: normalizeUsername, esc: esc, friendlyError: friendlyError,
     getRemember: getRemember, setRemember: setRemember, fmtDateTime: fmtDateTime, fmtDate: fmtDate,
-    setToken: setToken, diagnose: diagnose, staffAuthPassword: staffAuthPassword
+    setToken: setToken, diagnose: diagnose, staffAuthPassword: staffAuthPassword,
+    marksText: marksText, MARK_LABELS: MARK_LABELS, TR_MONTHS: TR_MONTHS
   };
 })();
