@@ -103,20 +103,24 @@
     };
   }
 
+  // Tanımlar girişsiz okunur/yönetilir. Kişisel hesap alanları (kullanıcı adı, e-posta) yalnızca yönetici girişiyle gelir.
   async function fetchDefinitions() {
     var c = C.getClient();
-    if (!c || !S.isAdmin) return false;
+    if (!c) return false;
     try {
       var r = await Promise.all([
-        c.from('assistants').select('id,full_name,sort_order,is_active,username,contact_email,account_status,auth_user_id,version,deactivated_at,updated_at'),
+        c.from('assistants').select('id,full_name,sort_order,is_active,account_status,version,deactivated_at,updated_at'),
         c.from('special_units').select('*'),
         c.from('work_places').select('*'),
-        c.from('app_settings').select('*').eq('key', 'joker_priority').maybeSingle()
+        c.from('app_settings').select('*').eq('key', 'joker_priority').maybeSingle(),
+        S.isAdmin ? c.from('assistants').select('id,username,contact_email,auth_user_id') : Promise.resolve({ data: [] })
       ]);
       var err = r.find(function (x) { return x.error; });
       if (err) throw err.error;
+      var acc = {}; (r[4].data || []).forEach(function (x) { acc[x.id] = x; });
       var d = {
-        assistants: r[0].data || [], special_units: r[1].data || [], work_places: r[2].data || [],
+        assistants: (r[0].data || []).map(function (a) { return Object.assign({}, a, acc[a.id] || {}); }),
+        special_units: r[1].data || [], work_places: r[2].data || [],
         joker_priority: r[3].data ? r[3].data.value : null, joker_priority_row: r[3].data || null
       };
       S.defs = d;
@@ -147,11 +151,12 @@
   }
   function subscribeRealtime() {
     var c = C.getClient();
-    if (!c || !S.isAdmin) return;
+    if (!c) return;
     teardownRealtime();
     setStatus('connecting');
     var ch = c.channel('nobet-defs-' + Math.random().toString(36).slice(2));
-    ['assistants', 'special_units', 'work_places', 'app_settings'].forEach(function (t) {
+    // Asistan tablosu kişisel sütunlar içerdiğinden doğrudan değil, def_signals sinyali üzerinden izlenir.
+    ['def_signals', 'special_units', 'work_places', 'app_settings'].forEach(function (t) {
       ch.on('postgres_changes', { event: '*', schema: 'public', table: t }, scheduleRefetch);
     });
     ch.subscribe(function (status) {
@@ -163,7 +168,7 @@
         setStatus('offline');
         var delay = Math.min(30000, 2000 * Math.pow(2, S.retry++));
         clearTimeout(S.reconnectTimer);
-        S.reconnectTimer = setTimeout(function () { if (S.isAdmin) subscribeRealtime(); }, delay);
+        S.reconnectTimer = setTimeout(subscribeRealtime, delay);
       }
     });
     S.channel = ch;
@@ -172,12 +177,12 @@
   // ------------------------------------------------------------------ oturum
   async function handleSession(session) {
     var c = C.getClient();
+    // Oturum yalnızca personel mesajları ve hesap işlemleri içindir; tanımlar oturumsuz da çalışır.
     if (!session) {
       var wasAdmin = S.isAdmin;
       S.isAdmin = false; S.userEmail = '';
-      teardownRealtime();
       updateChrome();
-      if (wasAdmin) { closePanels(); }
+      if (wasAdmin) { ['ncMsgModal', 'ncCodesModal'].forEach(function (id) { var m = $(id); if (m) m.style.display = 'none'; }); fetchDefinitions(); }
       return;
     }
     S.userEmail = session.user && session.user.email || '';
@@ -197,17 +202,28 @@
     }
     updateChrome();
     if (S.isAdmin) {
-      if (!S.channel) subscribeRealtime();
-      await fetchDefinitions();
+      await fetchDefinitions(); // hesap alanlarını (kullanıcı adı, e-posta) da getir
       if (S.pendingAfterLogin) { var f = S.pendingAfterLogin; S.pendingAfterLogin = null; f(); }
     }
   }
 
+  // Kilit simgesi herkese görünür ve paneli şifresiz açar. Bu tarayıcıda bir kez açıldıktan sonra
+  // "Admin Paneli" ve "Asistan İstek Mesajları" düğmeleri de görünür kalır.
+  var UNLOCK_KEY = 'nobetAdminUnlocked';
+  function isUnlocked() { try { return localStorage.getItem(UNLOCK_KEY) === '1'; } catch (e) { return false; } }
+  function setUnlocked() { try { localStorage.setItem(UNLOCK_KEY, '1'); } catch (e) {} }
   function updateChrome() {
     var adminBtn = $('ncAdminBtn'), loginBtn = $('ncLoginBtn'), msgBtn = $('ncMessagesBtn');
-    if (adminBtn) adminBtn.style.display = S.isAdmin ? 'inline-flex' : 'none';
-    if (loginBtn) loginBtn.style.display = (!S.isAdmin && C.configured) ? 'inline-flex' : 'none';
-    if (msgBtn) msgBtn.style.display = S.isAdmin ? 'inline-flex' : 'none';
+    var show = C.configured && (isUnlocked() || S.isAdmin);
+    if (adminBtn) adminBtn.style.display = show ? 'inline-flex' : 'none';
+    if (loginBtn) { loginBtn.style.display = (C.configured && !show) ? 'inline-flex' : 'none'; loginBtn.title = 'Admin Paneli'; loginBtn.setAttribute('aria-label', 'Admin Paneli'); }
+    if (msgBtn) msgBtn.style.display = show ? 'inline-flex' : 'none';
+    var who = $('ncWho'); if (who) who.innerHTML = adminFooterHtml();
+  }
+  function adminFooterHtml() {
+    return S.isAdmin
+      ? '<i class="fas fa-user-check"></i> Yönetici girişi: ' + esc(S.userEmail) + ' · <a href="#" onclick="NobetCloud.logout();return false;">çıkış</a>'
+      : '<i class="fas fa-lock-open"></i> Tanımlar şifresiz düzenlenir. Personel mesajları ve hesap işlemleri için <a href="#" onclick="NobetCloud.openLogin();return false;">yönetici girişi</a>.';
   }
 
   // ------------------------------------------------------------------ giriş penceresi
@@ -216,6 +232,7 @@
     S.pendingAfterLogin = after || null;
     ensureModal('ncLoginModal', '<div class="modal-content nc-modal-sm">' +
       '<div class="modal-header"><h2><i class="fas fa-user-shield" style="color:var(--primary)"></i> Yönetici Girişi</h2><span class="close-modal" onclick="NobetCloud.close(\'ncLoginModal\')">&times;</span></div>' +
+      '<p class="nc-hint">Yalnızca personel istek mesajları ve personel hesap işlemleri (aktivasyon kodu, şifre sıfırlama) için gerekir. "Oturumu açık tut" seçiliyse bu bilgisayarda bir daha sorulmaz.</p>' +
       '<form id="ncLoginForm" autocomplete="on">' +
       '<label class="nc-label">E-posta</label><input class="nc-input" type="email" id="ncLoginEmail" autocomplete="username" required>' +
       '<label class="nc-label">Şifre</label><input class="nc-input" type="password" id="ncLoginPw" autocomplete="current-password" required>' +
@@ -278,12 +295,12 @@
 
   async function logout() {
     var c = C.getClient();
-    teardownRealtime();
-    cacheClear();
     if (c) await c.auth.signOut();
-    S.isAdmin = false; S.defs = null;
-    closePanels(); updateChrome();
-    toast('Çıkış yapıldı');
+    S.isAdmin = false;
+    ['ncMsgModal', 'ncCodesModal', 'ncEditModal'].forEach(function (id) { var m = $(id); if (m) m.style.display = 'none'; });
+    updateChrome();
+    await fetchDefinitions();
+    toast('Yönetici oturumu kapatıldı');
   }
 
   // ------------------------------------------------------------------ modal altyapısı
@@ -303,19 +320,20 @@
   }
 
   // ------------------------------------------------------------------ YÖNETİM PANELİ
+  // Admin Paneli şifresiz açılır (kullanıcı kararı). Giriş yalnızca mesajlar ve hesap işlemleri için istenir.
   function openAdminPanel(tab) {
-    requireAdmin(function () {
-      if (tab) S.tab = tab;
-      ensureModal('ncAdminModal', '<div class="modal-content nc-modal-lg">' +
-        '<div class="modal-header"><h2><i class="fas fa-user-shield" style="color:var(--primary)"></i> Admin Paneli</h2>' +
-        '<div class="nc-head-right"><span id="ncSyncStatus" class="nc-sync"></span><span class="close-modal" onclick="NobetCloud.close(\'ncAdminModal\')">&times;</span></div></div>' +
-        '<div class="nc-tabs" id="ncTabs"></div><div id="ncPanelBody"></div>' +
-        '<div class="nc-foot"><span class="nc-muted"><i class="fas fa-user"></i> <span id="ncWho"></span></span><button class="btn btn-ghost nc-ghost" onclick="NobetCloud.logout()"><i class="fas fa-sign-out-alt"></i> Çıkış</button></div></div>');
-      setStatus(S.status);
-      $('ncWho').textContent = S.userEmail;
-      show('ncAdminModal');
-      if (!S.defs) fetchDefinitions(); else renderPanel();
-    });
+    if (!C.configured) { alertBox('Bağlantı yok', 'Supabase bağlantısı henüz yapılandırılmadı.'); return; }
+    setUnlocked(); updateChrome();
+    if (tab) S.tab = tab;
+    ensureModal('ncAdminModal', '<div class="modal-content nc-modal-lg">' +
+      '<div class="modal-header"><h2><i class="fas fa-user-shield" style="color:var(--primary)"></i> Admin Paneli</h2>' +
+      '<div class="nc-head-right"><span id="ncSyncStatus" class="nc-sync"></span><span class="close-modal" onclick="NobetCloud.close(\'ncAdminModal\')">&times;</span></div></div>' +
+      '<div class="nc-tabs" id="ncTabs"></div><div id="ncPanelBody"></div>' +
+      '<div class="nc-foot"><span class="nc-muted" id="ncWho"></span></div></div>');
+    setStatus(S.status);
+    updateChrome();
+    show('ncAdminModal');
+    if (!S.defs) fetchDefinitions(); else renderPanel();
   }
 
   var TABS = [
@@ -337,7 +355,10 @@
     else if (S.tab === 'special') body.innerHTML = renderUnits('special_units');
     else if (S.tab === 'work') body.innerHTML = renderUnits('work_places');
     else if (S.tab === 'joker') body.innerHTML = renderJoker();
-    else if (S.tab === 'audit') { body.innerHTML = '<div class="nc-empty"><i class="fas fa-spinner fa-spin"></i></div>'; loadAudit(); }
+    else if (S.tab === 'audit') {
+      if (!S.isAdmin) body.innerHTML = '<div class="nc-empty"><i class="fas fa-lock"></i> Değişiklik kaydı kişisel bilgiler içerdiği için yalnızca <a href="#" onclick="NobetCloud.openLogin(function(){NobetCloud.openAdminPanel(\'audit\')});return false;">yönetici girişiyle</a> görüntülenir. Kayıt her durumda tutulmaya devam eder.</div>';
+      else { body.innerHTML = '<div class="nc-empty"><i class="fas fa-spinner fa-spin"></i></div>'; loadAudit(); }
+    }
     bindDnD();
   }
 
@@ -443,18 +464,23 @@
     ensureModal('ncEditModal', '<div class="modal-content nc-modal-sm">' +
       '<div class="modal-header"><h2><i class="fas fa-pen" style="color:var(--primary)"></i> Asistan Bilgileri</h2><span class="close-modal" onclick="NobetCloud.close(\'ncEditModal\')">&times;</span></div>' +
       '<label class="nc-label">Ad Soyad</label><input class="nc-input" id="ncEdName" value="' + esc(a.full_name) + '">' +
-      '<label class="nc-label">Kullanıcı adı (giriş için)</label><input class="nc-input" id="ncEdUser" value="' + esc(a.username || '') + '" placeholder="ör. ayse.ozturk">' +
-      '<label class="nc-label">E-posta (isteğe bağlı – şifre sıfırlama için)</label><input class="nc-input" type="email" id="ncEdEmail" value="' + esc(a.contact_email || '') + '">' +
+      (S.isAdmin
+        ? '<label class="nc-label">Kullanıcı adı (giriş için)</label><input class="nc-input" id="ncEdUser" value="' + esc(a.username || '') + '" placeholder="ör. ayse.ozturk">' +
+          '<label class="nc-label">E-posta (isteğe bağlı – şifre sıfırlama için)</label><input class="nc-input" type="email" id="ncEdEmail" value="' + esc(a.contact_email || '') + '">'
+        : '<p class="nc-hint"><i class="fas fa-lock"></i> Kullanıcı adı ve e-posta kişisel bilgi olduğundan yalnızca <a href="#" onclick="NobetCloud.close(\'ncEditModal\');NobetCloud.openLogin(function(){NobetCloud.editAssistant(\'' + a.id + '\')});return false;">yönetici girişiyle</a> değiştirilebilir.</p>') +
       '<p class="nc-hint">Ad değişikliği yeni eklemelerde ve "Asistan Seç" ekranında kullanılır; bu dönemin listesine önceden eklenmiş kişinin adı değişmez.</p>' +
       '<div id="ncEdErr" class="nc-err"></div>' +
       '<div class="nc-row-end"><button class="btn btn-ghost nc-ghost" onclick="NobetCloud.close(\'ncEditModal\')">Vazgeç</button><button class="btn btn-primary" id="ncEdSave">Kaydet</button></div></div>');
     $('ncEdSave').onclick = async function () {
       var c = C.getClient(); $('ncEdErr').textContent = '';
       try {
-        var name = titleCaseTR($('ncEdName').value), email = $('ncEdEmail').value.trim() || null;
-        var user = C.normalizeUsername($('ncEdUser').value);
+        var name = titleCaseTR($('ncEdName').value);
+        var email = $('ncEdEmail') ? ($('ncEdEmail').value.trim() || null) : (a.contact_email || null);
+        var user = $('ncEdUser') ? C.normalizeUsername($('ncEdUser').value) : '';
         if (name !== a.full_name || email !== (a.contact_email || null)) {
-          var r = await c.from('assistants').update({ full_name: name, contact_email: email }).eq('id', a.id).eq('version', a.version).select();
+          var patch = { full_name: name };
+          if (S.isAdmin) patch.contact_email = email;
+          var r = await c.from('assistants').update(patch).eq('id', a.id).eq('version', a.version).select('id');
           if (r.error) throw r.error;
           if (!r.data || !r.data.length) throw new Error('Bu kayıt başka bir oturumda değiştirildi. Güncel hâli yüklendi; lütfen tekrar deneyin.');
         }
@@ -469,8 +495,18 @@
   function setActive(id, active) {
     var a = findAs(id); if (!a) return;
     var go = async function () {
-      try { await C.callFunction('admin-accounts', { action: 'set_active', assistant_id: id, active: active }); toast(a.full_name + (active ? ' aktifleştirildi' : ' pasife alındı'), 'ok'); }
-      catch (e) { alertBox('İşlem yapılamadı', C.friendlyError(e)); }
+      try {
+        if (S.isAdmin) {
+          // Yönetici girişliyse hesap da sunucuda yasaklanır/açılır
+          await C.callFunction('admin-accounts', { action: 'set_active', assistant_id: id, active: active });
+        } else {
+          // Girişsiz: kayıt pasife alınır; personelin veri erişimi veritabanı kuralıyla hemen kesilir
+          var r = await C.getClient().from('assistants').update({ is_active: active }).eq('id', id).eq('version', a.version).select('id');
+          if (r.error) throw r.error;
+          if (!r.data || !r.data.length) throw new Error('Bu kayıt başka bir oturumda değiştirildi; güncel hâli yüklendi, tekrar deneyin.');
+        }
+        toast(a.full_name + (active ? ' aktifleştirildi' : ' pasife alındı'), 'ok');
+      } catch (e) { alertBox('İşlem yapılamadı', C.friendlyError(e)); }
       await fetchDefinitions();
     };
     if (active) return go();
@@ -480,8 +516,18 @@
   function deleteAssistant(id) {
     var a = findAs(id); if (!a) return;
     confirmBox('Asistanı Sil', a.full_name + ' kalıcı olarak silinecek (hesabı da kapatılır). Mesajı olan asistanlar geçmişi korumak için silinmez; pasife alınmalıdır. Geçmiş nöbet listeleri etkilenmez. Devam edilsin mi?', async function () {
-      try { await C.callFunction('admin-accounts', { action: 'delete_assistant', assistant_id: id }); toast('Silindi', 'ok'); }
-      catch (e) { alertBox('Silinemedi', C.friendlyError(e)); }
+      try {
+        if (S.isAdmin) await C.callFunction('admin-accounts', { action: 'delete_assistant', assistant_id: id });
+        else {
+          var r = await C.getClient().from('assistants').delete().eq('id', id).select('id');
+          if (r.error) {
+            if (/foreign key|23503/i.test(r.error.message + r.error.code)) throw new Error('Bu asistanın kayıtlı istek mesajları var. Geçmişi korumak için silmek yerine pasife alın.');
+            throw r.error;
+          }
+          if (!r.data || !r.data.length) throw new Error('Bu asistanın personel hesabı var. Hesabı olan asistanı silmek için yönetici girişi gerekir; isterseniz pasife alın.');
+        }
+        toast('Silindi', 'ok');
+      } catch (e) { alertBox('Silinemedi', C.friendlyError(e)); }
       await fetchDefinitions();
     });
   }
@@ -511,7 +557,8 @@
   }
 
   async function bulkActivation() {
-    var ids = (S.defs.assistants || []).filter(function (a) { return a.is_active && a.account_status !== 'active'; }).map(function (a) { return a.id; });
+    if (!S.isAdmin) return openLogin(function () { openAdminPanel('assistants'); bulkActivation(); });
+    var ids =(S.defs.assistants || []).filter(function (a) { return a.is_active && a.account_status !== 'active'; }).map(function (a) { return a.id; });
     if (!ids.length) return;
     confirmBox('Aktivasyon Kodu Üret', ids.length + ' asistan için kullanıcı adı ve 72 saat geçerli tek kullanımlık aktivasyon kodu üretilecek. Önceden üretilmiş ve kullanılmamış kodlar geçersiz olur. Devam edilsin mi?', async function () {
       try { var r = await C.callFunction('admin-accounts', { action: 'issue_activation', assistant_ids: ids }); showCodes(r.results || [], 'Aktivasyon Kodları'); }
@@ -521,6 +568,7 @@
   }
 
   function codeFor(id) {
+    if (!S.isAdmin) return openLogin(function () { openAdminPanel('assistants'); codeFor(id); });
     var a = findAs(id); if (!a) return;
     var isActiveAcc = a.account_status === 'active';
     confirmBox(isActiveAcc ? 'Şifre Sıfırlama' : 'Aktivasyon Kodu',
@@ -901,7 +949,7 @@
 
   function bindChrome() {
     var a = $('ncAdminBtn'); if (a) a.onclick = function () { openAdminPanel(); };
-    var l = $('ncLoginBtn'); if (l) l.onclick = function () { openLogin(function () { openAdminPanel(); }); };
+    var l = $('ncLoginBtn'); if (l) l.onclick = function () { openAdminPanel(); };
     var m = $('ncMessagesBtn'); if (m) m.onclick = function () { openMessagesPanel(); };
     updateChrome();
   }
@@ -932,15 +980,18 @@
       if (evt === 'PASSWORD_RECOVERY') { setTimeout(openNewPasswordModal, 50); }
       if (evt === 'SIGNED_IN' || evt === 'SIGNED_OUT' || evt === 'INITIAL_SESSION') setTimeout(function () { handleSession(session); }, 0);
     });
+    // Tanımlar herkes için (oturumsuz) çekilir ve anlık izlenir
+    fetchDefinitions();
+    subscribeRealtime();
     window.addEventListener('online', function () {
-      if (S.isAdmin) { subscribeRealtime(); fetchDefinitions(); return; }
-      c.auth.getSession().then(function (x) { if (x.data.session) { S.roleRetry = 0; handleSession(x.data.session); } });
+      subscribeRealtime(); fetchDefinitions();
+      if (!S.isAdmin) c.auth.getSession().then(function (x) { if (x.data.session) { S.roleRetry = 0; handleSession(x.data.session); } });
     });
     window.addEventListener('offline', function () { setStatus('offline'); });
     document.addEventListener('visibilitychange', function () {
-      if (document.visibilityState === 'visible' && S.isAdmin && Date.now() - S.lastFetch > 60000) fetchDefinitions();
+      if (document.visibilityState === 'visible' && Date.now() - S.lastFetch > 60000) fetchDefinitions();
     });
-    if (location.hash === '#admin') openLogin(function () { openAdminPanel(); });
+    if (location.hash === '#admin') openAdminPanel();
   }
 
   window.NobetCloud = {

@@ -11,9 +11,9 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
     <!-- Supabase (merkezi tanımlar + Asistan İstek Mesajları). Bağlantı yoksa uygulama yerel kayıtlarla çalışmaya devam eder. -->
     <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js" integrity="sha384-0w2KAL2YHP6wKOkUDzkCDGgVvfmHnj02DHeQ6XcHOgTfFsGyonKOpShMH1x6nk9o" crossorigin="anonymous"></script>
-    <script defer src="config.js?v=20261126"></script>
-    <script defer src="cloud-core.js?v=20261126"></script>
-    <script defer src="cloud-admin.js?v=20261126"></script>
+    <script defer src="config.js?v=20261126b"></script>
+    <script defer src="cloud-core.js?v=20261126b"></script>
+    <script defer src="cloud-admin.js?v=20261126b"></script>
 
     <style>
 /* Becayiş Tablosunda Tarih Sütununu Genişletme */
@@ -1165,6 +1165,9 @@ div[id*="becayis"] .modal-content {
         <div style="margin-top:30px; display:flex; justify-content:space-between; align-items:center;">
             <div style="display:flex; align-items:center; gap:10px;">
                  <button class="btn btn-ghost btn-danger" onclick="confirmAction('Sıfırla', 'Tüm veriler silinecek ve başlangıç ayarlarına dönülecek. Onaylıyor musunuz?', clearData)"><i class="fas fa-trash"></i> Sıfırla</button>
+                 <button class="btn btn-ghost" onclick="exportSettings()" title="Tüm ayarları (asistanlar, işaretler, kurallar) bir dosyaya kaydeder"><i class="fas fa-download"></i> Dışa Aktar</button>
+                 <button class="btn btn-ghost" onclick="document.getElementById('importSettingsInput').click()" title="Daha önce dışa aktarılmış ayar dosyasını yükler"><i class="fas fa-upload"></i> İçe Aktar</button>
+                 <input type="file" id="importSettingsInput" accept="application/json,.json" style="display:none" onchange="importSettings(this.files[0]); this.value='';">
                  <span style="color:#cbd5e1; font-size:0.75rem; font-weight:600;">v.1.3</span>
             </div>
             <div style="display:flex; gap:10px; align-items:center;">
@@ -2624,15 +2627,53 @@ let extraServisAssignments = {}; // { "2026-07-01": ["Ahmet Yılmaz","Ayşe Kaya
 }
 
     async function clearData() {
+        // Her şeyi sil (asistanlar, nöbet listesi, joker, yüklenen eski dosya, tüm ara kayıtlar).
+        // Yalnızca ses aç/kapat tercihi korunur. Ardından 1. Ayarlar ekranına dönülür.
         try {
-            localStorage.removeItem(STORAGE_KEY);
-            localStorage.removeItem(STORAGE_KEY + "_servisAktif");
-            localStorage.removeItem(STORAGE_KEY + "_servisAktifJokerManuel");
-            localStorage.removeItem(STORAGE_KEY + "_gunlukServisAktif");
-            localStorage.removeItem(STORAGE_KEY + "_gunlukServisEkstra");
+            const ses = localStorage.getItem('nobetSoundEnabled');
+            localStorage.clear();
+            if (ses !== null) localStorage.setItem('nobetSoundEnabled', ses);
         } catch (error) {}
-        await deleteNobetSnapshotFromIndexedDB();
+        try { await deleteNobetSnapshotFromIndexedDB(); } catch (e) {}
+        try { sessionStorage.clear(); } catch (e) {}
         location.reload();
+    }
+
+    // Tüm kurulumu (asistanlar, işaretler, kurallar, kısıtlar, joker) tek dosyaya kaydeder.
+    function exportSettings() {
+        try {
+            saveData();
+            const paket = {};
+            for (let i = 0; i < localStorage.length; i++) {
+                const k = localStorage.key(i);
+                if (k && k.indexOf('nobetData') === 0) paket[k] = localStorage.getItem(k);
+            }
+            const ad = 'nobet_ayarlar_' + (document.getElementById('startDate').value || 'yedek') + '.json';
+            const blob = new Blob([JSON.stringify({ __nobetAyar: true, zaman: Date.now(), veri: paket }, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a'); a.href = url; a.download = ad; document.body.appendChild(a); a.click();
+            setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
+        } catch (e) { showModernAlert('Hata', 'Ayarlar dışa aktarılamadı: ' + e); }
+    }
+    // Dışa aktarılmış ayar dosyasını yükler ve uygulamayı o duruma döndürür.
+    function importSettings(file) {
+        if (!file) return;
+        const rd = new FileReader();
+        rd.onload = () => {
+            let obj; try { obj = JSON.parse(rd.result); } catch (e) { showModernAlert('Hata', 'Dosya okunamadı (geçerli bir ayar dosyası değil).'); return; }
+            if (!obj || !obj.__nobetAyar || !obj.veri) { showModernAlert('Hata', 'Bu dosya bir nöbet ayar dosyası değil.'); return; }
+            confirmAction('İçe Aktar', 'Mevcut veriler bu dosyadaki ayarlarla değiştirilecek. Devam edilsin mi?', async () => {
+                try {
+                    const ses = localStorage.getItem('nobetSoundEnabled');
+                    localStorage.clear();
+                    if (ses !== null) localStorage.setItem('nobetSoundEnabled', ses);
+                    Object.keys(obj.veri).forEach(k => { if (k.indexOf('nobetData') === 0) localStorage.setItem(k, obj.veri[k]); });
+                } catch (e) {}
+                try { await deleteNobetSnapshotFromIndexedDB(); } catch (e) {}
+                location.reload();
+            });
+        };
+        rd.readAsText(file);
     }
     
     // --- MODAL & ARAÇLAR ---
@@ -4722,7 +4763,7 @@ function getFridayCount(doc) {
             const M = prepare(girdi, {});
             const hizli = hizliDenetim(M);
             if (hizli.length) return { durum: 'imkansiz', kesin: true, nedenler: hizli, ipucu: null };
-            const r = await calistir(M, rnd, sec, Infinity);
+            const r = await calistir(M, rnd, sec, sec.sureMs || Infinity);
             if (r.durum === 'sat') {
                 const hatalar = denetle(girdi, r.atama);
                 if (hatalar.length) return { durum: 'hata', nedenler: hatalar, ist: r.ist };
@@ -4767,8 +4808,159 @@ function getFridayCount(doc) {
                 rules: { fridayRule: !!fridayRuleEnabled, fridayMaxOne: !!fridayMaxOneRule, fridayAbsolute: !!fridayAbsoluteRule, fridayWeMaxOne: !!fridayWeMaxOneRule, fridayWe1MaxOne: !!fridayWe1MaxOneRule, weDifferentDays: !!weDifferentDaysRule, placeFriday: Object.assign({}, placeFridayRules || {}) },
                 prevDuty: (jokerConfig && jokerConfig.prevDuty) ? jokerConfig.prevDuty : { d1: {}, d2: {} }
             };
+            let __atlanan = [];
             let __sonYield = performance.now();
-            const __sonuc = await NobetCozucu.coz(__girdi, {
+
+            // Liste yalnızca istenen (yeşil) ve/veya istenmeyen (kırmızı) işaretler yüzünden imkânsızsa:
+            // en az sayıda işareti devre dışı bırakıp (izinlere ve diğer tüm kurallara uyan) geçerli liste
+            // üretir. Öncelik kırmızıları (istenmeyen) korumaktır; yeşiller daha önce gevşetilir.
+            async function __gevseterek() {
+                const greens = [], reds = [];
+                __girdi.docs.forEach((d, k) => {
+                    const av = d.avail || {};
+                    Object.keys(av).forEach(ds => {
+                        const day = av[ds] || {};
+                        Object.keys(day).forEach(p => {
+                            if (day[p] === 'wanted') greens.push({ type: 'wanted', k: k, ds: ds, p: p });
+                            else if (day[p] === 'unwanted') reds.push({ type: 'unwanted', k: k, ds: ds, p: p });
+                        });
+                    });
+                });
+                const keyOf = m => m.type[0] + '|' + m.k + '|' + m.ds + '|' + m.p;
+                const idxOf = {}; __girdi.dates.forEach((d, i) => { idxOf[d.str] = i; });
+                const piOf = {}; __allP.forEach((p, pi) => { piOf[p] = pi; });
+                const EMPTY = new Set();
+                // keepW/keepU: sabit tutulacak yeşil/kırmızı işaretler. dropP: kaldırılacak eşleşme indeksleri.
+                // offR: kapatılacak gün kuralları. İzin (permit) hiçbir zaman gevşetilmez.
+                const altCoz = async (keepW, keepU, dropP, offR) => {
+                    dropP = dropP || EMPTY; offR = offR || EMPTY;
+                    const R = __girdi.rules;
+                    const rules2 = {
+                        fridayRule: R.fridayRule && !offR.has('fridayRule'),
+                        fridayMaxOne: R.fridayMaxOne && !offR.has('fridayMaxOne'),
+                        fridayAbsolute: R.fridayAbsolute && !offR.has('fridayAbsolute'),
+                        fridayWeMaxOne: R.fridayWeMaxOne && !offR.has('fridayWeMaxOne'),
+                        fridayWe1MaxOne: R.fridayWe1MaxOne && !offR.has('fridayWe1MaxOne'),
+                        weDifferentDays: R.weDifferentDays && !offR.has('weDifferentDays'),
+                        placeFriday: {}
+                    };
+                    Object.keys(R.placeFriday || {}).forEach(u => { if (R.placeFriday[u] && !offR.has('placeFriday:' + u)) rules2.placeFriday[u] = true; });
+                    const g2 = {
+                        dates: __girdi.dates, places: __girdi.places, refMode: __girdi.refMode,
+                        constraints: __girdi.constraints.filter((c, i) => !dropP.has(i)),
+                        rules: rules2, prevDuty: __girdi.prevDuty,
+                        docs: __girdi.docs.map((d, k) => {
+                            const av2 = {};
+                            Object.keys(d.avail || {}).forEach(ds => {
+                                const day = Object.assign({}, d.avail[ds]);
+                                Object.keys(day).forEach(p => {
+                                    if (day[p] === 'wanted' && !keepW.has('w|' + k + '|' + ds + '|' + p)) delete day[p];
+                                    else if (day[p] === 'unwanted' && !keepU.has('u|' + k + '|' + ds + '|' + p)) delete day[p];
+                                });
+                                if (Object.keys(day).length) av2[ds] = day;
+                            });
+                            return { name: d.name, allowed: d.allowed, targets: d.targets, avail: av2 };
+                        })
+                    };
+                    return await NobetCozucu.coz(g2, {
+                        tani: false, sureMs: 2500,
+                        tick: async () => {
+                            if (isSolvingCancelled) throw 'cancelled';
+                            if (performance.now() - __sonYield > 25) { await new Promise(r => setTimeout(r, 0)); __sonYield = performance.now(); }
+                            if (isSolvingCancelled) throw 'cancelled';
+                        }
+                    });
+                };
+                const atandiMi = (res, m) => {
+                    const di = idxOf[m.ds], pj = piOf[m.p];
+                    return di !== undefined && pj !== undefined && res.atama[di] && res.atama[di][pj] === m.k;
+                };
+                const metinler = liste => liste.map(m => {
+                    const d = docs[m.k], dObj = dates.find(x => x.str === m.ds);
+                    return { type: m.type, k: m.k, ds: m.ds, p: m.p, text: `<strong>${dObj ? dObj.full : m.ds}</strong> — <strong>${d ? d.name : ('#' + m.k)}</strong> (${m.p})` };
+                });
+                const Uall = new Set(reds.map(keyOf)), bos = EMPTY;
+
+                // Verilen kurallar (dropP/offR) sabitken işaretleri (önce kırmızıları koru, sonra yeşil) en çok
+                // onurlandıracak şekilde geçirir; üretilen listeyi ve karşılanamayan işaretleri döndürür.
+                const marklariGecir = async (dropP, offR) => {
+                    const taban = await altCoz(bos, bos, dropP, offR);
+                    if (!(taban && taban.durum === 'tamam')) return null;
+                    const ihlalli = reds.filter(r => atandiMi(taban, r));
+                    const ihlalliSet = new Set(ihlalli.map(keyOf));
+                    const keepU = new Set(reds.filter(r => !ihlalliSet.has(keyOf(r))).map(keyOf));
+                    const t1 = performance.now();
+                    for (const r of ihlalli) {
+                        if (performance.now() - t1 > 12000) continue;
+                        const kk = keyOf(r); keepU.add(kk);
+                        const rr = await altCoz(bos, keepU, dropP, offR);
+                        if (!(rr && rr.durum === 'tamam')) keepU.delete(kk);
+                    }
+                    const keepW = new Set(), atlananW = [];
+                    const t2 = performance.now();
+                    for (const g of greens) {
+                        if (performance.now() - t2 > 10000) { atlananW.push(g); continue; }
+                        const kk = keyOf(g); keepW.add(kk);
+                        const r = await altCoz(keepW, keepU, dropP, offR);
+                        if (!(r && r.durum === 'tamam')) { keepW.delete(kk); atlananW.push(g); }
+                    }
+                    const fin = await altCoz(keepW, keepU, dropP, offR);
+                    if (!(fin && fin.durum === 'tamam')) return null;
+                    const kirmiziIhlal = reds.filter(r => !keepU.has(keyOf(r)) && atandiMi(fin, r));
+                    const yesilIhlal = atlananW.filter(g => !atandiMi(fin, g));
+                    return { fin: fin, markAtlanan: metinler(kirmiziIhlal).concat(metinler(yesilIhlal)) };
+                };
+
+                // Yol 1: kırmızıların hepsi sabit, sadece yeşilleri gevşet (en sık durum, hızlı).
+                const probe = await altCoz(bos, Uall, bos, bos);
+                if (probe && probe.durum === 'tamam') {
+                    const keepW = new Set(), atlananW = [];
+                    const t0 = performance.now();
+                    for (const g of greens) {
+                        if (performance.now() - t0 > 20000) { atlananW.push(g); continue; }
+                        const kk = keyOf(g); keepW.add(kk);
+                        const r = await altCoz(keepW, Uall, bos, bos);
+                        if (!(r && r.durum === 'tamam')) { keepW.delete(kk); atlananW.push(g); }
+                    }
+                    const fin = await altCoz(keepW, Uall, bos, bos);
+                    if (!(fin && fin.durum === 'tamam')) return null;
+                    return { sonuc: fin, atlanan: metinler(atlananW.filter(g => !atandiMi(fin, g))) };
+                }
+
+                // Yol 2: işaretleri (yeşil+kırmızı) gevşet, kurallar açık.
+                const m2 = await marklariGecir(bos, bos);
+                if (m2) return { sonuc: m2.fin, atlanan: m2.markAtlanan };
+
+                // Yol 3: kurallar da gevşetilmeli (kişi/gün). En çok kuralı koruyacak şekilde (önce eşleşmeler).
+                const ruleLabels = [['fridayRule', 'Cuma kuralı'], ['fridayMaxOne', 'En çok 1 Cuma nöbeti kuralı'], ['fridayAbsolute', 'Hiç fazladan Cuma olmasın kuralı'], ['fridayWeMaxOne', 'Hafta sonu 2+ olana en çok 1 Cuma kuralı'], ['fridayWe1MaxOne', 'Hafta sonu 1+ olana en çok 1 Cuma kuralı'], ['weDifferentDays', 'Hafta sonu nöbet günleri farklı olsun kuralı']];
+                const ruleItems = [];
+                ruleLabels.forEach(([key, lab]) => { if (__girdi.rules[key]) ruleItems.push({ ruleKey: key, label: lab }); });
+                Object.keys(__girdi.rules.placeFriday || {}).forEach(u => { if (__girdi.rules.placeFriday[u]) ruleItems.push({ ruleKey: 'placeFriday:' + u, label: u + ' biriminde Cuma kuralı' }); });
+                const pairItems = __girdi.constraints.map((c, i) => ({ idx: i, p1: c[0], p2: c[1] }));
+                if (!ruleItems.length && !pairItems.length) return null; // gevşetilecek kural yok → gerçekten imkânsız
+
+                const allDrop = new Set(pairItems.map(x => x.idx)), allOff = new Set(ruleItems.map(x => x.ruleKey));
+                const tabanK = await altCoz(bos, bos, allDrop, allOff);
+                if (!(tabanK && tabanK.durum === 'tamam')) return null; // kota/yapı imkânsız; kurallar bile çözmüyor
+
+                const dropP = new Set(allDrop), offR = new Set(allOff);
+                const kuralAtlanan = [];
+                for (const it of pairItems) {
+                    dropP.delete(it.idx);
+                    const r = await altCoz(bos, bos, dropP, offR);
+                    if (!(r && r.durum === 'tamam')) { dropP.add(it.idx); kuralAtlanan.push({ type: 'pair', p1: it.p1, p2: it.p2, text: `<strong>Kişi kuralı:</strong> ${it.p1} – ${it.p2} aynı gün tutmasın` }); }
+                }
+                for (const it of ruleItems) {
+                    offR.delete(it.ruleKey);
+                    const r = await altCoz(bos, bos, dropP, offR);
+                    if (!(r && r.durum === 'tamam')) { offR.add(it.ruleKey); kuralAtlanan.push({ type: 'rule', ruleKey: it.ruleKey, text: `<strong>Gün kuralı:</strong> ${it.label}` }); }
+                }
+                const m3 = await marklariGecir(dropP, offR);
+                if (!m3) return null;
+                return { sonuc: m3.fin, atlanan: kuralAtlanan.concat(m3.markAtlanan) };
+            }
+
+            let __sonuc = await NobetCozucu.coz(__girdi, {
                 tani: true, taniSureMs: 6000,
                 tick: async () => {
                     if (isSolvingCancelled) throw 'cancelled';
@@ -4778,13 +4970,21 @@ function getFridayCount(doc) {
             });
             if (isSolvingCancelled) throw 'cancelled';
             if (__sonuc.durum === 'imkansiz') {
-                let __m = 'Bu ayarlarla <strong>kurallara tam uyan bir nöbet listesi matematiksel olarak mümkün değil</strong> (tüm olasılıklar tarandı).';
-                if (__sonuc.nedenler && __sonuc.nedenler.length) __m += `<ul>${__sonuc.nedenler.map(x => `<li>${x}</li>`).join('')}</ul>`;
-                const __ip = __sonuc.ipucu;
-                if (__ip && __ip.tekler && __ip.tekler.length) __m += `<div style="margin-top:6px">Aşağıdakilerden <strong>herhangi biri</strong> kaldırılırsa/gevşetilirse liste oluşabiliyor:<ul>${__ip.tekler.map(x => `<li>${x}</li>`).join('')}</ul></div>`;
-                else if (__ip && __ip.birlikte && __ip.birlikte.length) __m += `<div style="margin-top:6px">Sorun şu kuralların <strong>birlikte</strong> uygulanmasından kaynaklanıyor:<ul>${__ip.birlikte.map(x => `<li>${x}</li>`).join('')}</ul></div>`;
-                else if (__ip && __ip.temel === 'unsat') __m += '<div style="margin-top:6px">Sorun kota dağılımından kaynaklanıyor: izin, istek ve kurallar kaldırılsa bile bu kotalarla liste oluşmuyor. Kişilerin hafta içi / hafta sonu kotalarını ve birimlerini kontrol edin.</div>';
-                throw __m;
+                // Sorun yalnızca istenen (yeşil) işaretlerse: çakışan en az yeşili gevşetip yine de liste üret.
+                const __rx = await __gevseterek();
+                if (isSolvingCancelled) throw 'cancelled';
+                if (__rx && __rx.sonuc) {
+                    __sonuc = __rx.sonuc;
+                    __atlanan = __rx.atlanan || [];
+                } else {
+                    let __m = 'Bu ayarlarla <strong>kurallara tam uyan bir nöbet listesi matematiksel olarak mümkün değil</strong> (tüm olasılıklar tarandı).';
+                    if (__sonuc.nedenler && __sonuc.nedenler.length) __m += `<ul>${__sonuc.nedenler.map(x => `<li>${x}</li>`).join('')}</ul>`;
+                    const __ip = __sonuc.ipucu;
+                    if (__ip && __ip.tekler && __ip.tekler.length) __m += `<div style="margin-top:6px">Aşağıdakilerden <strong>herhangi biri</strong> kaldırılırsa/gevşetilirse liste oluşabiliyor:<ul>${__ip.tekler.map(x => `<li>${x}</li>`).join('')}</ul></div>`;
+                    else if (__ip && __ip.birlikte && __ip.birlikte.length) __m += `<div style="margin-top:6px">Sorun şu kuralların <strong>birlikte</strong> uygulanmasından kaynaklanıyor:<ul>${__ip.birlikte.map(x => `<li>${x}</li>`).join('')}</ul></div>`;
+                    else if (__ip && __ip.temel === 'unsat') __m += '<div style="margin-top:6px">Sorun kota dağılımından kaynaklanıyor: izin, istek ve kurallar kaldırılsa bile bu kotalarla liste oluşmuyor. Kişilerin hafta içi / hafta sonu kotalarını ve birimlerini kontrol edin.</div>';
+                    throw __m;
+                }
             }
             if (__sonuc.durum !== 'tamam') throw `Liste son doğrulamadan geçemedi:<ul>${(__sonuc.nedenler || []).slice(0, 20).map(x => `<li>${x}</li>`).join('')}</ul>`;
             docs.forEach(d => { d.cur = {}; [...activePlaces, "Refakatçi"].forEach(p => d.cur[p] = {w:0, e:0}); });
@@ -4807,8 +5007,9 @@ function getFridayCount(doc) {
             extraServisAssignments = {};
             resetGunlukServisOverridesForCurrentPeriod();
 
-            clearTimeouts(); document.getElementById('loadingOverlay').style.display = 'none'; document.getElementById('alertBox').style.display='none';
-            if(history.length >= MAX_HISTORY) history.shift(); 
+            clearTimeouts(); document.getElementById('loadingOverlay').style.display = 'none';
+            gosterAtlananKutusu(__atlanan || []);
+            if(history.length >= MAX_HISTORY) history.shift();
             const snapshot = {
                 schedule: JSON.parse(JSON.stringify(schedule)),
                 extraServis: JSON.parse(JSON.stringify(extraServisAssignments)),
@@ -4824,6 +5025,84 @@ function getFridayCount(doc) {
             nav(5);
         } catch (e) { __restore(); clearTimeouts(); document.getElementById('loadingOverlay').style.display = 'none'; if(e !== 'cancelled') { document.getElementById('alertBox').innerHTML = `⚠️ <strong>HATA:</strong> ${e}`; document.getElementById('alertBox').style.display='block'; nav(5); } }
     }
+    // Karşılanamayan istek (yeşil/kırmızı) uyarı kutusu — kaldır/geri getir ve yeniden oluştur düğmeleriyle.
+    window.__sonAtlanan = [];
+    window.__atlananDegisti = false;
+    function gosterAtlananKutusu(atlanan) {
+        window.__sonAtlanan = (atlanan || []).map(x => Object.assign({ removed: false }, x));
+        window.__atlananDegisti = false;
+        cizAtlananKutusu();
+    }
+    function cizAtlananKutusu() {
+        const box = document.getElementById('alertBox');
+        const list = window.__sonAtlanan || [];
+        if (!list.length) { box.style.display = 'none'; box.innerHTML = ''; return; }
+        const etiketOf = it => it.type === 'wanted' ? 'istenen (yeşil) günü karşılanamadı'
+            : it.type === 'unwanted' ? 'istenmeyen (kırmızı) gününe uyulamadı'
+            : it.type === 'pair' ? 'bu kişi kuralı uygulanamadı'
+            : 'bu gün kuralı uygulanamadı';
+        const kaldirMetni = it => (it.type === 'wanted' || it.type === 'unwanted') ? '✕ İşareti kaldır' : '✕ Kuralı kaldır';
+        const satir = (it, idx) => {
+            const stil = it.removed ? 'opacity:.5; text-decoration:line-through;' : '';
+            const btn = it.removed
+                ? `<button onclick="atlananGeriGetir(${idx})" style="flex:0 0 auto; background:#fff; color:#92400e; border:1px solid #f59e0b; padding:5px 10px; border-radius:7px; font-weight:600; cursor:pointer; white-space:nowrap;">↩ Geri getir</button>`
+                : `<button onclick="atlananKaldir(${idx})" style="flex:0 0 auto; background:#fff; color:#b91c1c; border:1px solid #ef4444; padding:5px 10px; border-radius:7px; font-weight:600; cursor:pointer; white-space:nowrap;">${kaldirMetni(it)}</button>`;
+            return `<li style="margin:7px 0; display:flex; justify-content:space-between; align-items:center; gap:10px;"><span style="${stil}">${it.text} — <em>${etiketOf(it)}</em></span>${btn}</li>`;
+        };
+        const aktif = window.__atlananDegisti;
+        box.style.display = 'block';
+        box.innerHTML = `<div style="background:#fffbeb; border:1px solid #f59e0b; border-left:5px solid #f59e0b; color:#92400e; border-radius:10px; padding:14px 16px;">`
+            + `<strong>✅ Liste oluşturuldu.</strong> Aşağıdakiler diğer kurallarla (işaretler, izin, kota, kişi ve gün kuralları) aynı anda sağlanamadığı için bu listede uygulanamadı. İlgili işareti/kuralı kaldırıp listeyi yeniden oluşturabilir ya da olduğu gibi bırakabilirsiniz:`
+            + `<ul style="margin:8px 0 0 0; padding:0; list-style:none;">${list.map(satir).join('')}</ul>`
+            + `<div style="margin-top:12px; text-align:right;"><button id="atlananYenidenBtn" onclick="atlananYenidenOlustur()" ${aktif ? '' : 'disabled'} style="background:${aktif ? '#2563eb' : '#cbd5e1'}; color:#fff; border:none; padding:9px 16px; border-radius:8px; font-weight:700; cursor:${aktif ? 'pointer' : 'default'};">🔄 Listeyi yeniden oluştur</button></div>`
+            + `</div>`;
+    }
+    // Gün kuralı global değişkenini ve ilgili toggle'ı birlikte ayarlar (senkron).
+    function __gunKuraliAyarla(ruleKey, v) {
+        switch (ruleKey) {
+            case 'fridayRule': fridayRuleEnabled = v; break;
+            case 'fridayMaxOne': fridayMaxOneRule = v; break;
+            case 'fridayAbsolute': fridayAbsoluteRule = v; break;
+            case 'fridayWeMaxOne': fridayWeMaxOneRule = v; break;
+            case 'fridayWe1MaxOne': fridayWe1MaxOneRule = v; break;
+            case 'weDifferentDays': weDifferentDaysRule = v; break;
+            default: if (ruleKey.indexOf('placeFriday:') === 0) placeFridayRules[ruleKey.slice(12)] = v;
+        }
+        const tgl = { fridayRule: 'fridayRuleToggle', fridayMaxOne: 'fridayMaxOneToggle', fridayAbsolute: 'fridayAbsoluteToggle', fridayWeMaxOne: 'fridayWeMaxOneToggle', fridayWe1MaxOne: 'fridayWe1MaxOneToggle', weDifferentDays: 'weDifferentDaysToggle' }[ruleKey];
+        if (tgl) { const el = document.getElementById(tgl); if (el) el.checked = v; }
+    }
+    function __ciftVar(p1, p2) { return constraints.some(c => (c.p1 === p1 && c.p2 === p2) || (c.p1 === p2 && c.p2 === p1)); }
+    function atlananKaldir(idx) {
+        const it = (window.__sonAtlanan || [])[idx]; if (!it || it.removed) return;
+        if (it.type === 'wanted' || it.type === 'unwanted') {
+            const d = docs[it.k];
+            if (d && d.avail[it.ds]) { delete d.avail[it.ds][it.p]; if (!Object.keys(d.avail[it.ds]).length) delete d.avail[it.ds]; }
+            try { renderCal(); } catch (e) {}
+        } else if (it.type === 'pair') {
+            const i = constraints.findIndex(c => (c.p1 === it.p1 && c.p2 === it.p2) || (c.p1 === it.p2 && c.p2 === it.p1));
+            if (i >= 0) { constraints.splice(i, 1); try { renderConstraintList(); renderSuggestedConstraintPairs(); } catch (e) {} }
+        } else if (it.type === 'rule') {
+            __gunKuraliAyarla(it.ruleKey, false);
+        }
+        it.removed = true; window.__atlananDegisti = true;
+        saveData(); cizAtlananKutusu();
+    }
+    function atlananGeriGetir(idx) {
+        const it = (window.__sonAtlanan || [])[idx]; if (!it || !it.removed) return;
+        if (it.type === 'wanted' || it.type === 'unwanted') {
+            const d = docs[it.k];
+            if (d) { if (!d.avail[it.ds]) d.avail[it.ds] = {}; d.avail[it.ds][it.p] = it.type; }
+            try { renderCal(); } catch (e) {}
+        } else if (it.type === 'pair') {
+            if (!__ciftVar(it.p1, it.p2)) { constraints.push({ p1: it.p1, p2: it.p2 }); try { renderConstraintList(); renderSuggestedConstraintPairs(); } catch (e) {} }
+        } else if (it.type === 'rule') {
+            __gunKuraliAyarla(it.ruleKey, true);
+        }
+        it.removed = false; window.__atlananDegisti = true;
+        saveData(); cizAtlananKutusu();
+    }
+    function atlananYenidenOlustur() { if (window.__atlananDegisti) startSolve(); }
+
     function clearTimeouts() { if(cancelTimer) clearTimeout(cancelTimer); }
     function cancelSolving() { isSolvingCancelled = true; }
     function assignWantedShifts() {
