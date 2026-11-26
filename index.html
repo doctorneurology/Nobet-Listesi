@@ -11,9 +11,9 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
     <!-- Supabase (merkezi tanımlar + Asistan İstek Mesajları). Bağlantı yoksa uygulama yerel kayıtlarla çalışmaya devam eder. -->
     <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js" integrity="sha384-0w2KAL2YHP6wKOkUDzkCDGgVvfmHnj02DHeQ6XcHOgTfFsGyonKOpShMH1x6nk9o" crossorigin="anonymous"></script>
-    <script defer src="config.js?v=20261126c"></script>
-    <script defer src="cloud-core.js?v=20261126c"></script>
-    <script defer src="cloud-admin.js?v=20261126c"></script>
+    <script defer src="config.js?v=20261126d"></script>
+    <script defer src="cloud-core.js?v=20261126d"></script>
+    <script defer src="cloud-admin.js?v=20261126d"></script>
 
     <style>
 /* Becayiş Tablosunda Tarih Sütununu Genişletme */
@@ -1165,8 +1165,7 @@ div[id*="becayis"] .modal-content {
         <div style="margin-top:30px; display:flex; justify-content:space-between; align-items:center;">
             <div style="display:flex; align-items:center; gap:10px;">
                  <button class="btn btn-ghost btn-danger" onclick="confirmAction('Sıfırla', 'Tüm veriler silinecek ve başlangıç ayarlarına dönülecek. Onaylıyor musunuz?', clearData)"><i class="fas fa-trash"></i> Sıfırla</button>
-                 <button class="btn btn-ghost" onclick="exportSettings()" title="Tüm ayarları (asistanlar, işaretler, kurallar) bir dosyaya kaydeder"><i class="fas fa-download"></i> Dışa Aktar</button>
-                 <button class="btn btn-ghost" onclick="document.getElementById('importSettingsInput').click()" title="Daha önce dışa aktarılmış ayar dosyasını yükler"><i class="fas fa-upload"></i> İçe Aktar</button>
+                 <!-- Dışa Aktar / İçe Aktar düğmeleri Admin Paneli → Yedekleme sekmesine taşındı -->
                  <input type="file" id="importSettingsInput" accept="application/json,.json" style="display:none" onchange="importSettings(this.files[0]); this.value='';">
                  <span style="color:#cbd5e1; font-size:0.75rem; font-weight:600;">v.1.3</span>
             </div>
@@ -2664,9 +2663,9 @@ let extraServisAssignments = {}; // { "2026-07-01": ["Ahmet Yılmaz","Ayşe Kaya
             if (!obj || !obj.__nobetAyar || !obj.veri) { showModernAlert('Hata', 'Bu dosya bir nöbet ayar dosyası değil.'); return; }
             confirmAction('İçe Aktar', 'Mevcut veriler bu dosyadaki ayarlarla değiştirilecek. Devam edilsin mi?', async () => {
                 try {
-                    const ses = localStorage.getItem('nobetSoundEnabled');
-                    localStorage.clear();
-                    if (ses !== null) localStorage.setItem('nobetSoundEnabled', ses);
+                    // Yalnızca nöbet kayıtları (nobetData...) değiştirilir. Aynı adresteki diğer uygulamaların
+                    // kayıtları, yönetici oturumu ve Supabase öncesi yedek silinmez.
+                    Object.keys(localStorage).filter(k => k.indexOf('nobetData') === 0).forEach(k => localStorage.removeItem(k));
                     Object.keys(obj.veri).forEach(k => { if (k.indexOf('nobetData') === 0) localStorage.setItem(k, obj.veri[k]); });
                 } catch (e) {}
                 try { await deleteNobetSnapshotFromIndexedDB(); } catch (e) {}

@@ -333,8 +333,22 @@
     ['special', 'fa-star', 'Özellikli Birimler'],
     ['work', 'fa-briefcase', 'Görev Yerleri'],
     ['joker', 'fa-sort-amount-down', 'Joker Öncelik Sıralaması'],
+    ['backup', 'fa-file-export', 'Yedekleme'],
     ['audit', 'fa-history', 'Değişiklik Kaydı']
   ];
+
+  // Uygulamanın kendi Dışa Aktar / İçe Aktar işlevleri (exportSettings / importSettings, index.html)
+  function renderBackup() {
+    var hasExport = typeof window.exportSettings === 'function';
+    var hasImport = typeof window.importSettings === 'function' && !!$('importSettingsInput');
+    return '<div class="nc-info"><b>Bu bilgisayardaki nöbet ayarlarının yedeği.</b> Asistanlar, istek işaretleri, kurallar, kısıtlamalar ve Joker ayarları tek bir dosyaya kaydedilir. ' +
+      'Dosyayı başka bir bilgisayarda içe aktararak aynı duruma dönebilirsiniz.</div>' +
+      '<div class="nc-toolbar">' +
+      '<button class="btn btn-primary" ' + (hasExport ? '' : 'disabled') + ' onclick="NobetCloud.exportBackup()"><i class="fas fa-download"></i> Dışa Aktar</button>' +
+      '<button class="btn btn-warning" ' + (hasImport ? '' : 'disabled') + ' onclick="NobetCloud.importBackup()"><i class="fas fa-upload"></i> İçe Aktar</button>' +
+      '</div>' +
+      '<p class="nc-hint"><i class="fas fa-exclamation-triangle"></i> İçe Aktar, bu bilgisayardaki mevcut nöbet verilerinin yerine dosyadakileri koyar (onay istenir). Önce Dışa Aktar ile güncel hâlin yedeğini almanız önerilir.</p>';
+  }
 
   function renderPanel() {
     var tabs = $('ncTabs'), body = $('ncPanelBody');
@@ -347,6 +361,7 @@
     else if (S.tab === 'special') body.innerHTML = renderUnits('special_units');
     else if (S.tab === 'work') body.innerHTML = renderUnits('work_places');
     else if (S.tab === 'joker') body.innerHTML = renderJoker();
+    else if (S.tab === 'backup') body.innerHTML = renderBackup();
     else if (S.tab === 'audit') {
       if (!S.isAdmin) body.innerHTML = '<div class="nc-empty"><i class="fas fa-lock"></i> Değişiklik kaydı kişisel bilgiler içerdiği için yalnızca <a href="#" onclick="NobetCloud.openLogin(function(){NobetCloud.openAdminPanel(\'audit\')});return false;">yönetici girişiyle</a> görüntülenir. Kayıt her durumda tutulmaya devam eder.</div>';
       else { body.innerHTML = '<div class="nc-empty"><i class="fas fa-spinner fa-spin"></i></div>'; loadAudit(); }
@@ -889,6 +904,10 @@
       '.header>div:last-child{flex-wrap:wrap;justify-content:flex-end}',
       '@media (max-width:640px){.header{flex-wrap:wrap;gap:10px}.header>div:last-child{width:100%;justify-content:flex-start}.nc-admin-btn{padding:5px 10px;font-size:.8rem}}',
       '.nc-overlay .modal-content{box-sizing:border-box}',
+      // Katman sırası: Admin Paneli < paneldeki alt pencereler < uygulamanın onay/uyarı pencereleri
+      '#ncAdminModal,#ncMsgModal{z-index:1000}',
+      '#ncLoginModal,#ncEditModal,#ncCodesModal,#ncNewPwModal{z-index:1100}',
+      '#generalConfirmModal,#generalAlertModal{z-index:2000}',
       '.nc-modal-lg{width:980px!important;max-width:96%!important;max-height:90vh!important;padding:22px!important}',
       '.nc-modal-sm{width:440px!important;max-width:94%!important;padding:22px!important}',
       '.nc-head-right{display:flex;align-items:center;gap:14px}',
@@ -1003,6 +1022,8 @@
     newPeriod: function () { periodForm(null); },
     editPeriod: function () { periodForm(S.msg.periods.find(function (x) { return x.id === S.msg.periodId; })); },
     togglePeriod: togglePeriod, copyMsg: copyMsg,
+    exportBackup: function () { if (typeof window.exportSettings === 'function') window.exportSettings(); },
+    importBackup: function () { var i = $('importSettingsInput'); if (i) i.click(); },
     _state: S, _derive: deriveDefinitions
   };
 })();
