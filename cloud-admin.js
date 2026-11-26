@@ -564,8 +564,22 @@
     $('ncCodesPrint').onclick = function () {
       var w = window.open('', '_blank', 'noopener=no');
       if (!w) return;
-      w.document.write('<html><head><meta charset="utf-8"><title>Aktivasyon Kodları</title><style>body{font-family:sans-serif}.k{border:1px dashed #999;padding:14px;margin:10px 0;page-break-inside:avoid}code{font-size:1.2em}</style></head><body>' +
-        ok.map(function (r) { return '<div class="k"><b>' + esc(r.full_name) + '</b><br>Adres: ' + esc(url) + '<br>Kullanıcı adı: <code>' + esc(r.username) + '</code><br>Kod: <code>' + esc(r.code) + '</code><br>Son geçerlilik: ' + esc(C.fmtDateTime(r.expires_at)) + '</div>'; }).join('') + '</body></html>');
+      // Sade liste: kişi başına tek satır, A4'e ~40 kişi (satır yüksekliği ~6 mm)
+      var css = '@page{size:A4 portrait;margin:10mm}' +
+        'body{font-family:Arial,Helvetica,sans-serif;margin:0;color:#000}' +
+        'h1{font-size:12pt;margin:0 0 1mm}p{font-size:8.5pt;margin:0 0 3mm;color:#333}' +
+        'table{width:100%;border-collapse:collapse;font-size:9.5pt}' +
+        'thead{display:table-header-group}tr{page-break-inside:avoid;height:6mm}' +
+        'th,td{border:0.3mm solid #999;padding:0 2mm;text-align:left;white-space:nowrap}' +
+        'th{background:#eee;font-size:8.5pt}td.n{width:7mm;text-align:right;color:#666}' +
+        'td.c{font-family:Consolas,monospace;font-size:11pt;font-weight:bold;letter-spacing:1px}' +
+        'td.u{font-family:Consolas,monospace}';
+      w.document.write('<html><head><meta charset="utf-8"><title>' + esc(title) + '</title><style>' + css + '</style></head><body>' +
+        '<h1>' + esc(title) + '</h1><p>Giriş adresi: ' + esc(url) + ' → "Kod ile şifre belirleyin" · Her kod tek kullanımlıktır.</p>' +
+        '<table><thead><tr><th>#</th><th>Ad Soyad</th><th>Kullanıcı adı</th><th>Kod</th><th>Son geçerlilik</th></tr></thead><tbody>' +
+        ok.map(function (r, i) {
+          return '<tr><td class="n">' + (i + 1) + '</td><td>' + esc(r.full_name) + '</td><td class="u">' + esc(r.username) + '</td><td class="c">' + esc(r.code) + '</td><td>' + esc(C.fmtDateTime(r.expires_at)) + '</td></tr>';
+        }).join('') + '</tbody></table></body></html>');
       w.document.close(); w.focus(); w.print();
     };
     show('ncCodesModal');
