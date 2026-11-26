@@ -51,33 +51,30 @@ const ins = await admin.c.from("assistants").insert([
 check("1. Yönetici yeni asistan ekleyebilir", !ins.error && ins.data?.length === 3, ins.error?.message);
 const [A, B, C] = ins.data ?? [];
 
-// Tanımlar şifresiz yönetilir (kullanıcı kararı); kişisel sütunlar korunur.
+// Admin Paneli yönetici girişi ister (kullanıcı kararı, 2026-11-26): girişsiz hiçbir tanım okunamaz/değiştirilemez.
 const anon = newClient();
-const sig0 = (await anon.from("def_signals").select("changed_at").eq("key", "assistants").single()).data?.changed_at;
-const anonIns = await anon.from("assistants").insert({ full_name: `Girişsiz Ekleme ${RUN}`, sort_order: 950 }).select("id,full_name");
-check("Girişsiz Admin Paneli asistan ekleyebilir", !anonIns.error && anonIns.data?.length === 1, anonIns.error?.message);
-const sig1 = (await anon.from("def_signals").select("changed_at").eq("key", "assistants").single()).data?.changed_at;
-check("Asistan değişikliği anlık güncelleme sinyali üretir", !!sig1 && sig1 !== sig0);
-const anonUpd = await anon.from("assistants").update({ full_name: `Girişsiz Düzenleme ${RUN}`, is_active: false }).eq("id", anonIns.data?.[0]?.id).select("id,is_active");
-check("Girişsiz Admin Paneli asistanı düzenleyip pasife alabilir", !anonUpd.error && anonUpd.data?.[0]?.is_active === false, anonUpd.error?.message);
-const anonDel = await anon.from("assistants").delete().eq("id", anonIns.data?.[0]?.id).select("id");
-check("Girişsiz Admin Paneli hesapsız asistanı silebilir", !anonDel.error && anonDel.data?.length === 1, anonDel.error?.message);
-const anonNames = await anon.from("assistants").select("id,full_name,is_active");
-check("Girişsiz asistan adları okunabilir", !anonNames.error && (anonNames.data ?? []).length >= 3, anonNames.error?.message);
-const anonPii = await anon.from("assistants").select("contact_email");
-check("Girişsiz kullanıcı personel e-postalarını okuyamaz", !!anonPii.error);
-const anonUser = await anon.from("assistants").select("username");
-check("Girişsiz kullanıcı personel kullanıcı adlarını okuyamaz", !!anonUser.error);
-const anonAll = await anon.from("assistants").select("*");
-check("Girişsiz 'tüm sütunlar' sorgusu reddedilir", !!anonAll.error);
-const anonSneak = await anon.from("assistants").insert({ full_name: `Sızma ${RUN}`, username: `sizma${RUN}` });
-check("Girişsiz kullanıcı kullanıcı adı/hesap alanı yazamaz", !!anonSneak.error);
-const anonMail = await anon.from("assistants").update({ contact_email: "saldirgan@example.org" }).eq("id", A.id).select("id");
-check("Girişsiz kullanıcı personel e-postasını değiştiremez", !!anonMail.error || (anonMail.data ?? []).length === 0);
-const anonSettings = await anon.from("app_settings").select("key");
-check("Girişsiz yalnızca Joker sırası ayarı görünür", !anonSettings.error && (anonSettings.data ?? []).every((r) => r.key === "joker_priority"));
+const anonIns = await anon.from("assistants").insert({ full_name: `Kötü Niyetli ${RUN}` });
+check("14. Girişsiz kullanıcı asistan ekleyemez", !!anonIns.error);
+const anonNames = await anon.from("assistants").select("id,full_name");
+check("14. Girişsiz kullanıcı asistan listesini okuyamaz", !!anonNames.error || (anonNames.data ?? []).length === 0);
+const anonUpd = await anon.from("assistants").update({ is_active: false }).eq("id", A.id).select("id");
+check("14. Girişsiz kullanıcı asistanı pasife alamaz", !!anonUpd.error || (anonUpd.data ?? []).length === 0);
+const anonDel = await anon.from("assistants").delete().eq("id", C.id).select("id");
+check("14. Girişsiz kullanıcı asistan silemez", !!anonDel.error || (anonDel.data ?? []).length === 0);
+for (const t of ["special_units", "work_places"]) {
+  const w = await anon.from(t).insert({ name: `Sızma ${RUN}` });
+  check(`14. Girişsiz kullanıcı ${t} ekleyemez`, !!w.error);
+}
+const anonSettings = await anon.from("app_settings").update({ value: { order: [] } }).eq("key", "joker_priority").select("key");
+check("14. Girişsiz kullanıcı Joker sırasını değiştiremez", !!anonSettings.error || (anonSettings.data ?? []).length === 0);
 const anonReorder = await anon.rpc("admin_reorder", { p_table: "special_units", p_ids: [] });
-check("Girişsiz sıralama yapılabilir", !anonReorder.error, anonReorder.error?.message);
+check("14. Girişsiz kullanıcı sıralama yapamaz", !!anonReorder.error);
+const anonSig = await anon.from("def_signals").select("key");
+check("Girişsiz kullanıcı güncelleme sinyalini okuyamaz", !!anonSig.error || (anonSig.data ?? []).length === 0);
+const sig0 = (await admin.c.from("def_signals").select("changed_at").eq("key", "assistants").single()).data?.changed_at;
+await admin.c.from("assistants").update({ sort_order: 899 }).eq("id", A.id);
+const sig1 = (await admin.c.from("def_signals").select("changed_at").eq("key", "assistants").single()).data?.changed_at;
+check("Asistan değişikliği anlık güncelleme sinyali üretir", !!sig1 && sig1 !== sig0);
 for (const t of ["request_messages", "request_message_revisions", "account_codes", "account_lockouts", "audit_log", "app_admins"]) {
   const r = await anon.from(t).select("*").limit(1);
   check(`Girişsiz kullanıcı ${t} okuyamaz`, !!r.error || (r.data ?? []).length === 0);
@@ -120,6 +117,8 @@ check("Şifre bilgisi asistan kaydında bulunmuyor", !Object.keys(aRow ?? {}).so
 
 const anonDelAcc = await anon.from("assistants").delete().eq("id", A.id).select("id");
 check("Girişsiz kullanıcı hesabı olan asistanı silemez", (anonDelAcc.data ?? []).length === 0);
+const stReorder = await sA.c.rpc("admin_reorder", { p_table: "special_units", p_ids: [] });
+check("14. Personel sıralama fonksiyonunu çalıştıramaz", !!stReorder.error);
 
 // 14. Personel yönetim işlemi yapamaz
 const role = await sA.c.rpc("my_role");

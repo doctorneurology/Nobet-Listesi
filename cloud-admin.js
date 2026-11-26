@@ -103,10 +103,10 @@
     };
   }
 
-  // Tanımlar girişsiz okunur/yönetilir. Kişisel hesap alanları (kullanıcı adı, e-posta) yalnızca yönetici girişiyle gelir.
+  // Tanımlar yalnızca yönetici oturumuyla okunur/yönetilir (RLS). Hesap alanları da yönetici içindir.
   async function fetchDefinitions() {
     var c = C.getClient();
-    if (!c) return false;
+    if (!c || !S.isAdmin) return false;
     try {
       var r = await Promise.all([
         c.from('assistants').select('id,full_name,sort_order,is_active,account_status,version,deactivated_at,updated_at'),
@@ -177,12 +177,13 @@
   // ------------------------------------------------------------------ oturum
   async function handleSession(session) {
     var c = C.getClient();
-    // Oturum yalnızca personel mesajları ve hesap işlemleri içindir; tanımlar oturumsuz da çalışır.
+    // Admin Paneli ve tanım senkronizasyonu yönetici oturumu gerektirir; oturum yoksa son indirilen tanımlar (önbellek) kullanılır.
     if (!session) {
       var wasAdmin = S.isAdmin;
       S.isAdmin = false; S.userEmail = '';
+      teardownRealtime();
       updateChrome();
-      if (wasAdmin) { ['ncMsgModal', 'ncCodesModal'].forEach(function (id) { var m = $(id); if (m) m.style.display = 'none'; }); fetchDefinitions(); }
+      if (wasAdmin) closePanels();
       return;
     }
     S.userEmail = session.user && session.user.email || '';
@@ -202,28 +203,21 @@
     }
     updateChrome();
     if (S.isAdmin) {
-      await fetchDefinitions(); // hesap alanlarını (kullanıcı adı, e-posta) da getir
+      if (!S.channel) subscribeRealtime();
+      await fetchDefinitions();
       if (S.pendingAfterLogin) { var f = S.pendingAfterLogin; S.pendingAfterLogin = null; f(); }
     }
   }
 
-  // Kilit simgesi herkese görünür ve paneli şifresiz açar. Bu tarayıcıda bir kez açıldıktan sonra
-  // "Admin Paneli" ve "Asistan İstek Mesajları" düğmeleri de görünür kalır.
-  var UNLOCK_KEY = 'nobetAdminUnlocked';
-  function isUnlocked() { try { return localStorage.getItem(UNLOCK_KEY) === '1'; } catch (e) { return false; } }
-  function setUnlocked() { try { localStorage.setItem(UNLOCK_KEY, '1'); } catch (e) {} }
+  // Kilit simgesi girişsiz ziyaretçiye görünür ve yönetici girişini açar; "Admin Paneli" ve
+  // "Asistan İstek Mesajları" düğmeleri yalnızca yönetici girişi yapılınca görünür.
+  try { localStorage.removeItem('nobetAdminUnlocked'); } catch (e) {} // şifresiz dönemden kalan işaret
   function updateChrome() {
     var adminBtn = $('ncAdminBtn'), loginBtn = $('ncLoginBtn'), msgBtn = $('ncMessagesBtn');
-    var show = C.configured && (isUnlocked() || S.isAdmin);
-    if (adminBtn) adminBtn.style.display = show ? 'inline-flex' : 'none';
-    if (loginBtn) { loginBtn.style.display = (C.configured && !show) ? 'inline-flex' : 'none'; loginBtn.title = 'Admin Paneli'; loginBtn.setAttribute('aria-label', 'Admin Paneli'); }
-    if (msgBtn) msgBtn.style.display = show ? 'inline-flex' : 'none';
-    var who = $('ncWho'); if (who) who.innerHTML = adminFooterHtml();
-  }
-  function adminFooterHtml() {
-    return S.isAdmin
-      ? '<i class="fas fa-user-check"></i> Yönetici girişi: ' + esc(S.userEmail) + ' · <a href="#" onclick="NobetCloud.logout();return false;">çıkış</a>'
-      : '<i class="fas fa-lock-open"></i> Tanımlar şifresiz düzenlenir. Personel mesajları ve hesap işlemleri için <a href="#" onclick="NobetCloud.openLogin();return false;">yönetici girişi</a>.';
+    if (adminBtn) adminBtn.style.display = S.isAdmin ? 'inline-flex' : 'none';
+    if (loginBtn) { loginBtn.style.display = (C.configured && !S.isAdmin) ? 'inline-flex' : 'none'; loginBtn.title = 'Yönetici girişi'; loginBtn.setAttribute('aria-label', 'Yönetici girişi'); }
+    if (msgBtn) msgBtn.style.display = S.isAdmin ? 'inline-flex' : 'none';
+    var who = $('ncWho'); if (who) who.innerHTML = '<i class="fas fa-user-check"></i> Yönetici: ' + esc(S.userEmail) + ' · <a href="#" onclick="NobetCloud.logout();return false;">çıkış</a>';
   }
 
   // ------------------------------------------------------------------ giriş penceresi
@@ -232,7 +226,6 @@
     S.pendingAfterLogin = after || null;
     ensureModal('ncLoginModal', '<div class="modal-content nc-modal-sm">' +
       '<div class="modal-header"><h2><i class="fas fa-user-shield" style="color:var(--primary)"></i> Yönetici Girişi</h2><span class="close-modal" onclick="NobetCloud.close(\'ncLoginModal\')">&times;</span></div>' +
-      '<p class="nc-hint">Yalnızca personel istek mesajları ve personel hesap işlemleri (aktivasyon kodu, şifre sıfırlama) için gerekir. "Oturumu açık tut" seçiliyse bu bilgisayarda bir daha sorulmaz.</p>' +
       '<form id="ncLoginForm" autocomplete="on">' +
       '<label class="nc-label">E-posta</label><input class="nc-input" type="email" id="ncLoginEmail" autocomplete="username" required>' +
       '<label class="nc-label">Şifre</label><input class="nc-input" type="password" id="ncLoginPw" autocomplete="current-password" required>' +
@@ -295,12 +288,11 @@
 
   async function logout() {
     var c = C.getClient();
+    teardownRealtime();
     if (c) await c.auth.signOut();
-    S.isAdmin = false;
-    ['ncMsgModal', 'ncCodesModal', 'ncEditModal'].forEach(function (id) { var m = $(id); if (m) m.style.display = 'none'; });
-    updateChrome();
-    await fetchDefinitions();
-    toast('Yönetici oturumu kapatıldı');
+    S.isAdmin = false; S.defs = null;
+    closePanels(); updateChrome();
+    toast('Çıkış yapıldı');
   }
 
   // ------------------------------------------------------------------ modal altyapısı
@@ -320,10 +312,10 @@
   }
 
   // ------------------------------------------------------------------ YÖNETİM PANELİ
-  // Admin Paneli şifresiz açılır (kullanıcı kararı). Giriş yalnızca mesajlar ve hesap işlemleri için istenir.
+  // Admin Paneli yönetici e-posta + şifresiyle açılır (kullanıcı kararı, 2026-11-26).
   function openAdminPanel(tab) {
     if (!C.configured) { alertBox('Bağlantı yok', 'Supabase bağlantısı henüz yapılandırılmadı.'); return; }
-    setUnlocked(); updateChrome();
+    if (!S.isAdmin) { openLogin(function () { openAdminPanel(tab); }); return; }
     if (tab) S.tab = tab;
     ensureModal('ncAdminModal', '<div class="modal-content nc-modal-lg">' +
       '<div class="modal-header"><h2><i class="fas fa-user-shield" style="color:var(--primary)"></i> Admin Paneli</h2>' +
@@ -980,16 +972,14 @@
       if (evt === 'PASSWORD_RECOVERY') { setTimeout(openNewPasswordModal, 50); }
       if (evt === 'SIGNED_IN' || evt === 'SIGNED_OUT' || evt === 'INITIAL_SESSION') setTimeout(function () { handleSession(session); }, 0);
     });
-    // Tanımlar herkes için (oturumsuz) çekilir ve anlık izlenir
-    fetchDefinitions();
-    subscribeRealtime();
+    // Tanımlar yönetici oturumu açıldığında (handleSession) çekilir ve anlık izlenir
     window.addEventListener('online', function () {
-      subscribeRealtime(); fetchDefinitions();
-      if (!S.isAdmin) c.auth.getSession().then(function (x) { if (x.data.session) { S.roleRetry = 0; handleSession(x.data.session); } });
+      if (S.isAdmin) { subscribeRealtime(); fetchDefinitions(); return; }
+      c.auth.getSession().then(function (x) { if (x.data.session) { S.roleRetry = 0; handleSession(x.data.session); } });
     });
     window.addEventListener('offline', function () { setStatus('offline'); });
     document.addEventListener('visibilitychange', function () {
-      if (document.visibilityState === 'visible' && Date.now() - S.lastFetch > 60000) fetchDefinitions();
+      if (document.visibilityState === 'visible' && S.isAdmin && Date.now() - S.lastFetch > 60000) fetchDefinitions();
     });
     if (location.hash === '#admin') openAdminPanel();
   }
