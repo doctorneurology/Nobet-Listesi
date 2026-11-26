@@ -9,8 +9,8 @@
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js" integrity="sha384-0w2KAL2YHP6wKOkUDzkCDGgVvfmHnj02DHeQ6XcHOgTfFsGyonKOpShMH1x6nk9o" crossorigin="anonymous"></script>
-<script defer src="config.js?v=20261126e"></script>
-<script defer src="cloud-core.js?v=20261126e"></script>
+<script defer src="config.js?v=20261126f"></script>
+<script defer src="cloud-core.js?v=20261126f"></script>
 <style>
   :root { --primary:#0f172a; --accent:#3b82f6; --ok:#16a34a; --err:#dc2626; --bg:#f1f5f9; --border:#e2e8f0; --muted:#64748b; }
   * { box-sizing: border-box; }
@@ -93,8 +93,8 @@
     <form id="codeForm" autocomplete="off">
       <label for="cdUser">Kullanıcı adı</label>
       <input type="text" id="cdUser" autocomplete="username" autocapitalize="none" spellcheck="false" required>
-      <label for="cdCode">Kod</label>
-      <input type="text" id="cdCode" placeholder="XXXXX-XXXXX" autocapitalize="characters" spellcheck="false" required>
+      <label for="cdCode">4 haneli kod</label>
+      <input type="text" id="cdCode" placeholder="1234" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="one-time-code" spellcheck="false" required>
       <label for="cdPw1">Yeni şifre</label>
       <input type="password" id="cdPw1" autocomplete="new-password" required>
       <div class="hint">En az 8 karakter; en az bir harf ve bir rakam içermeli.</div>
@@ -149,6 +149,18 @@
     <div class="card hidden" id="mPastCard">
       <h2 style="font-size:1rem">Önceki dönem mesajlarım</h2>
       <div id="mPast"></div>
+    </div>
+    <div class="card">
+      <details id="unBox">
+        <summary style="cursor:pointer; font-weight:700; color:#334155;"><i class="fas fa-user-edit"></i> Kullanıcı adımı değiştir</summary>
+        <label for="unNew">Yeni kullanıcı adı</label>
+        <input type="text" id="unNew" autocapitalize="none" spellcheck="false" maxlength="32" placeholder="ör. kgulsen">
+        <div class="hint">3-32 karakter; harf, rakam, nokta, tire veya alt çizgi. Türkçe karakterler otomatik çevrilir (ü→u, ş→s…). Şifreniz değişmez.</div>
+        <div class="msg" id="unMsg"></div>
+        <div class="row" style="justify-content:flex-end; margin-top:10px">
+          <button class="btn btn-primary" id="unSave" type="button"><i class="fas fa-save"></i> Kaydet</button>
+        </div>
+      </details>
     </div>
   </div>
 </main>
@@ -225,6 +237,26 @@ document.addEventListener('DOMContentLoaded', function () {
       var r = await C.callFunction('account-public', { action: 'request_reset', username: C.normalizeUsername($('fgUser').value) });
       setMsg('fgMsg', r.message || 'İstek alındı.', true);
     } catch (err) { setMsg('fgMsg', C.friendlyError(err)); }
+    finally { btn.disabled = false; }
+  });
+
+  // ---------------- kullanıcı adı değiştirme
+  $('unNew').addEventListener('input', function () {
+    var n = C.normalizeUsername($('unNew').value);
+    setMsg('unMsg', n && n !== $('unNew').value.trim() ? 'Kaydedilecek hâli: ' + n : '', true);
+  });
+  $('unSave').addEventListener('click', async function () {
+    var n = C.normalizeUsername($('unNew').value);
+    if (!/^[a-z0-9][a-z0-9._-]{2,31}$/.test(n)) { setMsg('unMsg', 'Kullanıcı adı 3-32 karakter olmalı; harf, rakam, nokta, tire veya alt çizgi kullanılabilir.'); return; }
+    var btn = $('unSave'); btn.disabled = true;
+    try {
+      var r = await C.callFunction('account-public', { action: 'set_own_username', username: n });
+      state.me.username = r.username;
+      $('mUser').textContent = '@' + r.username;
+      $('liUser').value = r.username;
+      $('unNew').value = '';
+      setMsg('unMsg', 'Kullanıcı adınız "' + r.username + '" olarak değiştirildi. Bundan sonra bu adla giriş yapın.', true);
+    } catch (err) { setMsg('unMsg', C.friendlyError(err)); }
     finally { btn.disabled = false; }
   });
 

@@ -36,34 +36,40 @@ export function staffEmail(username: string): string {
   return `${username}@${STAFF_EMAIL_DOMAIN}`;
 }
 
+// Türkçe karakterleri sadeleştirir: "Gülşen" -> "gulsen"
+function trAscii(s: string): string {
+  const map: Record<string, string> = { "ç": "c", "ğ": "g", "ı": "i", "i̇": "i", "ö": "o", "ş": "s", "ü": "u", "â": "a", "î": "i", "û": "u" };
+  return s.toLocaleLowerCase("tr-TR").replace(/[çğıöşüâîû]|i̇/g, (c) => map[c] ?? c)
+    .normalize("NFKD").replace(/[̀-ͯ]/g, "");
+}
+
+// Kullanıcı adı küçük harfe ve Türkçe karaktersiz hâle getirilir (girişte "KGülşen" de "kgulsen" olur).
 export function normalizeUsername(u: unknown): string {
-  return String(u ?? "").trim().toLocaleLowerCase("tr-TR");
+  return trAscii(String(u ?? "").trim()).replace(/\s+/g, "");
 }
 
 export function isValidUsername(u: string): boolean {
   return /^[a-z0-9][a-z0-9._-]{2,31}$/.test(u);
 }
 
-// Türkçe adı kullanıcı adına çevirir: "Ayşe Çağlar Öztürk" -> "ayse.ozturk"
+// Adın ilk harfi + soyadı: "Kadir Gülşen" -> "kgulsen", "Begüm Asena Doğruer" -> "bdogruer"
 export function suggestUsername(fullName: string): string {
-  const map: Record<string, string> = { "ç": "c", "ğ": "g", "ı": "i", "i̇": "i", "ö": "o", "ş": "s", "ü": "u", "â": "a", "î": "i", "û": "u" };
-  const parts = fullName.toLocaleLowerCase("tr-TR").replace(/[çğıöşüâîû]|i̇/g, (c) => map[c] ?? c)
-    .normalize("NFKD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9 ]+/g, " ").trim().split(/\s+/).filter(Boolean);
+  const parts = trAscii(fullName).replace(/[^a-z0-9 ]+/g, " ").trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) return "asistan";
-  const base = parts.length === 1 ? parts[0] : `${parts[0]}.${parts[parts.length - 1]}`;
-  return base.slice(0, 28) || "asistan";
+  const base = parts.length === 1 ? parts[0] : `${parts[0][0]}${parts[parts.length - 1]}`;
+  return (base.length >= 3 ? base : base + "asistan").slice(0, 28);
 }
 
-// Belirsiz karakterler (0/O, 1/I/L) çıkarılmış alfabe; 10 karakter ≈ 49 bit
-const CODE_ALPHABET = "23456789ABCDEFGHJKMNPQRSTUVWXYZ";
+// 4 haneli rakam kodu (0000-9999). Kaba kuvvete karşı: kod 5 hatada iptal, kullanıcı adı 15 dk kilit.
+export const CODE_LENGTH = 4;
 export function generateCode(): string {
-  const bytes = crypto.getRandomValues(new Uint8Array(10));
-  let s = "";
-  for (const b of bytes) s += CODE_ALPHABET[b % CODE_ALPHABET.length];
-  return `${s.slice(0, 5)}-${s.slice(5)}`;
+  const buf = new Uint32Array(1);
+  let n: number;
+  do { crypto.getRandomValues(buf); n = buf[0]; } while (n >= 4294960000); // eşit dağılım için ret örneklemesi
+  return String(n % 10000).padStart(CODE_LENGTH, "0");
 }
 export function normalizeCode(c: unknown): string {
-  return String(c ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+  return String(c ?? "").replace(/[^0-9]/g, "");
 }
 
 export async function hashCode(code: string): Promise<string> {

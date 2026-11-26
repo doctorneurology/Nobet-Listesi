@@ -105,7 +105,12 @@
     return j;
   }
 
-  function normalizeUsername(u) { return String(u || '').trim().toLocaleLowerCase('tr-TR'); }
+  // Sunucudaki normalizeUsername ile aynı kural: küçük harf, Türkçe karaktersiz, boşluksuz ("KGülşen" -> "kgulsen")
+  function normalizeUsername(u) {
+    var map = { 'ç': 'c', 'ğ': 'g', 'ı': 'i', 'ö': 'o', 'ş': 's', 'ü': 'u', 'â': 'a', 'î': 'i', 'û': 'u' };
+    return String(u || '').trim().toLocaleLowerCase('tr-TR').replace(/[çğıöşüâîû]/g, function (c) { return map[c] || c; })
+      .normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, '');
+  }
   function staffEmail(username) { return normalizeUsername(username) + '@' + (cfg.staffEmailDomain || 'personel.nobet.invalid'); }
 
   function esc(s) {

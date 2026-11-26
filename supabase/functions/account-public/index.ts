@@ -2,9 +2,11 @@
 //  - redeem: kullanıcı adı + tek kullanımlık kod + yeni şifre (aktivasyon veya sıfırlama)
 //  - request_reset: kayıtlı e-postası olan personele sıfırlama kodu gönderir (e-posta servisi tanımlıysa)
 // Kaba kuvvet koruması: kullanıcı adı başına 5 hatalı denemede 15 dk kilit; kod başına 5 hatada kod iptal.
+//  - set_own_username: oturum açmış personel kendi kullanıcı adını değiştirir
+import { createClient } from "jsr:@supabase/supabase-js@2.45.4";
 import {
   corsHeaders, json, HttpError, serviceClient, staffEmail, normalizeUsername, isValidUsername,
-  normalizeCode, generateCode, hashCode, timingSafeEqual, validatePassword,
+  normalizeCode, generateCode, hashCode, timingSafeEqual, validatePassword, CODE_LENGTH,
 } from "../_shared/util.ts";
 
 const MAX_FAILS = 5;
@@ -33,7 +35,7 @@ async function registerFail(svc: Svc, username: string, prev: { failed_count?: n
 async function redeem(svc: Svc, body: Record<string, unknown>) {
   const username = normalizeUsername(body.username);
   const code = normalizeCode(body.code);
-  if (!isValidUsername(username) || code.length !== 10) throw new HttpError(400, GENERIC_FAIL);
+  if (!isValidUsername(username) || code.length !== CODE_LENGTH) throw new HttpError(400, GENERIC_FAIL);
   const password = validatePassword(body.password);
   const lock = await checkLock(svc, username);
 
@@ -104,6 +106,33 @@ async function sendResetEmail(to: string, fullName: string, username: string, co
   return r.ok;
 }
 
+// Personel kendi kullanıcı adını değiştirir (aktif hesap ve geçerli oturum gerekir).
+async function setOwnUsername(req: Request, svc: Svc, body: Record<string, unknown>) {
+  const auth = req.headers.get("Authorization") ?? "";
+  if (!auth.startsWith("Bearer ")) throw new HttpError(401, "Oturum bulunamadı.");
+  const userClient = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, {
+    global: { headers: { Authorization: auth } }, auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const { data: u, error: ue } = await userClient.auth.getUser();
+  if (ue || !u?.user) throw new HttpError(401, "Oturum geçersiz. Lütfen yeniden giriş yapın.");
+  const { data: a } = await svc.from("assistants").select("*").eq("auth_user_id", u.user.id).maybeSingle();
+  if (!a || !a.is_active || a.account_status !== "active") throw new HttpError(403, "Hesabınız aktif değil.");
+  const username = normalizeUsername(body.username);
+  if (!isValidUsername(username)) throw new HttpError(400, "Kullanıcı adı 3-32 karakter olmalı; harf, rakam, nokta, tire veya alt çizgi kullanılabilir.");
+  if (username === a.username) return { ok: true, username };
+  const { data: clash } = await svc.from("assistants").select("id").eq("username", username).neq("id", a.id).maybeSingle();
+  if (clash) throw new HttpError(409, "Bu kullanıcı adı başkası tarafından kullanılıyor.");
+  const { error: ae } = await svc.auth.admin.updateUserById(u.user.id, { email: staffEmail(username), email_confirm: true });
+  if (ae) throw new HttpError(500, "Kullanıcı adı değiştirilemedi.");
+  const { error: re } = await svc.from("assistants").update({ username }).eq("id", a.id);
+  if (re) {
+    await svc.auth.admin.updateUserById(u.user.id, { email: staffEmail(a.username), email_confirm: true }); // geri al
+    throw new HttpError(500, "Kullanıcı adı kaydedilemedi.");
+  }
+  await svc.from("audit_log").insert({ table_name: "accounts", row_id: a.id, action: "self_set_username", actor: u.user.id, new_data: { username, old: a.username } });
+  return { ok: true, username };
+}
+
 async function requestReset(svc: Svc, body: Record<string, unknown>) {
   const generic = { ok: true, message: "Kayıtlı bir e-posta adresiniz varsa sıfırlama kodu gönderildi. E-postanız yoksa yöneticinize başvurun." };
   const username = normalizeUsername(body.username);
@@ -139,6 +168,7 @@ Deno.serve(async (req) => {
     switch (String(body?.action ?? "")) {
       case "redeem": return json(req, await redeem(svc, body));
       case "request_reset": return json(req, await requestReset(svc, body));
+      case "set_own_username": return json(req, await setOwnUsername(req, svc, body));
       default: throw new HttpError(400, "Bilinmeyen işlem.");
     }
   } catch (e) {

@@ -88,6 +88,8 @@ check("Toplu aktivasyon kodu üretimi", act.status === 200 && act.body.results?.
 const codeOf = (id) => act.body.results?.find((r) => r.assistant_id === id);
 const ra = codeOf(A.id), rb = codeOf(B.id), rc = codeOf(C.id);
 check("Benzersiz kullanıcı adı üretildi", ra?.username && rb?.username && ra.username !== rb.username, `${ra?.username} / ${rb?.username}`);
+check("Kullanıcı adı = adın ilk harfi + soyadı (aynısı varsa sona rakam)", ra?.username === `t${RUN}` && rb?.username === `t${RUN}2`, `${ra?.username} / ${rb?.username}`);
+check("Aktivasyon kodu 4 haneli rakam", /^\d{4}$/.test(ra?.code || ""), ra?.code);
 
 // Kodların veritabanında düz metin olarak durmadığı
 const { data: codeRows } = await svc.from("account_codes").select("code_hash").eq("assistant_id", A.id);
@@ -217,14 +219,34 @@ await svc.from("account_codes").update({ expires_at: new Date(Date.now() - 1000)
 const expUse = await fn("account-public", { action: "redeem", username: rb.username, code: exp.body.code, password: "SureDoldu123" });
 check("Süresi dolmuş kod kullanılamaz", expUse.status === 400);
 
-// Kaba kuvvet kilidi
+// Kaba kuvvet kilidi (4 haneli kod: kod 5 hatada iptal + kullanıcı adı 15 dk kilit)
+const lk = await fn("admin-accounts", { action: "issue_reset", assistant_id: B.id }, admin.token);
+const wrong = lk.body.code === "0000" ? "0001" : "0000";
+await svc.from("account_lockouts").delete().eq("username", rb.username); // önceki testlerin sayacını sıfırla
 let last;
-for (let i = 0; i < 6; i++) last = await fn("account-public", { action: "redeem", username: rb.username, code: "AAAAA-AAAAA", password: "Deneme12345" });
+for (let i = 0; i < 6; i++) last = await fn("account-public", { action: "redeem", username: rb.username, code: wrong, password: "Deneme12345" });
 check("Çok sayıda hatalı denemede hesap geçici kilitlenir", last.status === 429, String(last.status));
 await svc.from("account_lockouts").delete().eq("username", rb.username);
+const afterBrute = await fn("account-public", { action: "redeem", username: rb.username, code: lk.body.code, password: "Deneme12345" });
+check("5 hatalı denemeden sonra doğru kod da iptal olur", afterBrute.status === 400, String(afterBrute.status));
 
 const rr = await fn("account-public", { action: "request_reset", username: rb.username });
 check("E-posta ile sıfırlama isteği bilgi sızdırmadan yanıtlanır", rr.status === 200 && rr.body.ok);
+
+// Personel kendi kullanıcı adını değiştirir
+const sB2 = await login(`${rb.username}@${DOMAIN}`, newPwB);
+const wantName = `Yeni.Ğü${RUN}`.slice(0, 30);
+const expected = wantName.toLocaleLowerCase("tr-TR").replace("ğ", "g").replace("ü", "u");
+const ch1 = await fn("account-public", { action: "set_own_username", username: wantName }, sB2.token);
+check("Personel kendi kullanıcı adını değiştirebilir (Türkçe karakter çevrilir)", ch1.status === 200 && ch1.body.username === expected, JSON.stringify(ch1.body));
+check("Yeni kullanıcı adıyla giriş yapılır", !!(await login(`${expected}@${DOMAIN}`, newPwB)).token);
+check("Eski kullanıcı adıyla giriş yapılamaz", !(await login(`${rb.username}@${DOMAIN}`, newPwB)).token);
+const loginA = await login(`${ra.username}@${DOMAIN}`, pwA);
+const steal = await fn("account-public", { action: "set_own_username", username: expected }, loginA.token);
+check("Başkasının kullanıcı adı alınamaz", steal.status === 409, String(steal.status));
+const anonCh = await fn("account-public", { action: "set_own_username", username: `kotu${RUN}` });
+check("Oturumsuz kullanıcı adı değiştirilemez", anonCh.status === 401, String(anonCh.status));
+rb.username = expected;
 
 // 4/5. Birim ve görev yeri
 const su = await admin.c.from("special_units").insert({ name: `Test Birim ${RUN}`, sort_order: 50 }).select().single();
