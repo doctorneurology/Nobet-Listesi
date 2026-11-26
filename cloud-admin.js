@@ -466,9 +466,19 @@
   }
 
   // ------------------------------------------------------------------ modal altyapısı
+  // Dışına (karartılmış alana) tıklanınca kapanan pencereler. Form pencereleri yazılanlar kaybolmasın diye hariç.
+  var CLOSE_ON_OUTSIDE = { ncAdminModal: 1, ncMsgModal: 1, ncCodesModal: 1, ncImportModal: 1 };
   function ensureModal(id, inner) {
     var m = $(id);
-    if (!m) { m = document.createElement('div'); m.id = id; m.className = 'modal-overlay nc-overlay'; document.body.appendChild(m); }
+    if (!m) {
+      m = document.createElement('div'); m.id = id; m.className = 'modal-overlay nc-overlay'; document.body.appendChild(m);
+      if (CLOSE_ON_OUTSIDE[id]) {
+        // Basış ve bırakış ikisi de dış alanda olmalı (pencere içinden sürükleyip dışarıda bırakınca kapanmasın)
+        var downOutside = false;
+        m.addEventListener('mousedown', function (e) { downOutside = e.target === m; });
+        m.addEventListener('click', function (e) { if (downOutside && e.target === m) m.style.display = 'none'; downOutside = false; });
+      }
+    }
     if (inner != null) m.innerHTML = inner;
     return m;
   }
@@ -1115,7 +1125,7 @@
       if (!real) { report.missing.push(r.full_name); return; }
       var d = commit ? real : JSON.parse(JSON.stringify(real));
       if (!d.avail) d.avail = {};
-      var res = { name: r.full_name, applied: 0, outside: 0, existing: 0, rule: 0 };
+      var res = { name: r.full_name, applied: 0, outside: 0, existing: 0, rule: 0, choose: [] };
       Object.keys(r.marks).sort().forEach(function (ds) {
         var type = r.marks[ds], dObj = appDates.find(function (x) { return x.str === ds; });
         if (!dObj) { res.outside++; return; }
@@ -1128,19 +1138,19 @@
         } else if (type === 'unwanted') {
           (myPlaces.length ? myPlaces : places).forEach(function (p) { d.avail[ds][p] = 'unwanted'; }); res.applied++;
         } else if (type === 'wanted') {
-          var ok = false;
-          for (var i = 0; i < myPlaces.length && !ok; i++) {
-            var p = myPlaces[i], t = d.targets && d.targets[p];
-            if (!t) continue;
-            var target = dObj.isW ? t.e : t.w;
-            if (typeof window.getMarkedCount === 'function' && window.getMarkedCount(d, p, dObj.isW) >= target) continue;
-            if (typeof window.checkGapViolation === 'function') {
+          // Nöbet yerini yönetici 2. Asistanlar'da belirler; aktarım yer seçmez.
+          // Tek yerde çalışan kişide o yere işlenir; birden fazla yerde çalışanda gün "yer seçimi sizde" olarak raporlanır.
+          var workPlaces = (Array.isArray(d.allowed) ? d.allowed : []).filter(function (p) { return places.indexOf(p) >= 0; });
+          if (workPlaces.length > 1) { res.choose.push(ds); }
+          else if (workPlaces.length === 1) {
+            var p = workPlaces[0], t = d.targets && d.targets[p], ok = !!t;
+            if (ok && typeof window.getMarkedCount === 'function' && window.getMarkedCount(d, p, dObj.isW) >= (dObj.isW ? t.e : t.w)) ok = false;
+            if (ok && typeof window.checkGapViolation === 'function') {
               var chk; try { chk = window.checkGapViolation(d, ds, p); } catch (e) { chk = null; }
-              if (chk && chk.error) continue;
+              if (chk && chk.error) ok = false;
             }
-            d.avail[ds][p] = 'wanted'; ok = true;
-          }
-          if (ok) res.applied++; else res.rule++;
+            if (ok) { d.avail[ds][p] = 'wanted'; res.applied++; } else res.rule++;
+          } else res.rule++;
         }
         // Uygulanamayan (ör. kotası dolu) istekte eski işaret korunur
         if (!Object.keys(d.avail[ds]).length) { if (prev && Object.keys(prev).length) d.avail[ds] = prev; else delete d.avail[ds]; }
@@ -1161,15 +1171,18 @@
       var rowsHtml = rep.persons.map(function (x) {
         var skip = [];
         if (x.existing) skip.push(x.existing + ' gün zaten işaretli');
-        if (x.rule) skip.push(x.rule + ' istenen gün kota/boşluk kuralına uymadı');
+        if (x.rule) skip.push(x.rule + ' istenen gün kota/boşluk kuralına uymadı veya kişiye nöbet yeri atanmamış');
         if (x.outside) skip.push(x.outside + ' gün uygulamadaki tarih aralığı dışında');
-        return '<tr><td>' + esc(x.name) + '</td><td><b>' + x.applied + '</b></td><td class="nc-muted">' + esc(skip.join(', ') || '—') + '</td></tr>';
+        var choose = x.choose.length ? '<div class="nc-choose"><i class="fas fa-hand-pointer"></i> Yer seçimi sizde (birden fazla nöbet yerinde çalışıyor): <b>' +
+          esc(C.marksText(x.choose.reduce(function (o, ds) { o[ds] = 'wanted'; return o; }, {}))) + '</b> → 4. İstekler\'de uygun yere işaretleyin.</div>' : '';
+        return '<tr><td>' + esc(x.name) + '</td><td><b>' + x.applied + '</b></td><td class="nc-muted">' + esc(skip.join(', ') || (x.choose.length ? '' : '—')) + choose + '</td></tr>';
       }).join('');
       $('ncImpBody').innerHTML =
         '<p class="nc-hint">Uygulamadaki nöbet dönemi: <b>' + esc(C.fmtDate(appStart) || '?') + ' – ' + esc(C.fmtDate(appEnd) || '?') + '</b>. İstek dönemi: <b>' + esc(p.title) + '</b>. Yalnızca bu dönemin listesinde (2. Asistanlar) bulunan kişilere aktarılır.</p>' +
         '<table class="nc-table"><thead><tr><th>Asistan</th><th>Aktarılacak gün</th><th>Atlanan</th></tr></thead><tbody>' + (rowsHtml || '<tr><td colspan="3" class="nc-muted">Aktarılacak kişi yok.</td></tr>') + '</tbody></table>' +
         (rep.missing.length ? '<p class="nc-warn" style="margin-top:8px">Bu dönemin asistan listesinde olmadığı için atlanacak: ' + rep.missing.map(esc).join(', ') + '</p>' : '') +
-        '<p class="nc-hint"><i class="fas fa-info-circle"></i> İzinli günler tüm nöbet yerlerine, istenmeyen günler kişinin çalıştığı tüm yerlere, istenen günler kotası uygun ilk nöbet yerine işlenir. Aktarımdan sonra 4. İstekler takviminde dilediğiniz gibi düzenleyebilirsiniz. ' +
+        '<p class="nc-hint"><i class="fas fa-info-circle"></i> Personel yalnızca günü işaretler; nöbet yerini siz 2. Asistanlar\'da belirlersiniz ve aktarım bunu değiştirmez. İzinli ve istenmeyen günler günün tamamı için işlenir. ' +
+        'İstenen gün yalnızca tek nöbet yerinde çalışan kişide o yere işlenir; birden fazla yerde çalışanlarda yer seçimi size bırakılır. Aktarımdan sonra 4. İstekler takviminde dilediğiniz gibi düzenleyebilirsiniz. ' +
         'Aktarım, istek değişikliği olduğu için daha önce oluşturulmuş nöbet listesi sonuçlarını sıfırlar.</p>';
       $('ncImpGo').disabled = rep.total === 0;
       $('ncImpGo').innerHTML = '<i class="fas fa-file-import"></i> ' + rep.total + ' günü aktar';
@@ -1345,7 +1358,7 @@
       '.nc-chip.active{background:var(--primary,#0f172a);color:#fff;border-color:var(--primary,#0f172a)}.nc-chip.green.active{background:#166534;border-color:#166534}.nc-chip.amber.active{background:#b45309;border-color:#b45309}',
       'input[type=date].nc-input{cursor:pointer}',
       '#ncLoginModal,#ncEditModal,#ncCodesModal,#ncNewPwModal,#ncAccModal,#ncImportModal{z-index:1100}',
-      '.nc-msg-marks{margin-top:6px;font-size:.85rem;color:#1e3a8a;background:#eff6ff;border-radius:6px;padding:4px 8px}.nc-pdel{color:#b91c1c}.nc-msgsec{border-top:1px solid #e2e8f0;margin-top:6px;padding-top:10px}',
+      '.nc-choose{margin-top:4px;color:#92400e;background:#fffbeb;border-radius:6px;padding:3px 6px;font-size:.8rem}.nc-msg-marks{margin-top:6px;font-size:.85rem;color:#1e3a8a;background:#eff6ff;border-radius:6px;padding:4px 8px}.nc-pdel{color:#b91c1c}.nc-msgsec{border-top:1px solid #e2e8f0;margin-top:6px;padding-top:10px}',
       '#generalConfirmModal,#generalAlertModal{z-index:2000}',
       '.nc-modal-lg{width:980px!important;max-width:96%!important;max-height:90vh!important;padding:22px!important}',
       '.nc-modal-sm{width:440px!important;max-width:94%!important;padding:22px!important}',
