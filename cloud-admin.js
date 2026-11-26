@@ -65,7 +65,124 @@
     order.forEach(function (id) { var u = byId[id]; if (u && u.is_active && hierarchy.indexOf(u.name) < 0) hierarchy.push(u.name); });
     su.forEach(function (u) { if (u.is_active && hierarchy.indexOf(u.name) < 0) hierarchy.push(u.name); });
     var inactiveNames = assistants.filter(function (a) { return !a.is_active; }).map(function (a) { return a.full_name; });
+    // Uygulama ekranlarından girişsizken eklenip Supabase'e gönderilmeyi bekleyen adlar listelerde kalsın
+    pendingRead().forEach(function (it) {
+      var push = function (arr) { if (!arr.some(function (x) { return lc(x) === lc(it.name); })) arr.push(it.name); };
+      if (it.table === 'assistants') push(masterList);
+      if (it.table === 'special_units') { push(specialUnits); push(hierarchy); if (it.alsoWork) push(workplaceUnits); }
+      if (it.table === 'work_places') push(workplaceUnits);
+    });
     return { masterList: masterList, specialUnits: specialUnits, workplaceUnits: workplaceUnits, jokerHierarchy: hierarchy, inactiveNames: inactiveNames };
+  }
+
+  // ------------------------------------------------------------------ uygulama ekranları / kod ↔ Supabase eşleştirme
+  var PENDING_KEY = 'nobetPendingCloudAdds';
+  function lc(s) { return String(s || '').trim().toLocaleLowerCase('tr-TR'); }
+  function pendingRead() { try { var a = JSON.parse(localStorage.getItem(PENDING_KEY) || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; } }
+  function pendingWrite(a) { try { if (a.length) localStorage.setItem(PENDING_KEY, JSON.stringify(a)); else localStorage.removeItem(PENDING_KEY); } catch (e) {} }
+
+  // Adı Supabase'e ekler (aynı ad varsa — pasif olsa bile — eklemez). Dönüş: 'added' | 'exists'
+  async function cloudInsertName(table, name) {
+    var col = table === 'assistants' ? 'full_name' : 'name';
+    var list = S.defs[table] || (S.defs[table] = []);
+    if (list.some(function (x) { return lc(x[col]) === lc(name); })) return 'exists';
+    var row = { sort_order: Math.max(0, ...list.map(function (x) { return x.sort_order; })) + 1 };
+    row[col] = name;
+    var r = await C.getClient().from(table).insert(row).select('*');
+    if (r.error) { if (/23505|duplicate/i.test(String(r.error.code) + r.error.message)) return 'exists'; throw r.error; }
+    if (r.data && r.data[0]) list.push(r.data[0]);
+    return 'added';
+  }
+
+  // Uygulamanın kendi ekranlarından eklenen ad: yönetici girişliyse hemen, değilse ilk girişte Supabase'e yazılır
+  async function cloudAddFromApp(table, name, alsoWork) {
+    name = String(name || '').trim();
+    if (!name || !C.configured) return;
+    var queue = function () {
+      var p = pendingRead();
+      if (!p.some(function (x) { return x.table === table && lc(x.name) === lc(name); })) p.push({ table: table, name: name, alsoWork: !!alsoWork });
+      pendingWrite(p);
+      var cache = cacheRead(); if (cache) applyDefinitions(cache, { fromCache: true }); // bekleyen ad listelerde hemen görünsün
+      toast(name + ' bu bilgisayara eklendi; yönetici girişinde Admin Paneli ile eşleştirilecek');
+    };
+    if (!S.isAdmin || !S.defs) return queue();
+    try {
+      var res = await cloudInsertName(table, name);
+      if (alsoWork) await cloudInsertName('work_places', name);
+      if (res === 'added') toast(name + ' Admin Paneli ile eşleştirildi', 'ok');
+      fetchDefinitions();
+    } catch (e) { queue(); }
+  }
+
+  // Yönetici oturumunda: bekleyen eklemeler + index.html'deki CODE_DEFINITIONS bloğundaki yeni adlar
+  async function syncExtraDefinitions() {
+    if (!S.isAdmin || !S.defs || S._syncing) return;
+    S._syncing = true;
+    var added = [];
+    try {
+      var remain = [];
+      for (var it of pendingRead()) {
+        try {
+          if ((await cloudInsertName(it.table, it.name)) === 'added') added.push(it.name);
+          if (it.alsoWork) await cloudInsertName('work_places', it.name);
+        } catch (e) { remain.push(it); }
+      }
+      pendingWrite(remain);
+
+      var cd = window.__nobetCodeDefinitions;
+      var lists = cd ? [['assistants', cd.assistants], ['special_units', cd.specialUnits], ['work_places', cd.workplaceUnits]] : [];
+      if (lists.some(function (l) { return Array.isArray(l[1]) && l[1].length; })) {
+        var c = C.getClient();
+        var reg = await c.from('app_settings').select('*').eq('key', 'code_sync').maybeSingle();
+        var done = (reg.data && reg.data.value) || {};
+        var changed = false;
+        for (var i = 0; i < lists.length; i++) {
+          var table = lists[i][0], names = Array.isArray(lists[i][1]) ? lists[i][1] : [];
+          done[table] = Array.isArray(done[table]) ? done[table] : [];
+          for (var j = 0; j < names.length; j++) {
+            var n = String(names[j] || '').trim();
+            if (!n || done[table].indexOf(lc(n)) >= 0) continue; // bir kez aktarılan ad, panelden silinse de geri gelmez
+            if ((await cloudInsertName(table, n)) === 'added') added.push(n);
+            if (table === 'special_units') await cloudInsertName('work_places', n);
+            done[table].push(lc(n)); changed = true;
+          }
+        }
+        if (changed) {
+          var w = reg.data ? await c.from('app_settings').update({ value: done }).eq('key', 'code_sync')
+                           : await c.from('app_settings').insert({ key: 'code_sync', value: done });
+          if (w.error) console.warn('Kod eşleştirme kaydı yazılamadı:', w.error);
+        }
+      }
+    } catch (e) { console.warn('Eşleştirme yapılamadı:', e); }
+    finally { S._syncing = false; }
+    if (added.length) { toast(added.length + ' yeni tanım Admin Paneli ile eşleştirildi: ' + added.join(', '), 'ok'); await fetchDefinitions(); }
+  }
+
+  // Uygulamanın kendi "ekle" pencereleri çalışmaya devam eder; eklenen ad Supabase'e de yazılır
+  function hookLocalAdders() {
+    var titleCase = typeof window.titleCase === 'function' ? window.titleCase : function (s) { return s; };
+    var wrap = function (fn, before) {
+      var orig = window[fn]; if (typeof orig !== 'function') return;
+      window[fn] = function () { var ctx = before.apply(this, arguments); var out = orig.apply(this, arguments); if (ctx) cloudAddFromApp(ctx.table, ctx.name, ctx.alsoWork); return out; };
+    };
+    wrap('addSpecialUnit', function () {
+      var el = $('newSpecialUnitName'); var n = el ? titleCase(el.value.trim()) : '';
+      return n ? { table: 'special_units', name: n, alsoWork: true } : null;
+    });
+    wrap('saveNewWorkplaceUnit', function () {
+      var el = $('newWorkplaceUnitName'); var n = el ? titleCase(el.value.trim()) : '';
+      return n ? { table: 'work_places', name: n } : null;
+    });
+    wrap('addQuick', function (nameOverride) {
+      var el = $('quickName'); var n = titleCase(String(nameOverride || (el && el.value) || '').trim());
+      if (!n) return null;
+      // Ana listede (Supabase) zaten olan ad tekrar eklenmez (ör. "Asistan Seç" penceresinden seçilenler)
+      /* global masterList */
+      var master = (typeof masterList !== 'undefined' && Array.isArray(masterList)) ? masterList : [];
+      var known = master.some(function (x) { return lc(x) === lc(n); }) ||
+        (S.defs && S.defs.assistants || []).some(function (a) { return lc(a.full_name) === lc(n); });
+      return known ? null : { table: 'assistants', name: n };
+    });
   }
 
   function computeRenames(prev, next) {
@@ -205,6 +322,7 @@
     if (S.isAdmin) {
       if (!S.channel) subscribeRealtime();
       await fetchDefinitions();
+      syncExtraDefinitions(); // uygulama ekranlarından / koddan eklenen yeni adları Supabase ile eşleştir
       if (S.pendingAfterLogin) { var f = S.pendingAfterLogin; S.pendingAfterLogin = null; f(); }
     }
   }
@@ -395,6 +513,7 @@
       '<button class="btn btn-success" onclick="NobetCloud.addAssistant()"><i class="fas fa-plus"></i> Ekle</button></div>';
     h += '<div class="nc-toolbar"><button class="btn btn-primary" onclick="NobetCloud.bulkActivation()" ' + (noAccount ? '' : 'disabled') + '><i class="fas fa-id-card"></i> Hesabı olmayanlara aktivasyon kodu üret (' + noAccount + ')</button>' +
       '<button class="btn btn-primary" onclick="NobetCloud.allCodes()" ' + (act.length ? '' : 'disabled') + ' title="Hesabı olmayanlara aktivasyon kodu, hesabı olanlara şifre sıfırlama kodu"><i class="fas fa-users"></i> Tüm personele kod üret (' + act.length + ')</button>' +
+      '</div><div class="nc-toolbar"><button class="btn btn-dark" onclick="NobetCloud.openMessagesPanel()"><i class="fas fa-envelope-open-text"></i> Asistanlardan Gelen İstekler</button>' +
       '<span id="ncPeriodQuick">' + periodQuickHtml() + '</span></div>';
     h += '<h3 class="nc-h3">Aktif Asistanlar <span class="nc-count">' + act.length + '</span></h3>';
     h += '<p class="nc-hint"><i class="fas fa-arrows-alt-v"></i> Sırayı değiştirmek için satırı tutup sürükleyin veya oklara basın. Bu sıra "Asistan Seç" ekranında kullanılır.</p>';
@@ -865,7 +984,7 @@
   function openMessagesPanel() {
     requireAdmin(function () {
       ensureModal('ncMsgModal', '<div class="modal-content nc-modal-lg">' +
-        '<div class="modal-header"><h2><i class="fas fa-envelope-open-text" style="color:var(--primary)"></i> Asistan İstek Mesajları</h2><span class="close-modal" onclick="NobetCloud.close(\'ncMsgModal\')">&times;</span></div>' +
+        '<div class="modal-header"><h2><i class="fas fa-envelope-open-text" style="color:var(--primary)"></i> Asistanlardan Gelen İstekler</h2><span class="close-modal" onclick="NobetCloud.close(\'ncMsgModal\')">&times;</span></div>' +
         '<div id="ncMsgBody"><div class="nc-empty"><i class="fas fa-spinner fa-spin"></i> Yükleniyor…</div></div></div>');
       show('ncMsgModal');
       loadPeriods();
@@ -901,21 +1020,28 @@
       ' · <span class="nc-badge ' + (p.is_open ? 'green' : 'gray') + '">' + (p.is_open ? 'Açık – personel yazabilir/düzenleyebilir' : 'Kapalı – düzenleme yapılamaz') + '</span></div>' +
       '<div class="nc-actions"><button title="Dönemi düzenle" onclick="NobetCloud.editPeriod()"><i class="fas fa-pen"></i></button>' +
       '<button class="btn ' + (p.is_open ? 'btn-warning' : 'btn-success') + '" onclick="NobetCloud.togglePeriod()">' + (p.is_open ? '<i class="fas fa-lock"></i> Dönemi Kapat' : '<i class="fas fa-lock-open"></i> Dönemi Aç') + '</button></div></div>';
-    h += '<div class="nc-stats"><span class="nc-badge green">Gönderen: ' + sent.length + '</span><span class="nc-badge amber">Göndermeyen: ' + notSent.length + '</span><button class="btn btn-ghost nc-ghost" onclick="NobetCloud.msgReload()"><i class="fas fa-sync"></i> Yenile</button></div>';
+    var allCount = sent.length + notSent.length;
+    var chip = function (key, cls, label, n) { return '<button class="nc-chip ' + cls + (M.filter === key ? ' active' : '') + '" onclick="NobetCloud.msgFilter(\'' + key + '\')">' + label + ' (' + n + ')</button>'; };
+    h += '<div class="nc-stats">' + chip('all', '', 'Tümü', allCount) + chip('sent', 'green', 'Gönderenler', sent.length) + chip('notsent', 'amber', 'Göndermeyenler', notSent.length) +
+      '<button class="btn btn-ghost nc-ghost" onclick="NobetCloud.msgReload()"><i class="fas fa-sync"></i> Yenile</button></div>';
     h += '<div class="nc-toolbar"><input class="nc-input" placeholder="Personel adına göre ara…" value="' + esc(M.search) + '" oninput="NobetCloud.msgSearch(this.value)">' +
-      '<select class="nc-input nc-select" onchange="NobetCloud.msgFilter(this.value)">' + [['all', 'Tümü'], ['sent', 'Gönderenler'], ['notsent', 'Göndermeyenler']].map(function (o) { return '<option value="' + o[0] + '"' + (M.filter === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select>' +
       '<select class="nc-input nc-select" onchange="NobetCloud.msgSort(this.value)">' + [['date_desc', 'En yeni mesaj önce'], ['date_asc', 'En eski mesaj önce'], ['name', 'Ada göre']].map(function (o) { return '<option value="' + o[0] + '"' + (M.sort === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></div>';
+    h += '<div class="nc-toolbar"><span class="nc-muted">Listelenenleri:</span>' +
+      '<button class="btn btn-ghost nc-ghost" onclick="NobetCloud.msgExport(\'print\')"><i class="fas fa-print"></i> Yazdır</button>' +
+      '<button class="btn btn-ghost nc-ghost" onclick="NobetCloud.msgExport(\'word\')"><i class="fas fa-file-word" style="color:#2b579a"></i> Word</button>' +
+      '<button class="btn btn-ghost nc-ghost" onclick="NobetCloud.msgExport(\'pdf\')"><i class="fas fa-file-pdf" style="color:#b91c1c"></i> PDF</button></div>';
     h += '<div id="ncMsgList"></div>';
     $('ncMsgBody').innerHTML = h;
     renderMessageList();
   }
-  function renderMessageList() {
+  // Ekranda görünen (filtre + arama + sıralama uygulanmış) liste; dışa aktarmada da aynısı kullanılır
+  function visibleMessageRows() {
     var M = S.msg, q = M.search.trim().toLocaleLowerCase('tr-TR');
     var rows = M.rows.filter(function (r) {
       if (q && r.full_name.toLocaleLowerCase('tr-TR').indexOf(q) < 0) return false;
       if (M.filter === 'sent') return !!r.message_id;
       if (M.filter === 'notsent') return !r.message_id && r.is_active;
-      return true;
+      return !!r.message_id || r.is_active;
     });
     rows.sort(function (a, b) {
       if (M.sort === 'name') return a.full_name.localeCompare(b.full_name, 'tr');
@@ -924,6 +1050,65 @@
       if (!ta) return 1; if (!tb) return -1;
       return M.sort === 'date_asc' ? ta - tb : tb - ta;
     });
+    return rows;
+  }
+
+  // Yazdır / Word / PDF: yalnızca başlık ("Dönem – Asistan İstekleri") ve Ad Soyad + İstek Mesajı tablosu
+  function msgExport(kind) {
+    var p = S.msg.periods.find(function (x) { return x.id === S.msg.periodId; }); if (!p) return;
+    var rows = visibleMessageRows();
+    if (!rows.length) { alertBox('Liste boş', 'Dışa aktarılacak kayıt yok.'); return; }
+    var title = p.title + ' – Asistan İstekleri';
+    var msgOf = function (r) { return r.message_id ? r.body : '(mesaj göndermedi)'; };
+    var fname = (p.title + ' - Asistan İstekleri').replace(/[\\/:*?"<>|]+/g, ' ').trim();
+    var tableHtml = function (forWord) {
+      return '<table' + (forWord ? ' width="100%" border="1" cellspacing="0" cellpadding="3"' : '') + '><colgroup><col style="width:24%"><col style="width:76%"></colgroup>' +
+        '<thead><tr><th>Ad Soyad</th><th>İstek Mesajı</th></tr></thead><tbody>' +
+        rows.map(function (r) { return '<tr><td>' + esc(r.full_name) + '</td><td class="m">' + esc(msgOf(r)).replace(/\r?\n/g, '<br>') + '</td></tr>'; }).join('') +
+        '</tbody></table>';
+    };
+    var css = 'body{font-family:Arial,Helvetica,sans-serif;margin:0;color:#000}' +
+      'h1{font-size:11pt;margin:0 0 2mm}' +
+      'table{width:calc(100% - 1mm);table-layout:fixed;border-collapse:collapse;font-size:8.5pt}' +
+      'thead{display:table-header-group}tr{page-break-inside:avoid}' +
+      'th,td{border:0.3mm solid #999;padding:0.6mm 1.5mm;text-align:left;vertical-align:top;overflow-wrap:anywhere;word-wrap:break-word;line-height:1.25}' +
+      'th{background:#eee}';
+    if (kind === 'print') {
+      var w = window.open('', '_blank', 'noopener=no'); if (!w) return;
+      w.document.write('<html><head><meta charset="utf-8"><title>' + esc(title) + '</title><style>@page{size:A4 portrait;margin:10mm}' + css + '</style></head><body><h1>' + esc(title) + '</h1>' + tableHtml(false) + '</body></html>');
+      w.document.close(); w.focus(); w.print();
+      return;
+    }
+    if (kind === 'word') {
+      var doc = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">' +
+        '<head><meta charset="utf-8"><title>' + esc(title) + '</title><style>@page WordSection1{size:21cm 29.7cm;margin:1cm}div.WordSection1{page:WordSection1}' +
+        'body{font-family:Arial;font-size:8.5pt}h1{font-size:11pt;margin:0 0 4pt}table{border-collapse:collapse;width:100%;table-layout:fixed}' +
+        'th,td{border:0.5pt solid #999;padding:1pt 3pt;vertical-align:top;font-size:8.5pt;mso-line-height-rule:exactly;line-height:10pt}th{background:#eee}tr{page-break-inside:avoid}</style></head>' +
+        '<body><div class="WordSection1"><h1>' + esc(title) + '</h1>' + tableHtml(true) + '</div></body></html>';
+      var blob = new Blob(['﻿', doc], { type: 'application/msword' });
+      var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = fname + '.doc';
+      document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 200);
+      return;
+    }
+    if (kind === 'pdf') {
+      if (!window.pdfMake) { alertBox('PDF', 'PDF kütüphanesi yüklenemedi; internet bağlantınızı kontrol edin.'); return; }
+      var body = [[{ text: 'Ad Soyad', bold: true, fillColor: '#eeeeee' }, { text: 'İstek Mesajı', bold: true, fillColor: '#eeeeee' }]]
+        .concat(rows.map(function (r) { return [r.full_name, msgOf(r)]; }));
+      window.pdfMake.createPdf({
+        pageSize: 'A4', pageMargins: [28, 28, 28, 28],
+        content: [
+          { text: title, fontSize: 11, bold: true, margin: [0, 0, 0, 6] },
+          { table: { headerRows: 1, dontBreakRows: true, widths: ['24%', '*'], body: body },
+            layout: { hLineWidth: function () { return 0.5; }, vLineWidth: function () { return 0.5; }, hLineColor: function () { return '#999'; }, vLineColor: function () { return '#999'; },
+                      paddingLeft: function () { return 3; }, paddingRight: function () { return 3; }, paddingTop: function () { return 1.5; }, paddingBottom: function () { return 1.5; } } }
+        ],
+        defaultStyle: { fontSize: 8, lineHeight: 1.1 }
+      }).download(fname + '.pdf');
+    }
+  }
+
+  function renderMessageList() {
+    var rows = visibleMessageRows();
     var el = $('ncMsgList'); if (!el) return;
     el.innerHTML = rows.length ? rows.map(function (r) {
       if (!r.message_id) return '<div class="nc-msg none"><div class="nc-msg-head"><b>' + esc(r.full_name) + '</b><span class="nc-badge amber">Mesaj göndermedi</span></div></div>';
@@ -940,8 +1125,8 @@
     ensureModal('ncEditModal', '<div class="modal-content nc-modal-sm">' +
       '<div class="modal-header"><h2><i class="fas fa-calendar-alt" style="color:var(--primary)"></i> ' + (p ? 'Dönemi Düzenle' : 'Yeni Nöbet Dönemi') + '</h2><span class="close-modal" onclick="NobetCloud.close(\'ncEditModal\')">&times;</span></div>' +
       '<label class="nc-label">Dönem adı</label><input class="nc-input" id="ncPTitle" value="' + esc(title) + '" placeholder="ör. Aralık 2026">' +
-      '<label class="nc-label">Başlangıç tarihi</label><input class="nc-input" type="date" id="ncPStart" value="' + esc(sd) + '">' +
-      '<label class="nc-label">Bitiş tarihi</label><input class="nc-input" type="date" id="ncPEnd" value="' + esc(ed) + '">' +
+      '<label class="nc-label">Başlangıç tarihi</label><input class="nc-input" type="date" id="ncPStart" value="' + esc(sd) + '" onclick="try{this.showPicker()}catch(e){}">' +
+      '<label class="nc-label">Bitiş tarihi</label><input class="nc-input" type="date" id="ncPEnd" value="' + esc(ed) + '" onclick="try{this.showPicker()}catch(e){}">' +
       '<div id="ncPErr" class="nc-err"></div>' +
       '<div class="nc-row-end"><button class="btn btn-ghost nc-ghost" onclick="NobetCloud.close(\'ncEditModal\')">Vazgeç</button><button class="btn btn-primary" id="ncPSave">' + (p ? 'Kaydet' : 'Oluştur ve Aç') + '</button></div></div>');
     $('ncPSave').onclick = async function () {
@@ -990,7 +1175,10 @@
       '@media (max-width:640px){.header{flex-wrap:wrap;gap:10px}.header>div:last-child{width:100%;justify-content:flex-start}.nc-admin-btn{padding:5px 10px;font-size:.8rem}}',
       '.nc-overlay .modal-content{box-sizing:border-box}',
       // Katman sırası: Admin Paneli < paneldeki alt pencereler < uygulamanın onay/uyarı pencereleri
-      '#ncAdminModal,#ncMsgModal{z-index:1000}',
+      '#ncAdminModal{z-index:1000}#ncMsgModal{z-index:1050}',
+      '.nc-chip{border:1px solid #cbd5e1;background:#fff;color:#334155;border-radius:16px;padding:5px 12px;font-weight:700;font-size:.82rem;cursor:pointer}',
+      '.nc-chip.active{background:var(--primary,#0f172a);color:#fff;border-color:var(--primary,#0f172a)}.nc-chip.green.active{background:#166534;border-color:#166534}.nc-chip.amber.active{background:#b45309;border-color:#b45309}',
+      'input[type=date].nc-input{cursor:pointer}',
       '#ncLoginModal,#ncEditModal,#ncCodesModal,#ncNewPwModal{z-index:1100}',
       '#generalConfirmModal,#generalAlertModal{z-index:2000}',
       '.nc-modal-lg{width:980px!important;max-width:96%!important;max-height:90vh!important;padding:22px!important}',
@@ -1021,6 +1209,7 @@
       '.nc-arrows{display:inline-flex;gap:2px}.nc-arrows button,.nc-actions button,.nc-copy{background:#fff;border:1px solid #e2e8f0;border-radius:6px;width:28px;height:28px;cursor:pointer;color:#475569;display:inline-flex;align-items:center;justify-content:center}',
       '.nc-arrows button:disabled{opacity:.3;cursor:default}',
       '.nc-actions{margin-left:auto;display:inline-flex;gap:4px;align-items:center}.nc-actions .warn{color:#b45309}.nc-actions .ok{color:#15803d}.nc-actions .danger{color:#b91c1c}',
+      '.nc-actions button.btn{width:auto;height:auto;padding:6px 12px;white-space:nowrap;color:#fff}',
       '.nc-name{font-weight:600;color:#0f172a;display:flex;flex-direction:column;min-width:0;overflow-wrap:anywhere}.nc-name small{font-weight:400;color:#64748b;font-size:.75rem}',
       '.nc-lock{color:#94a3b8;font-size:.75rem}',
       '.nc-rank{font-weight:800;color:var(--primary,#0f172a);width:22px;text-align:center}',
@@ -1050,10 +1239,10 @@
     updateChrome();
   }
 
-  // Eski yerel "birim ekle/sil" pencereleri, merkezi yönetim varken Admin Paneli'ne yönlendirilir
-  // (yerel ekleme bir sonraki senkronizasyonda kaybolacağı için).
+  // Uygulamadaki "birim düzenle/sil" pencereleri Admin Paneli'ne yönlendirilir (silme/pasife alma merkezi yapılır).
+  // "Ekle" pencereleri ise çalışmaya devam eder ve hookLocalAdders ile Supabase'e eşleştirilir.
   function redirectLocalEditors() {
-    var map = { openAddSpecialUnitModal: 'special', openEditSpecialUnitsModal: 'special', addNewWorkplaceUnit: 'work', deleteWorkplaceUnit: 'work' };
+    var map = { openEditSpecialUnitsModal: 'special', deleteWorkplaceUnit: 'work' };
     Object.keys(map).forEach(function (fn) {
       var orig = window[fn];
       if (typeof orig !== 'function') return;
@@ -1068,6 +1257,7 @@
     injectCss();
     bindChrome();
     redirectLocalEditors();
+    hookLocalAdders();
     var cache = cacheRead();
     if (cache) { applyDefinitions(cache, { fromCache: true }); setStatus('cache'); }
     if (!C.configured) return;
@@ -1101,13 +1291,14 @@
     jokerSave: jokerSave, jokerReset: jokerReset, jokerDefault: jokerDefault,
     msgPeriod: function (id) { S.msg.periodId = id; loadMessages(); },
     msgSearch: function (v) { S.msg.search = v; renderMessageList(); },
-    msgFilter: function (v) { S.msg.filter = v; renderMessageList(); },
+    msgFilter: function (v) { S.msg.filter = v; renderMessages(); },
+    msgExport: msgExport,
     msgSort: function (v) { S.msg.sort = v; renderMessageList(); },
     msgReload: function () { loadPeriods(S.msg.periodId); },
     newPeriod: function () { periodForm(null); },
     editPeriod: function () { periodForm(S.msg.periods.find(function (x) { return x.id === S.msg.periodId; })); },
     togglePeriod: togglePeriod, copyMsg: copyMsg,
-    allCodes: allCodes, quickPeriod: quickPeriod,
+    allCodes: allCodes, quickPeriod: quickPeriod, syncNow: syncExtraDefinitions,
     exportBackup: function () { if (typeof window.exportSettings === 'function') window.exportSettings(); },
     importBackup: function () { var i = $('importSettingsInput'); if (i) i.click(); },
     _state: S, _derive: deriveDefinitions

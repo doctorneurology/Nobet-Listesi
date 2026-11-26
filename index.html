@@ -11,9 +11,9 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
     <!-- Supabase (merkezi tanımlar + Asistan İstek Mesajları). Bağlantı yoksa uygulama yerel kayıtlarla çalışmaya devam eder. -->
     <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js" integrity="sha384-0w2KAL2YHP6wKOkUDzkCDGgVvfmHnj02DHeQ6XcHOgTfFsGyonKOpShMH1x6nk9o" crossorigin="anonymous"></script>
-    <script defer src="config.js?v=20261126i"></script>
-    <script defer src="cloud-core.js?v=20261126i"></script>
-    <script defer src="cloud-admin.js?v=20261126i"></script>
+    <script defer src="config.js?v=20261126k"></script>
+    <script defer src="cloud-core.js?v=20261126k"></script>
+    <script defer src="cloud-admin.js?v=20261126k"></script>
 
     <style>
 /* Becayiş Tablosunda Tarih Sütununu Genişletme */
@@ -1304,7 +1304,6 @@ div[id*="becayis"] .modal-content {
             <div style="display:flex; flex-direction:column; align-items:stretch; justify-content:center; gap:12px; flex:0 0 260px; min-width:240px;">
                 <button type="button" class="btn btn-warning" style="width:100%; min-height:44px;" onclick="window.openConstraintModal()"><i class="fas fa-ban"></i> Kişi Bazlı Kısıtlamalar</button>
                 <button class="btn btn-ghost" style="width:100%; min-height:44px; border:1px solid #cbd5e1; color:#475569; font-weight:600; padding:8px 15px; border-radius:20px; background:#f1f5f9;" onclick="openFridayModal()"><i class="fas fa-calendar-times" style="color:#3b82f6;"></i> Gün Bazlı Kısıtlamalar</button>
-                <button type="button" id="ncMessagesBtn" class="btn btn-primary" style="display:none; width:100%; min-height:44px; background:var(--primary);"><i class="fas fa-envelope-open-text"></i> Asistan İstek Mesajları</button>
             </div>
         </div>
 
@@ -2107,6 +2106,19 @@ window.addEventListener('DOMContentLoaded', () => {
     // Asistan ana listesi artık Supabase'te tutulur (Admin Paneli → Asistanlar); kişisel veri koda yazılmaz.
     // Bağlantı yokken bu bilgisayarda en son kaydedilen liste (nobetData.masterList) kullanılır.
     const DEFAULT_MASTER = [];
+
+    // ===== KODDAN EKLEME =====
+    // Yeni asistan / özellikli birim / görev yeri buraya da yazılabilir. Yönetici girişi yapıldığında
+    // listede olup Supabase'te bulunmayan adlar otomatik eklenir (özellikli birimler görev yerlerine de eklenir)
+    // ve Admin Paneli ile eşleşir. Bir ad bir kez aktarıldıktan sonra panelden silinse bile tekrar eklenmez.
+    // DİKKAT: Bu dosya GitHub'da herkese açıktır; buraya yazılan asistan adları herkes tarafından görülebilir.
+    // Örnek: assistants: ["Ayşe Yılmaz"], specialUnits: ["Epilepsi"], workplaceUnits: ["Nöropsikoloji"]
+    const CODE_DEFINITIONS = {
+        assistants: [],
+        specialUnits: [],
+        workplaceUnits: []
+    };
+    window.__nobetCodeDefinitions = CODE_DEFINITIONS;
     function resolveSavedMasterList(saved) {
         return (Array.isArray(saved) && saved.length) ? saved.filter(n => typeof n === 'string' && n.trim()).slice() : DEFAULT_MASTER.slice();
     }
