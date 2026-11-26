@@ -6,7 +6,7 @@
 import { createClient } from "jsr:@supabase/supabase-js@2.45.4";
 import {
   corsHeaders, json, HttpError, serviceClient, staffEmail, normalizeUsername, isValidUsername,
-  normalizeCode, generateCode, hashCode, timingSafeEqual, validatePassword, CODE_LENGTH,
+  normalizeCode, generateCode, hashCode, timingSafeEqual, validatePassword, staffAuthPassword, CODE_LENGTH,
 } from "../_shared/util.ts";
 
 const MAX_FAILS = 5;
@@ -65,7 +65,7 @@ async function redeem(svc: Svc, body: Record<string, unknown>) {
   let authUserId: string | null = a.auth_user_id;
   if (authUserId) {
     const { error } = await svc.auth.admin.updateUserById(authUserId, {
-      password, email: staffEmail(username), email_confirm: true, ban_duration: "none",
+      password: staffAuthPassword(password), email: staffEmail(username), email_confirm: true, ban_duration: "none",
     });
     if (error) {
       if (!/not found/i.test(error.message)) throw new HttpError(500, "Şifre kaydedilemedi.");
@@ -74,7 +74,7 @@ async function redeem(svc: Svc, body: Record<string, unknown>) {
   }
   if (!authUserId) {
     const { data: created, error } = await svc.auth.admin.createUser({
-      email: staffEmail(username), password, email_confirm: true,
+      email: staffEmail(username), password: staffAuthPassword(password), email_confirm: true,
       app_metadata: { role: "staff", assistant_id: a.id },
     });
     if (error || !created?.user) throw new HttpError(500, "Hesap oluşturulamadı.");

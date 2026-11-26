@@ -13,6 +13,8 @@ const DOMAIN = "personel.nobet.invalid";
 const svc = createClient(URL, SERVICE, { auth: { persistSession: false } });
 const newClient = () => createClient(URL, ANON, { auth: { persistSession: false, autoRefreshToken: false } });
 const RUN = Date.now().toString(36);
+// Personel şifresi Supabase Auth'a sabit ön ekle gider (cloud-core.js staffAuthPassword ile aynı)
+const SP = (p) => "nobet|" + p;
 
 let pass = 0, fail = 0;
 const results = [];
@@ -96,21 +98,23 @@ const { data: codeRows } = await svc.from("account_codes").select("code_hash").e
 check("Kodlar düz metin saklanmıyor", codeRows?.every((r) => r.code_hash !== ra.code && r.code_hash.length === 64));
 
 // 11/12. Aktivasyon + tek kullanım
-const pwA = "SifreA12345", pwB = "SifreB12345";
+const pwA = "1", pwB = "SifreB12345";
 const red1 = await fn("account-public", { action: "redeem", username: ra.username, code: ra.code, password: pwA });
 check("11. Kullanıcı adı + aktivasyon kodu ile şifre belirleme", red1.status === 200 && red1.body.ok, JSON.stringify(red1.body));
 const red2 = await fn("account-public", { action: "redeem", username: ra.username, code: ra.code, password: "BaskaSifre999" });
 check("12. Aktivasyon kodu ikinci kez kullanılamaz", red2.status === 400, JSON.stringify(red2.body));
-const weak = await fn("account-public", { action: "redeem", username: rb.username, code: rb.code, password: "123" });
-check("Zayıf şifre reddedilir", weak.status === 400);
+const tooLong = await fn("account-public", { action: "redeem", username: rb.username, code: rb.code, password: "12345678901234567" });
+check("16 karakterden uzun şifre reddedilir", tooLong.status === 400);
+const empty = await fn("account-public", { action: "redeem", username: rb.username, code: rb.code, password: "" });
+check("Boş şifre reddedilir", empty.status === 400);
 const redB = await fn("account-public", { action: "redeem", username: rb.username, code: rb.code, password: pwB });
 check("İkinci personel aktivasyonu", redB.status === 200, JSON.stringify(redB.body));
 await fn("account-public", { action: "redeem", username: rc.username, code: rc.code, password: "SifreC12345" });
 
-const sA = await login(`${ra.username}@${DOMAIN}`, pwA);
+const sA = await login(`${ra.username}@${DOMAIN}`, SP(pwA));
 check("11. Personel kullanıcı adı + şifre ile giriş yapar", !!sA.token, sA.error?.message);
-const sB = await login(`${rb.username}@${DOMAIN}`, pwB);
-const wrongPw = await login(`${ra.username}@${DOMAIN}`, "YanlisSifre1");
+const sB = await login(`${rb.username}@${DOMAIN}`, SP(pwB));
+const wrongPw = await login(`${ra.username}@${DOMAIN}`, SP("YanlisSifre1"));
 check("Yanlış şifre ile giriş yapılamaz", !wrongPw.token);
 
 // Şifreler yöneticiye görünmez: assistants satırında şifre/hash yok
@@ -184,7 +188,7 @@ const afterDeact = await sA.c.from("request_messages").select("*");
 check("2. Pasif asistanın açık oturumu veri okuyamaz", (afterDeact.data ?? []).length === 0);
 const sendDeact = await sA.c.from("request_messages").update({ body: "pasifken" }).eq("id", mA.data?.id).select();
 check("2. Pasif asistan mesaj gönderemez/düzenleyemez", !!sendDeact.error || (sendDeact.data ?? []).length === 0);
-const loginDeact = await login(`${ra.username}@${DOMAIN}`, pwA);
+const loginDeact = await login(`${ra.username}@${DOMAIN}`, SP(pwA));
 check("2. Pasif asistan yeniden giriş yapamaz", !loginDeact.token);
 const refresh = await sA.c.auth.refreshSession();
 check("2. Pasif asistanın oturumu yenilenemez", !refresh.data?.session, refresh.error?.message);
@@ -197,7 +201,7 @@ check("Pasif asistan için sıfırlama başlatılamaz", resetDeact.status === 40
 
 const react = await fn("admin-accounts", { action: "set_active", assistant_id: A.id, active: true }, admin.token);
 check("Asistan yeniden aktifleştirilir", react.status === 200 && react.body.assistant?.is_active === true);
-const loginReact = await login(`${ra.username}@${DOMAIN}`, pwA);
+const loginReact = await login(`${ra.username}@${DOMAIN}`, SP(pwA));
 check("Yeniden aktif hesap giriş yapabilir", !!loginReact.token, loginReact.error?.message);
 const reactMsgs = await loginReact.c.from("request_messages").select("*");
 check("Yeniden aktif olunca eski mesajı görünür", (reactMsgs.data ?? []).length === 1);
@@ -208,8 +212,8 @@ check("Yönetici sıfırlama kodu üretir", rs.status === 200 && !!rs.body.code,
 const newPwB = "YeniSifreB777";
 const rsUse = await fn("account-public", { action: "redeem", username: rb.username, code: rs.body.code, password: newPwB });
 check("Sıfırlama kodu ile yeni şifre belirlenir", rsUse.status === 200);
-check("Eski şifre artık çalışmaz", !(await login(`${rb.username}@${DOMAIN}`, pwB)).token);
-check("Yeni şifre çalışır", !!(await login(`${rb.username}@${DOMAIN}`, newPwB)).token);
+check("Eski şifre artık çalışmaz", !(await login(`${rb.username}@${DOMAIN}`, SP(pwB))).token);
+check("Yeni şifre çalışır", !!(await login(`${rb.username}@${DOMAIN}`, SP(newPwB))).token);
 const rsUse2 = await fn("account-public", { action: "redeem", username: rb.username, code: rs.body.code, password: "UcuncuSifre88" });
 check("Sıfırlama kodu tek kullanımlık", rsUse2.status === 400);
 
@@ -234,14 +238,14 @@ const rr = await fn("account-public", { action: "request_reset", username: rb.us
 check("E-posta ile sıfırlama isteği bilgi sızdırmadan yanıtlanır", rr.status === 200 && rr.body.ok);
 
 // Personel kendi kullanıcı adını değiştirir
-const sB2 = await login(`${rb.username}@${DOMAIN}`, newPwB);
+const sB2 = await login(`${rb.username}@${DOMAIN}`, SP(newPwB));
 const wantName = `Yeni.Ğü${RUN}`.slice(0, 30);
 const expected = wantName.toLocaleLowerCase("tr-TR").replace("ğ", "g").replace("ü", "u");
 const ch1 = await fn("account-public", { action: "set_own_username", username: wantName }, sB2.token);
 check("Personel kendi kullanıcı adını değiştirebilir (Türkçe karakter çevrilir)", ch1.status === 200 && ch1.body.username === expected, JSON.stringify(ch1.body));
-check("Yeni kullanıcı adıyla giriş yapılır", !!(await login(`${expected}@${DOMAIN}`, newPwB)).token);
-check("Eski kullanıcı adıyla giriş yapılamaz", !(await login(`${rb.username}@${DOMAIN}`, newPwB)).token);
-const loginA = await login(`${ra.username}@${DOMAIN}`, pwA);
+check("Yeni kullanıcı adıyla giriş yapılır", !!(await login(`${expected}@${DOMAIN}`, SP(newPwB))).token);
+check("Eski kullanıcı adıyla giriş yapılamaz", !(await login(`${rb.username}@${DOMAIN}`, SP(newPwB))).token);
+const loginA = await login(`${ra.username}@${DOMAIN}`, SP(pwA));
 const steal = await fn("account-public", { action: "set_own_username", username: expected }, loginA.token);
 check("Başkasının kullanıcı adı alınamaz", steal.status === 409, String(steal.status));
 const anonCh = await fn("account-public", { action: "set_own_username", username: `kotu${RUN}` });

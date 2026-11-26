@@ -568,15 +568,16 @@
       var css = '@page{size:A4 portrait;margin:10mm}' +
         'body{font-family:Arial,Helvetica,sans-serif;margin:0;color:#000}' +
         'h1{font-size:12pt;margin:0 0 1mm}p{font-size:8.5pt;margin:0 0 3mm;color:#333}' +
-        'table{width:100%;border-collapse:collapse;font-size:9.5pt}' +
+        // Sabit sütun genişlikleri: uzun ad sayfa dışına taşımaz, kesilip "…" ile biter; kenarlık için 1 mm pay bırakılır
+        'table{width:calc(100% - 1mm);table-layout:fixed;border-collapse:collapse;font-size:9.5pt}' +
         'thead{display:table-header-group}tr{page-break-inside:avoid;height:6mm}' +
-        'th,td{border:0.3mm solid #999;padding:0 2mm;text-align:left;white-space:nowrap}' +
-        'th{background:#eee;font-size:8.5pt}td.n{width:7mm;text-align:right;color:#666}' +
+        'th,td{border:0.3mm solid #999;padding:0 1.5mm;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-sizing:border-box}' +
+        'th{background:#eee;font-size:8.5pt}td.n{text-align:right;color:#666}' +
         'td.c{font-family:Consolas,monospace;font-size:11pt;font-weight:bold;letter-spacing:1px}' +
         'td.u{font-family:Consolas,monospace}';
       w.document.write('<html><head><meta charset="utf-8"><title>' + esc(title) + '</title><style>' + css + '</style></head><body>' +
         '<h1>' + esc(title) + '</h1><p>Giriş adresi: ' + esc(url) + ' → "Kod ile şifre belirleyin" · Her kod tek kullanımlıktır.</p>' +
-        '<table><thead><tr><th>#</th><th>Ad Soyad</th><th>Kullanıcı adı</th><th>Kod</th><th>Son geçerlilik</th></tr></thead><tbody>' +
+        '<table><colgroup><col style="width:7%"><col style="width:40%"><col style="width:20%"><col style="width:11%"><col style="width:22%"></colgroup><thead><tr><th>#</th><th>Ad Soyad</th><th>Kullanıcı adı</th><th>Kod</th><th>Son geçerlilik</th></tr></thead><tbody>' +
         ok.map(function (r, i) {
           return '<tr><td class="n">' + (i + 1) + '</td><td>' + esc(r.full_name) + '</td><td class="u">' + esc(r.username) + '</td><td class="c">' + esc(r.code) + '</td><td>' + esc(C.fmtDateTime(r.expires_at)) + '</td></tr>';
         }).join('') + '</tbody></table></body></html>');

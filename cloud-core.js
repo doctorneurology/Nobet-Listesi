@@ -111,6 +111,9 @@
     return String(u || '').trim().toLocaleLowerCase('tr-TR').replace(/[çğıöşüâîû]/g, function (c) { return map[c] || c; })
       .normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, '');
   }
+  // Personel şifresi 1-16 karakter serbest; Supabase'in en az 6 karakter kuralı için sabit ön ekle gönderilir
+  // (sunucudaki staffAuthPassword ile aynı olmalı).
+  function staffAuthPassword(p) { return 'nobet|' + String(p == null ? '' : p); }
   function staffEmail(username) { return normalizeUsername(username) + '@' + (cfg.staffEmailDomain || 'personel.nobet.invalid'); }
 
   function esc(s) {
@@ -144,6 +147,6 @@
     configured: configured, config: cfg, getClient: getClient, callFunction: callFunction,
     staffEmail: staffEmail, normalizeUsername: normalizeUsername, esc: esc, friendlyError: friendlyError,
     getRemember: getRemember, setRemember: setRemember, fmtDateTime: fmtDateTime, fmtDate: fmtDate,
-    setToken: setToken, diagnose: diagnose
+    setToken: setToken, diagnose: diagnose, staffAuthPassword: staffAuthPassword
   };
 })();

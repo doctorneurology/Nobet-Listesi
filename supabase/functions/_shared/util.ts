@@ -86,10 +86,16 @@ export function timingSafeEqual(a: string, b: string): boolean {
   return r === 0;
 }
 
+// Personel şifresi: 1-16 karakter, içerik serbest (kullanıcı kararı).
+// Supabase Auth en az 6 karakter istediği için şifre sabit bir ön ekle saklanır; giriş sayfası da aynı
+// ön eki ekleyerek giriş yapar (cloud-core.js → staffAuthPassword). Ön ek değiştirilirse tüm personel şifreleri geçersiz olur.
+export const STAFF_PW_PREFIX = "nobet|";
 export function validatePassword(p: unknown): string {
   const s = String(p ?? "");
-  if (s.length < 8) throw new HttpError(400, "Şifre en az 8 karakter olmalıdır.");
-  if (s.length > 72) throw new HttpError(400, "Şifre en fazla 72 karakter olabilir.");
-  if (!/[A-Za-zÇĞİÖŞÜçğıöşü]/.test(s) || !/[0-9]/.test(s)) throw new HttpError(400, "Şifre en az bir harf ve bir rakam içermelidir.");
+  if (s.length < 1) throw new HttpError(400, "Şifre boş olamaz.");
+  if ([...s].length > 16) throw new HttpError(400, "Şifre en fazla 16 karakter olabilir.");
   return s;
+}
+export function staffAuthPassword(p: string): string {
+  return STAFF_PW_PREFIX + p;
 }
