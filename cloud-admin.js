@@ -576,6 +576,15 @@
     ['backup', 'fa-file-export', 'Yedekleme'],
     ['audit', 'fa-history', 'Değişiklik Kaydı']
   ];
+  // Üst düzey düğmeler; birden çok alt sekmesi olanlar içte ikinci bir sıra gösterir
+  var GROUPS = [
+    ['assistants', 'fa-user-md', 'Asistanlar', ['assistants']],
+    ['places', 'fa-map-marked-alt', 'Çalışma ve Nöbet Yerleri', ['special', 'work', 'rules', 'joker']],
+    ['settings', 'fa-cog', 'Ayarlar', ['backup', 'audit']]
+  ];
+  var GROUP_LAST = {};
+  function groupOf(leaf) { for (var i = 0; i < GROUPS.length; i++) if (GROUPS[i][3].indexOf(leaf) >= 0) return GROUPS[i]; return GROUPS[0]; }
+  function leafLabel(id) { for (var i = 0; i < TABS.length; i++) if (TABS[i][0] === id) return TABS[i]; return null; }
 
   // ---- Nöbet yerleri (1. Ayarlar → Nöbet Yerleri) ve Joker sayısı (3. Çalışma Yerleri → Joker kutucukları)
   var JOKER_LABELS = { j2: '2. Joker', j3: '3. Joker', j4: '4. Joker', j5: 'İzin Jokeri' };
@@ -643,9 +652,14 @@
   function renderPanel() {
     var tabs = $('ncTabs'), body = $('ncPanelBody');
     if (!tabs || !body) return;
-    tabs.innerHTML = TABS.map(function (t) {
-      return '<button class="nc-tab' + (S.tab === t[0] ? ' active' : '') + '" onclick="NobetCloud.tab(\'' + t[0] + '\')"><i class="fas ' + t[1] + '"></i> ' + t[2] + '</button>';
-    }).join('');
+    var g = groupOf(S.tab);
+    GROUP_LAST[g[0]] = S.tab;
+    tabs.innerHTML = '<div class="nc-tabrow">' + GROUPS.map(function (t) {
+      return '<button class="nc-tab' + (t[0] === 'assistants' ? ' nc-tab-red' : '') + (g[0] === t[0] ? ' active' : '') + '" onclick="NobetCloud.tab(\'' + t[0] + '\')"><i class="fas ' + t[1] + '"></i> ' + t[2] + '</button>';
+    }).join('') + '</div>' + (g[3].length > 1 ? '<div class="nc-subtabs">' + g[3].map(function (id) {
+      var t = leafLabel(id);
+      return '<button class="nc-subtab' + (S.tab === id ? ' active' : '') + '" onclick="NobetCloud.tab(\'' + id + '\')"><i class="fas ' + t[1] + '"></i> ' + t[2] + '</button>';
+    }).join('') + '</div>' : '');
     if (!S.defs) { body.innerHTML = '<div class="nc-empty"><i class="fas fa-spinner fa-spin"></i> Yükleniyor…</div>'; return; }
     if (S.tab === 'assistants') body.innerHTML = renderAssistants();
     else if (S.tab === 'special') body.innerHTML = renderUnits('special_units');
@@ -1483,9 +1497,14 @@
       '.nc-modal-sm{width:440px!important;max-width:94%!important;padding:22px!important}',
       '.nc-head-right{display:flex;align-items:center;gap:14px}',
       '.nc-sync{font-size:.78rem;color:#475569;display:inline-flex;align-items:center;gap:6px}.nc-dot{width:9px;height:9px;border-radius:50%;display:inline-block}',
-      '.nc-tabs{display:flex;gap:6px;flex-wrap:wrap;margin:-8px 0 16px;border-bottom:1px solid #e2e8f0;padding-bottom:10px}',
+      '.nc-tabs{margin:-8px 0 16px;border-bottom:1px solid #e2e8f0;padding-bottom:10px}',
+      '.nc-tabrow,.nc-subtabs{display:flex;gap:6px;flex-wrap:wrap}',
+      '.nc-subtabs{margin-top:10px;padding:8px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px}',
+      '.nc-subtab{background:#fff;border:1px solid #cbd5e1;color:#334155;border-radius:16px;padding:5px 11px;font-weight:600;font-size:.78rem;cursor:pointer}',
+      '.nc-subtab.active{background:#334155;color:#fff;border-color:#334155}',
       '.nc-tab{background:#f1f5f9;border:1px solid #e2e8f0;color:#334155;border-radius:20px;padding:6px 12px;font-weight:700;font-size:.82rem;cursor:pointer}',
       '.nc-tab.active{background:var(--primary,#0f172a);color:#fff;border-color:var(--primary,#0f172a)}',
+      '.nc-tab.nc-tab-red{background:#dc2626;border-color:#dc2626;color:#fff}.nc-tab.nc-tab-red.active{background:#991b1b;border-color:#7f1d1d;box-shadow:0 0 0 2px #fecaca}',
       '.nc-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}',
       '.nc-input{padding:9px 11px;border:1px solid #cbd5e1;border-radius:8px;font-size:.9rem;flex:1 1 220px;min-width:0;box-sizing:border-box;width:100%}',
       '.nc-select{flex:0 1 auto;width:auto}',
@@ -1585,7 +1604,7 @@
     openAdminPanel: openAdminPanel, openMessagesPanel: openMessagesPanel, openLogin: openLogin, logout: logout,
     refresh: fetchDefinitions,
     close: function (id) { var m = $(id); if (m) m.style.display = 'none'; },
-    tab: function (t) { if (S.tab === 'joker' && t !== 'joker' && S.jokerDirty && !confirm('Joker sıralamasındaki kaydedilmemiş değişiklikler kaybolacak. Devam edilsin mi?')) return; if (t !== 'joker') { S.jokerDirty = false; S.jokerDraft = null; } S.tab = t; renderPanel(); },
+    tab: function (t) { for (var gi = 0; gi < GROUPS.length; gi++) if (GROUPS[gi][0] === t && !leafLabel(t)) t = GROUP_LAST[t] || GROUPS[gi][3][0]; if (S.tab === 'joker' && t !== 'joker' && S.jokerDirty && !confirm('Joker sıralamasındaki kaydedilmemiş değişiklikler kaybolacak. Devam edilsin mi?')) return; if (t !== 'joker') { S.jokerDirty = false; S.jokerDraft = null; } S.tab = t; renderPanel(); },
     addAssistant: addAssistant, editAssistant: editAssistant, setActive: setActive, deleteAssistant: deleteAssistant,
     bulkActivation: bulkActivation, codeFor: codeFor, runImport: runImport,
     addUnit: addUnit, renameUnit: renameUnit, toggleUnit: toggleUnit, deleteUnit: deleteUnit, move: move,
