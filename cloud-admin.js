@@ -448,7 +448,6 @@
     if (adminBtn) adminBtn.style.display = shown ? 'inline-flex' : 'none';
     if (loginBtn) { loginBtn.style.display = (C.configured && !shown) ? 'inline-flex' : 'none'; loginBtn.title = 'Admin Paneli'; loginBtn.setAttribute('aria-label', 'Admin Paneli'); }
     if (msgBtn) msgBtn.style.display = shown ? 'inline-flex' : 'none';
-    var who = $('ncWho'); if (who) who.innerHTML = '<i class="fas fa-lock-open"></i> Şifresiz yönetim · Tüm değişiklikler Değişiklik Kaydı\'nda saklanır.';
   }
 
   // ------------------------------------------------------------------ giriş penceresi
@@ -625,7 +624,7 @@
       '<div class="modal-header"><h2><i class="fas fa-user-shield" style="color:var(--primary)"></i> Admin Paneli</h2>' +
       '<div class="nc-head-right"><span class="nc-sync"><button class="nc-copylink" type="button" title="Personel giriş adresini kopyala" onclick="NobetCloud.copyStaffUrl()"><i class="fas fa-copy"></i></button> Personel giriş adresi:<a href="personel.html" target="_blank" rel="noopener">personel.html</a></span><span id="ncSyncStatus" class="nc-sync"></span><span class="close-modal" onclick="NobetCloud.close(\'ncAdminModal\')">&times;</span></div></div>' +
       '<div class="nc-tabs" id="ncTabs"></div><div id="ncPanelBody"></div>' +
-      '<div class="nc-foot"><span class="nc-muted" id="ncWho"></span></div></div>');
+      '</div>');
     setStatus(S.status);
     updateChrome();
     show('ncAdminModal');
@@ -752,7 +751,6 @@
     var pas = list.filter(function (a) { return !a.is_active; });
     var noAccount = act.filter(function (a) { return a.account_status !== 'active'; }).length;
     var h = '';
-    if (list.length === 0) h += renderImportBox();
     h += '<div class="nc-toolbar"><input class="nc-input" id="ncNewAsName" placeholder="Ad Soyad yazıp Ekle\'ye basın" onkeydown="if(event.key===\'Enter\')NobetCloud.addAssistant()">' +
       '<button class="btn btn-success" onclick="NobetCloud.addAssistant()"><i class="fas fa-plus"></i> Ekle</button></div>';
     // Kod üretme düğmeleri tek "Kod" düğmesinin altında
@@ -769,9 +767,11 @@
       h += '<p class="nc-hint"><i class="fas fa-arrows-alt-v"></i> Sırayı değiştirmek için satırı tutup sürükleyin veya oklara basın. Bu sıra "Asistan Seç" ekranında kullanılır.</p>';
       h += '<div class="nc-list" data-dnd="assistants">' + act.map(function (a, i) { return assistantRow(a, i, act.length); }).join('') + '</div>';
     }
-    h += '<h3 class="nc-h3">Pasif Asistanlar <span class="nc-count">' + pas.length + '</span></h3>';
-    h += pas.length ? '<div class="nc-list">' + pas.map(function (a) { return assistantRow(a, -1, 0); }).join('') + '</div>' : '<div class="nc-empty">Pasif asistan yok.</div>';
-    if (list.length > 0) h += '<details class="nc-details"><summary>Bu bilgisayardaki eski listeden eksik isimleri aktar</summary>' + renderImportBox(true) + '</details>';
+    // Pasif asistanlar da aynı biçimde açılır kutuda
+    h += '<div class="nc-toolbar"><button class="btn btn-dark" onclick="NobetCloud.togglePassiveList()"><i class="fas ' + (S.showPassive ? 'fa-chevron-up' : 'fa-chevron-down') + '"></i> Pasif Asistanlar <span class="nc-count" style="background:#fff;color:#0f172a">' + pas.length + '</span></button></div>';
+    if (S.showPassive) {
+      h += pas.length ? '<div class="nc-list">' + pas.map(function (a) { return assistantRow(a, -1, 0); }).join('') + '</div>' : '<div class="nc-empty">Pasif asistan yok.</div>';
+    }
     return h;
   }
   function assistantRow(a, i, n) {
@@ -1690,6 +1690,7 @@
     msgPeriod: function (id) { S.msg.periodId = id; loadMessages(); },
     msgExport: msgExport, importCalendar: importCalendar, deletePeriod: deletePeriod,
     toggleActiveList: function () { S.showActive = !S.showActive; renderPanel(); },
+    togglePassiveList: function () { S.showPassive = !S.showPassive; renderPanel(); },
     toggleCodes: function () { S.showCodeBtns = !S.showCodeBtns; renderPanel(); },
     rulesAdd: rulesAdd, rulesMove: rulesMove, rulesDel: rulesDel, rulesJoker: rulesJoker,
     copyStaffUrl: function () {
