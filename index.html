@@ -11,9 +11,9 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
     <!-- Supabase (merkezi tanımlar + Asistan İstek Mesajları). Bağlantı yoksa uygulama yerel kayıtlarla çalışmaya devam eder. -->
     <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js" integrity="sha384-0w2KAL2YHP6wKOkUDzkCDGgVvfmHnj02DHeQ6XcHOgTfFsGyonKOpShMH1x6nk9o" crossorigin="anonymous"></script>
-    <script defer src="config.js?v=20261127l"></script>
-    <script defer src="cloud-core.js?v=20261127l"></script>
-    <script defer src="cloud-admin.js?v=20261127l"></script>
+    <script defer src="config.js?v=20261127m"></script>
+    <script defer src="cloud-core.js?v=20261127m"></script>
+    <script defer src="cloud-admin.js?v=20261127m"></script>
 
     <style>
 /* Becayiş Tablosunda Tarih Sütununu Genişletme */
@@ -3665,6 +3665,7 @@ if (actionVal === null) {
     } else if (unit === "Konsültan") {
         if (owners["Konsültan"]) auto.push(owners["Konsültan"]);
     } else if (unit === "Yoğun Bakım") {
+        if (owners["Yoğun Bakım"]) auto.push(owners["Yoğun Bakım"]);   // tek "Yoğun Bakım" özellikli birimi kullanılıyorsa
         if (owners["Yoğun Bakım 1"]) auto.push(owners["Yoğun Bakım 1"]);
         if (owners["Yoğun Bakım 2"]) auto.push(owners["Yoğun Bakım 2"]);
     } else {
