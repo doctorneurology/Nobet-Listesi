@@ -230,7 +230,8 @@
         c.from('special_units').select('*'),
         c.from('work_places').select('*'),
         c.from('app_settings').select('*').eq('key', 'joker_priority').maybeSingle(),
-        S.isAdmin ? c.from('assistants').select('id,username,contact_email,auth_user_id') : Promise.resolve({ data: [] })
+        S.isAdmin ? c.from('assistants').select('id,username,contact_email,auth_user_id') : Promise.resolve({ data: [] }),
+        c.from('app_settings').select('*').eq('key', 'app_rules').maybeSingle()
       ]);
       var err = r.find(function (x) { return x.error; });
       if (err) throw err.error;
@@ -238,12 +239,14 @@
       var d = {
         assistants: (r[0].data || []).map(function (a) { return Object.assign({}, a, acc[a.id] || {}); }),
         special_units: r[1].data || [], work_places: r[2].data || [],
-        joker_priority: r[3].data ? r[3].data.value : null, joker_priority_row: r[3].data || null
+        joker_priority: r[3].data ? r[3].data.value : null, joker_priority_row: r[3].data || null,
+        app_rules: r[5].data ? r[5].data.value : null, app_rules_row: r[5].data || null
       };
       S.defs = d;
       S.lastFetch = Date.now();
       cacheWrite(minimalCache(d));
       applyDefinitions(d);
+      syncRulesFromCloud(d);
       if (S.status !== 'live') setStatus(S.channel ? 'connecting' : 'cache');
       if (isPanelOpen()) renderPanel();
       return true;
@@ -252,6 +255,51 @@
       setStatus('offline');
       return false;
     }
+  }
+
+  // ---- Nöbet yerleri + Joker sayısı (app_settings.app_rules) ↔ uygulama
+  function sameRules(a, b) { return JSON.stringify(a || null) === JSON.stringify(b || null); }
+  function currentRules() { return typeof window.__nobetCurrentRules === 'function' ? window.__nobetCurrentRules() : null; }
+  function syncRulesFromCloud(d) {
+    if (typeof window.__nobetApplyRules !== 'function') return;
+    if (!d.app_rules) {
+      // Supabase'te henüz yoksa bu bilgisayardaki ayarla başlat (oturum başına bir kez denenir)
+      if (S._seededRules) return; S._seededRules = true;
+      var cur = currentRules(); if (cur && cur.duty_places.length) writeRules(cur);
+      return;
+    }
+    S.lastRules = d.app_rules;           // uygulamadan geri yazmayı (döngüyü) önler
+    S._applyingRules = true;
+    try { window.__nobetApplyRules(d.app_rules); } finally { S._applyingRules = false; }
+  }
+  async function writeRules(rules) {
+    if (!S.isAdmin || !S.defs) return false;
+    var c = C.getClient(), row = S.defs.app_rules_row;
+    var r = row ? await c.from('app_settings').update({ value: rules }).eq('key', 'app_rules').eq('version', row.version).select()
+                : await c.from('app_settings').insert({ key: 'app_rules', value: rules }).select();
+    if (r.error || !r.data || !r.data.length) {
+      if (r.error && !/duplicate|23505/i.test(String(r.error.code) + r.error.message)) console.warn('Nöbet ayarları kaydedilemedi:', r.error);
+      await fetchDefinitions(); // çakışma: güncel hâli al
+      return false;
+    }
+    S.defs.app_rules = rules; S.defs.app_rules_row = r.data[0]; S.lastRules = rules;
+    return true;
+  }
+  // Uygulama ekranından (Nöbet Yerleri penceresi / Joker kutucukları) yapılan değişiklik saveData ile yakalanır
+  function pushRulesSoon() {
+    if (S._applyingRules) return;
+    clearTimeout(S._rulesTimer);
+    S._rulesTimer = setTimeout(function () {
+      var cur = currentRules();
+      if (!cur || !cur.duty_places.length || !S.defs || sameRules(cur, S.lastRules)) return;
+      writeRules(cur).then(function (ok) { if (ok) toast('Nöbet yerleri / Joker ayarı Admin Paneli ile eşleştirildi', 'ok'); if (isPanelOpen() && S.tab === 'rules') renderPanel(); });
+    }, 700);
+  }
+  function hookSaveData() {
+    var orig = window.saveData; if (typeof orig !== 'function' || orig.__ncHooked) return;
+    var wrapped = function () { var out = orig.apply(this, arguments); try { pushRulesSoon(); } catch (e) {} return out; };
+    wrapped.__ncHooked = true;
+    window.saveData = wrapped;
   }
 
   function scheduleRefetch() {
@@ -506,7 +554,7 @@
     if (tab) S.tab = tab;
     ensureModal('ncAdminModal', '<div class="modal-content nc-modal-lg">' +
       '<div class="modal-header"><h2><i class="fas fa-user-shield" style="color:var(--primary)"></i> Admin Paneli</h2>' +
-      '<div class="nc-head-right"><span class="nc-sync"><i class="fas fa-link"></i> Personel giriş adresi: <a href="personel.html" target="_blank" rel="noopener">personel.html</a></span><span id="ncSyncStatus" class="nc-sync"></span><span class="close-modal" onclick="NobetCloud.close(\'ncAdminModal\')">&times;</span></div></div>' +
+      '<div class="nc-head-right"><span class="nc-sync"><button class="nc-copylink" type="button" title="Personel giriş adresini kopyala" onclick="NobetCloud.copyStaffUrl()"><i class="fas fa-copy"></i></button> Personel giriş adresi:<a href="personel.html" target="_blank" rel="noopener">personel.html</a></span><span id="ncSyncStatus" class="nc-sync"></span><span class="close-modal" onclick="NobetCloud.close(\'ncAdminModal\')">&times;</span></div></div>' +
       '<div class="nc-tabs" id="ncTabs"></div><div id="ncPanelBody"></div>' +
       '<div class="nc-foot"><span class="nc-muted" id="ncWho"></span></div></div>');
     setStatus(S.status);
@@ -520,9 +568,60 @@
     ['special', 'fa-star', 'Özellikli Birimler'],
     ['work', 'fa-briefcase', 'Görev Yerleri'],
     ['joker', 'fa-sort-amount-down', 'Joker Öncelik Sıralaması'],
+    ['rules', 'fa-map-marker-alt', 'Nöbet Yerleri ve Jokerler'],
     ['backup', 'fa-file-export', 'Yedekleme'],
     ['audit', 'fa-history', 'Değişiklik Kaydı']
   ];
+
+  // ---- Nöbet yerleri (1. Ayarlar → Nöbet Yerleri) ve Joker sayısı (3. Çalışma Yerleri → Joker kutucukları)
+  var JOKER_LABELS = { j2: '2. Joker', j3: '3. Joker', j4: '4. Joker', j5: 'İzin Jokeri' };
+  function rulesNow() {
+    var r = (S.defs && S.defs.app_rules) || currentRules() || { duty_places: [], jokers: {} };
+    return JSON.parse(JSON.stringify({ duty_places: r.duty_places || [], jokers: r.jokers || {} }));
+  }
+  function renderRules() {
+    var r = rulesNow(), n = r.duty_places.length;
+    var h = '<div class="nc-info">Bu ayarlar uygulamadaki <b>1. Ayarlar → Nöbet Yerleri</b> penceresi ve <b>3. Çalışma Yerleri</b> sayfasındaki Joker kutucuklarıyla aynıdır. ' +
+      'Nereden değiştirirseniz değiştirin diğer yerde ve diğer bilgisayarlarda otomatik güncellenir.</div>';
+    h += '<h3 class="nc-h3">Nöbet Yerleri <span class="nc-count">' + n + '</span></h3>';
+    h += '<div class="nc-toolbar"><input class="nc-input" id="ncNewPlace" placeholder="Yeni nöbet yeri adı" onkeydown="if(event.key===\'Enter\')NobetCloud.rulesAdd()">' +
+      '<button class="btn btn-success" onclick="NobetCloud.rulesAdd()"><i class="fas fa-plus"></i> Ekle</button></div>';
+    h += '<div class="nc-list">' + r.duty_places.map(function (p, i) {
+      return '<div class="nc-item"><span class="nc-arrows"><button ' + (i === 0 ? 'disabled' : '') + ' onclick="NobetCloud.rulesMove(' + i + ',-1)"><i class="fas fa-chevron-up"></i></button>' +
+        '<button ' + (i === n - 1 ? 'disabled' : '') + ' onclick="NobetCloud.rulesMove(' + i + ',1)"><i class="fas fa-chevron-down"></i></button></span>' +
+        '<span class="nc-name">' + esc(p) + '</span><span class="nc-actions">' +
+        (n > 1 ? '<button title="Kaldır" class="danger" onclick="NobetCloud.rulesDel(' + i + ')"><i class="fas fa-trash"></i></button>' : '') + '</span></div>';
+    }).join('') + '</div>';
+    h += '<h3 class="nc-h3">Jokerler</h3><p class="nc-hint">1. Joker her zaman açıktır. Açık olan Jokerler 3. Çalışma Yerleri sayfasında seçilebilir.</p><div class="nc-toolbar">' +
+      ['j2', 'j3', 'j4', 'j5'].map(function (k) {
+        return '<label class="nc-check nc-jk"><input type="checkbox" ' + (r.jokers[k] ? 'checked' : '') + ' onchange="NobetCloud.rulesJoker(\'' + k + '\', this.checked)"> ' + JOKER_LABELS[k] + '</label>';
+      }).join('') + '</div>';
+    return h;
+  }
+  async function saveRulesFromPanel(next) {
+    if (!(await writeRules(next))) { alertBox('Kaydedilemedi', 'Ayar başka bir oturumda değiştirildi veya sunucuya ulaşılamadı; güncel hâli yüklendi.'); renderPanel(); return; }
+    S._applyingRules = true;
+    try { if (typeof window.__nobetApplyRules === 'function') window.__nobetApplyRules(next); } finally { S._applyingRules = false; }
+    toast('Kaydedildi', 'ok'); renderPanel();
+  }
+  function rulesAdd() {
+    var inp = $('ncNewPlace'); var name = titleCaseTR(inp && inp.value);
+    if (!name) return;
+    var r = rulesNow();
+    if (name === 'Refakatçi' || r.duty_places.some(function (p) { return lc(p) === lc(name); })) { alertBox('Eklenemedi', 'Bu nöbet yeri zaten var.'); return; }
+    r.duty_places.push(name); saveRulesFromPanel(r);
+  }
+  function rulesMove(i, dir) {
+    var r = rulesNow(), j = i + dir; if (j < 0 || j >= r.duty_places.length) return;
+    r.duty_places.splice(j, 0, r.duty_places.splice(i, 1)[0]); saveRulesFromPanel(r);
+  }
+  function rulesDel(i) {
+    var r = rulesNow(), name = r.duty_places[i]; if (!name) return;
+    confirmBox('Nöbet Yerini Kaldır', name + ' nöbet yeri kaldırılacak. Uygulamadaki "Nöbet Yerleri" penceresinden silmekle aynıdır: bu yerin kotaları tüm asistanlardan kaldırılır ve oluşturulmuş nöbet listesi sonuçları sıfırlanır. Devam edilsin mi?', function () {
+      r.duty_places.splice(i, 1); saveRulesFromPanel(r);
+    });
+  }
+  function rulesJoker(k, v) { var r = rulesNow(); r.jokers[k] = !!v; saveRulesFromPanel(r); }
 
   // Uygulamanın kendi Dışa Aktar / İçe Aktar işlevleri (exportSettings / importSettings, index.html)
   function renderBackup() {
@@ -548,6 +647,7 @@
     else if (S.tab === 'special') body.innerHTML = renderUnits('special_units');
     else if (S.tab === 'work') body.innerHTML = renderUnits('work_places');
     else if (S.tab === 'joker') body.innerHTML = renderJoker();
+    else if (S.tab === 'rules') body.innerHTML = renderRules();
     else if (S.tab === 'backup') body.innerHTML = renderBackup();
     else if (S.tab === 'audit') {
       if (!S.isAdmin) body.innerHTML = '<div class="nc-empty"><i class="fas fa-lock"></i> Değişiklik kaydı kişisel bilgiler içerdiği için yalnızca <a href="#" onclick="NobetCloud.openLogin(function(){NobetCloud.openAdminPanel(\'audit\')});return false;">yönetici girişiyle</a> görüntülenir. Kayıt her durumda tutulmaya devam eder.</div>';
@@ -1128,8 +1228,10 @@
   // ---- Takvimden Aktar: personelin takvim işaretlerini uygulamanın 4. İstekler takvimine (docs[].avail) işler.
   // Uygulamanın kendi kuralları uygulanır: istenen gün için kota ve nöbet arası boşluk kuralı; izin tüm yerleri kapsar.
   /* global docs, dates, activePlaces, refakatciMode */
-  function planCalendarImport(overwrite, commit) {
-    var report = { persons: [], missing: [], total: 0 };
+  // Kullanıcı kararı (2026-11-27): takvim işaretlemesi yapmış kişinin bu nöbet dönemindeki eski işaretleri
+  // önce silinir, sonra takvimden gelenler işlenir. (Takvim kullanmayan kişilere dokunulmaz.)
+  function planCalendarImport(commit) {
+    var report = { persons: [], missing: [], total: 0, cleared: 0 };
     var appDocs = (typeof docs !== 'undefined' && Array.isArray(docs)) ? docs : [];
     var appDates = (typeof dates !== 'undefined' && Array.isArray(dates)) ? dates : [];
     var places = (typeof activePlaces !== 'undefined' ? activePlaces.slice() : []);
@@ -1139,13 +1241,15 @@
       if (!real) { report.missing.push(r.full_name); return; }
       var d = commit ? real : JSON.parse(JSON.stringify(real));
       if (!d.avail) d.avail = {};
-      var res = { name: r.full_name, applied: 0, outside: 0, existing: 0, rule: 0, choose: [] };
+      var res = { name: r.full_name, applied: 0, outside: 0, cleared: 0, rule: 0, choose: [] };
+      // 1) Bu kişinin uygulamadaki nöbet dönemine ait eski işaretlerini sil
+      appDates.forEach(function (x) { if (d.avail[x.str] && Object.keys(d.avail[x.str]).length) { res.cleared++; delete d.avail[x.str]; } });
+      report.cleared += res.cleared;
+      // 2) Takvimden gelenleri işle
       Object.keys(r.marks).sort().forEach(function (ds) {
         var type = r.marks[ds], dObj = appDates.find(function (x) { return x.str === ds; });
         if (!dObj) { res.outside++; return; }
-        var has = d.avail[ds] && Object.keys(d.avail[ds]).length;
-        if (has && !overwrite) { res.existing++; return; }
-        var prev = d.avail[ds]; d.avail[ds] = {};
+        d.avail[ds] = {};
         var myPlaces = (Array.isArray(d.allowed) && d.allowed.length ? d.allowed : places).filter(function (p) { return places.indexOf(p) >= 0; });
         if (type === 'permit') {
           places.forEach(function (p) { d.avail[ds][p] = 'permit'; }); d.avail[ds].GENERAL = 'permit'; res.applied++;
@@ -1166,8 +1270,7 @@
             if (ok) { d.avail[ds][p] = 'wanted'; res.applied++; } else res.rule++;
           } else res.rule++;
         }
-        // Uygulanamayan (ör. kotası dolu) istekte eski işaret korunur
-        if (!Object.keys(d.avail[ds]).length) { if (prev && Object.keys(prev).length) d.avail[ds] = prev; else delete d.avail[ds]; }
+        if (!Object.keys(d.avail[ds]).length) delete d.avail[ds];
       });
       report.total += res.applied;
       report.persons.push(res);
@@ -1180,11 +1283,10 @@
     if (!withMarks.length) { alertBox('Takvimden Aktar', 'Bu dönemde takvim işaretlemesi yapan personel yok.'); return; }
     var appStart = $('startDate') && $('startDate').value, appEnd = $('endDate') && $('endDate').value;
     var render = function () {
-      var ow = $('ncImpOverwrite') && $('ncImpOverwrite').checked;
-      var rep = planCalendarImport(ow, false);
+      var rep = planCalendarImport(false);
       var rowsHtml = rep.persons.map(function (x) {
         var skip = [];
-        if (x.existing) skip.push(x.existing + ' gün zaten işaretli');
+        if (x.cleared) skip.push(x.cleared + ' eski işaret silinecek');
         if (x.rule) skip.push(x.rule + ' istenen gün kota/boşluk kuralına uymadı veya kişiye nöbet yeri atanmamış');
         if (x.outside) skip.push(x.outside + ' gün uygulamadaki tarih aralığı dışında');
         var choose = x.choose.length ? '<div class="nc-choose"><i class="fas fa-hand-pointer"></i> Yer seçimi sizde (birden fazla nöbet yerinde çalışıyor): <b>' +
@@ -1193,22 +1295,21 @@
       }).join('');
       $('ncImpBody').innerHTML =
         '<p class="nc-hint">Uygulamadaki nöbet dönemi: <b>' + esc(C.fmtDate(appStart) || '?') + ' – ' + esc(C.fmtDate(appEnd) || '?') + '</b>. İstek dönemi: <b>' + esc(p.title) + '</b>. Yalnızca bu dönemin listesinde (2. Asistanlar) bulunan kişilere aktarılır.</p>' +
-        '<table class="nc-table"><thead><tr><th>Asistan</th><th>Aktarılacak gün</th><th>Atlanan</th></tr></thead><tbody>' + (rowsHtml || '<tr><td colspan="3" class="nc-muted">Aktarılacak kişi yok.</td></tr>') + '</tbody></table>' +
+        '<table class="nc-table"><thead><tr><th>Asistan</th><th>Aktarılacak gün</th><th>Notlar</th></tr></thead><tbody>' + (rowsHtml || '<tr><td colspan="3" class="nc-muted">Aktarılacak kişi yok.</td></tr>') + '</tbody></table>' +
         (rep.missing.length ? '<p class="nc-warn" style="margin-top:8px">Bu dönemin asistan listesinde olmadığı için atlanacak: ' + rep.missing.map(esc).join(', ') + '</p>' : '') +
         '<p class="nc-hint"><i class="fas fa-info-circle"></i> Personel yalnızca günü işaretler; nöbet yerini siz 2. Asistanlar\'da belirlersiniz ve aktarım bunu değiştirmez. İzinli ve istenmeyen günler günün tamamı için işlenir. ' +
         'İstenen gün yalnızca tek nöbet yerinde çalışan kişide o yere işlenir; birden fazla yerde çalışanlarda yer seçimi size bırakılır. Aktarımdan sonra 4. İstekler takviminde dilediğiniz gibi düzenleyebilirsiniz. ' +
-        'Aktarım, istek değişikliği olduğu için daha önce oluşturulmuş nöbet listesi sonuçlarını sıfırlar.</p>';
-      $('ncImpGo').disabled = rep.total === 0;
+        'Aktarım, istek değişikliği olduğu için daha önce oluşturulmuş nöbet listesi sonuçlarını sıfırlar.</p>' +
+        '<p class="nc-warn"><i class="fas fa-exclamation-triangle"></i> Takvim işaretlemesi yapan kişilerin bu nöbet dönemindeki <b>eski işaretleri (toplam ' + rep.cleared + ') silinir</b>, yerine takvimden gelenler yazılır. Takvim kullanmayan kişilerin işaretlerine dokunulmaz.</p>';
+      $('ncImpGo').disabled = rep.total === 0 && rep.cleared === 0;
       $('ncImpGo').innerHTML = '<i class="fas fa-file-import"></i> ' + rep.total + ' günü aktar';
     };
     ensureModal('ncImportModal', '<div class="modal-content nc-modal-lg">' +
       '<div class="modal-header"><h2><i class="fas fa-file-import" style="color:var(--primary)"></i> Takvimden Aktar</h2><span class="close-modal" onclick="NobetCloud.close(\'ncImportModal\')">&times;</span></div>' +
-      '<label class="nc-check"><input type="checkbox" id="ncImpOverwrite"> Mevcut işaretlerin üzerine yaz (işaretlenmemişse yalnızca boş günler doldurulur)</label>' +
       '<div id="ncImpBody"></div>' +
       '<div class="nc-row-end"><button class="btn btn-ghost nc-ghost" onclick="NobetCloud.close(\'ncImportModal\')">Vazgeç</button><button class="btn btn-success" id="ncImpGo"></button></div></div>');
-    $('ncImpOverwrite').onchange = render;
     $('ncImpGo').onclick = function () {
-      var rep = planCalendarImport($('ncImpOverwrite').checked, true);
+      var rep = planCalendarImport(true);
       try { if (typeof window.invalidateResults === 'function') window.invalidateResults(); } catch (e) {}
       try { if (typeof window.saveData === 'function') window.saveData(); } catch (e) {}
       try { if (typeof window.renderCal === 'function') window.renderCal(); } catch (e) {}
@@ -1372,7 +1473,7 @@
       '.nc-chip.active{background:var(--primary,#0f172a);color:#fff;border-color:var(--primary,#0f172a)}.nc-chip.green.active{background:#166534;border-color:#166534}.nc-chip.amber.active{background:#b45309;border-color:#b45309}',
       'input[type=date].nc-input{cursor:pointer}',
       '#ncLoginModal,#ncEditModal,#ncCodesModal,#ncNewPwModal,#ncAccModal,#ncImportModal{z-index:1100}',
-      '.nc-red{background:#dc2626;color:#fff}.nc-red:hover{background:#b91c1c}.nc-subbox{background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:8px}.nc-choose{margin-top:4px;color:#92400e;background:#fffbeb;border-radius:6px;padding:3px 6px;font-size:.8rem}.nc-msg-marks{margin-top:6px;font-size:.85rem;color:#1e3a8a;background:#eff6ff;border-radius:6px;padding:4px 8px}.nc-pdel{color:#b91c1c}.nc-msgsec{border-top:1px solid #e2e8f0;margin-top:6px;padding-top:10px}',
+      '.nc-copylink{background:#fff;border:1px solid #cbd5e1;border-radius:6px;width:26px;height:26px;cursor:pointer;color:#2563eb;display:inline-flex;align-items:center;justify-content:center}.nc-copylink:hover{background:#eff6ff}.nc-red{background:#dc2626;color:#fff}.nc-red:hover{background:#b91c1c}.nc-subbox{background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:8px}.nc-choose{margin-top:4px;color:#92400e;background:#fffbeb;border-radius:6px;padding:3px 6px;font-size:.8rem}.nc-msg-marks{margin-top:6px;font-size:.85rem;color:#1e3a8a;background:#eff6ff;border-radius:6px;padding:4px 8px}.nc-pdel{color:#b91c1c}.nc-msgsec{border-top:1px solid #e2e8f0;margin-top:6px;padding-top:10px}',
       '#generalConfirmModal,#generalAlertModal{z-index:2000}',
       '.nc-modal-lg{width:980px!important;max-width:96%!important;max-height:90vh!important;padding:22px!important}',
       '.nc-modal-sm{width:440px!important;max-width:94%!important;padding:22px!important}',
@@ -1453,6 +1554,7 @@
     bindChrome();
     redirectLocalEditors();
     hookLocalAdders();
+    hookSaveData();
     var cache = cacheRead();
     if (cache) { applyDefinitions(cache, { fromCache: true }); setStatus('cache'); }
     if (!C.configured) return;
@@ -1488,6 +1590,13 @@
     msgExport: msgExport, importCalendar: importCalendar, deletePeriod: deletePeriod,
     toggleActiveList: function () { S.showActive = !S.showActive; renderPanel(); },
     toggleCodes: function () { S.showCodeBtns = !S.showCodeBtns; renderPanel(); },
+    rulesAdd: rulesAdd, rulesMove: rulesMove, rulesDel: rulesDel, rulesJoker: rulesJoker,
+    copyStaffUrl: function () {
+      var url = new URL("personel.html", location.href).href;
+      var done = function () { toast("Personel giriş adresi kopyalandı: " + url, "ok"); };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(url).then(done, function () { prompt("Adresi kopyalayın:", url); });
+      else prompt("Adresi kopyalayın:", url);
+    },
     toggleMsgList: function () { S.msg.showList = !S.msg.showList; renderMessages(); },
     msgFilter: function (v) { S.msg.filter = v; renderMessages(); },
     msgExport: msgExport,

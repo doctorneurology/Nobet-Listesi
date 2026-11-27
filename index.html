@@ -11,9 +11,9 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
     <!-- Supabase (merkezi tanımlar + Asistan İstek Mesajları). Bağlantı yoksa uygulama yerel kayıtlarla çalışmaya devam eder. -->
     <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js" integrity="sha384-0w2KAL2YHP6wKOkUDzkCDGgVvfmHnj02DHeQ6XcHOgTfFsGyonKOpShMH1x6nk9o" crossorigin="anonymous"></script>
-    <script defer src="config.js?v=20261127e"></script>
-    <script defer src="cloud-core.js?v=20261127e"></script>
-    <script defer src="cloud-admin.js?v=20261127e"></script>
+    <script defer src="config.js?v=20261127f"></script>
+    <script defer src="cloud-core.js?v=20261127f"></script>
+    <script defer src="cloud-admin.js?v=20261127f"></script>
 
     <style>
 /* Becayiş Tablosunda Tarih Sütununu Genişletme */
@@ -2235,6 +2235,47 @@ window.addEventListener('DOMContentLoaded', () => {
         box.innerHTML = '<i class="fas fa-user-slash"></i> <strong>Pasif asistan bu dönemin listesinde:</strong> ' + hits.map(escHtml).join(', ') +
             '. Yeni nöbet listesine dahil edilmemesi için aşağıdaki tablodan çıkarabilirsiniz. (Otomatik silinmez; geçmiş listeler korunur.)';
     }
+    // ===== Nöbet yerleri (1. Ayarlar → Nöbet Yerleri) ve Joker sayısı (2./3./4. Joker, İzin Jokeri) =====
+    // Supabase'teki "app_rules" ayarı ile eşleşir; uygulama ekranından veya Admin Paneli'nden değiştirilebilir.
+    window.__nobetCurrentRules = function () {
+        const j = k => { const el = document.getElementById('joker' + k + 'Toggle'); return el ? !!el.checked : !!(jokerConfig && jokerConfig['j' + k + 'Enabled']); };
+        return { duty_places: activePlaces.slice(), jokers: { j2: j(2), j3: j(3), j4: j(4), j5: j(5) } };
+    };
+    // Uzaktan gelen ayarı uygular; uygulamanın kendi ekranlarındaki işlemlerle aynı etkiyi yapar.
+    window.__nobetApplyRules = function (rules) {
+        if (!rules) return false;
+        let placesChanged = false, jokersChanged = false;
+        if (Array.isArray(rules.duty_places) && rules.duty_places.length) {
+            const next = rules.duty_places.filter(p => typeof p === 'string' && p.trim() && p !== 'Refakatçi');
+            if (next.length && JSON.stringify(next) !== JSON.stringify(activePlaces)) {
+                const removed = activePlaces.filter(p => !next.includes(p));
+                const added = next.filter(p => !activePlaces.includes(p));
+                activePlaces = next.slice();
+                docs.forEach(d => {
+                    if (!d.targets) d.targets = {};
+                    added.forEach(n => { if (!d.targets[n]) d.targets[n] = { w: 0, e: 0 }; });
+                    removed.forEach(n => { delete d.targets[n]; d.allowed = (d.allowed || []).filter(a => a !== n); });
+                });
+                if (added.length) { try { normalizePermitMarks(); } catch (e) {} }
+                try { const m = document.getElementById('modalUnits'); if (m && m.style.display === 'flex') renderUnitsTable(); } catch (e) {}
+                try { renderTableRows(); updVal(); invalidateResults(); syncAllDropdowns(); } catch (e) { console.warn(e); }
+                placesChanged = true;
+            }
+        }
+        if (rules.jokers) {
+            [2, 3, 4, 5].forEach(k => {
+                if (rules.jokers['j' + k] === undefined) return;
+                const v = !!rules.jokers['j' + k];
+                const el = document.getElementById('joker' + k + 'Toggle');
+                if (el && el.checked !== v) { el.checked = v; try { window['toggleJoker' + k](); } catch (e) {} jokersChanged = true; }
+                if (jokerConfig) jokerConfig['j' + k + 'Enabled'] = v;
+            });
+            if (jokersChanged) { try { calculateJokerSchedule(); renderWorkplaceGrid(); } catch (e) { console.warn(e); } }
+        }
+        if (placesChanged || jokersChanged) saveData();
+        return placesChanged || jokersChanged;
+    };
+
     window.__nobetApplyDefinitions = function (defs) {
         if (!defs) return;
         backupBeforeFirstCloudApply();

@@ -9,8 +9,8 @@
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js" integrity="sha384-0w2KAL2YHP6wKOkUDzkCDGgVvfmHnj02DHeQ6XcHOgTfFsGyonKOpShMH1x6nk9o" crossorigin="anonymous"></script>
-<script defer src="config.js?v=20261127e"></script>
-<script defer src="cloud-core.js?v=20261127e"></script>
+<script defer src="config.js?v=20261127f"></script>
+<script defer src="cloud-core.js?v=20261127f"></script>
 <style>
   :root { --primary:#0f172a; --accent:#3b82f6; --ok:#16a34a; --err:#dc2626; --bg:#f1f5f9; --border:#e2e8f0; --muted:#64748b; }
   * { box-sizing: border-box; }
@@ -55,6 +55,15 @@
   .hbtns .sm { display:none; }
   .ov { position:fixed; inset:0; background:rgba(15,23,42,.55); display:flex; align-items:center; justify-content:center; padding:16px; z-index:50; }
   .ov .card { width:100%; max-width:420px; margin:0; }
+  .cf-icon { width:46px; height:46px; border-radius:50%; background:#fee2e2; color:#dc2626; display:flex; align-items:center; justify-content:center; font-size:1.2rem; margin:0 auto 10px; }
+  .cf-text { text-align:center; color:#334155; font-size:.92rem; line-height:1.5; margin:6px 0 16px; }
+  .cf-btns { display:flex; gap:8px; justify-content:center; }
+  .cf-btns .btn { width:auto; min-width:110px; }
+  .btn-danger { background:#dc2626; color:#fff; }
+  .btn-refresh { padding:6px 10px; font-size:.8rem; width:auto !important; }
+  .btn-refresh.spin i { animation:spin .8s linear infinite; } @keyframes spin { to { transform:rotate(360deg); } }
+  .pw-wrap { position:relative; } .pw-wrap input { padding-right:44px; }
+  .pw-eye { position:absolute; right:6px; top:50%; transform:translateY(-50%); background:none; border:none; color:#64748b; cursor:pointer; width:34px; height:34px; font-size:1rem; }
   /* Takvim */
   .tools { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin:10px 0; }
   .tool { border:2px solid transparent; border-radius:10px; padding:9px 4px; font:inherit; font-weight:700; font-size:.82rem; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:5px; }
@@ -120,6 +129,14 @@
   <div class="row" style="justify-content:flex-end; margin-top:10px">
     <button class="btn btn-primary" id="pwSave" type="button"><i class="fas fa-save"></i> Şifremi Kaydet</button>
   </div>
+</div></div>
+
+<!-- Onay / bilgi penceresi -->
+<div class="ov hidden" id="cfModal"><div class="card">
+  <div class="cf-icon"><i class="fas fa-exclamation-triangle"></i></div>
+  <h2 style="font-size:1.05rem;margin:0;text-align:center" id="cfTitle"></h2>
+  <div class="cf-text" id="cfText"></div>
+  <div class="cf-btns"><button class="btn btn-light" id="cfNo" type="button">Vazgeç</button><button class="btn btn-danger" id="cfYes" type="button">Evet</button></div>
 </div></div>
 
 <main>
@@ -194,7 +211,8 @@
     <div class="card">
       <div class="row between">
         <div><div class="status">Hoş geldiniz</div><div class="who" id="mName"></div></div>
-        <span class="pill green" id="mUser"></span>
+        <div class="row" style="gap:8px"><span class="pill green" id="mUser"></span>
+          <button class="btn btn-light btn-refresh" id="refreshBtn" type="button" title="Dönemi ve mesajlarımı yenile"><i class="fas fa-sync-alt"></i> Yenile</button></div>
       </div>
       <div id="mPeriodBox"></div>
       <div id="mEditor" class="hidden">
@@ -250,6 +268,42 @@ document.addEventListener('DOMContentLoaded', function () {
     $(id).addEventListener('mousedown', function (e) { down = e.target === $(id); });
     $(id).addEventListener('click', function (e) { if (down && e.target === $(id)) $(id).classList.add('hidden'); down = false; });
   });
+  // Modern onay penceresi (okLabel null ise yalnızca bilgi: tek "Tamam" düğmesi)
+  function askConfirm(title, text, okLabel, onOk) {
+    $('cfTitle').textContent = title; $('cfText').textContent = text;
+    $('cfYes').classList.toggle('hidden', !okLabel); $('cfYes').textContent = okLabel || '';
+    $('cfNo').textContent = okLabel ? 'Vazgeç' : 'Tamam';
+    $('cfYes').onclick = function () { $('cfModal').classList.add('hidden'); if (onOk) onOk(); };
+    $('cfNo').onclick = function () { $('cfModal').classList.add('hidden'); };
+    $('cfModal').classList.remove('hidden');
+  }
+  (function () { var down = false; var m = $('cfModal');
+    m.addEventListener('mousedown', function (e) { down = e.target === m; });
+    m.addEventListener('click', function (e) { if (down && e.target === m) m.classList.add('hidden'); down = false; }); })();
+
+  // Şifre alanlarına göster/gizle (göz) düğmesi
+  document.querySelectorAll('input[type=password]').forEach(function (inp) {
+    var wrap = document.createElement('div'); wrap.className = 'pw-wrap';
+    inp.parentNode.insertBefore(wrap, inp); wrap.appendChild(inp);
+    var eye = document.createElement('button'); eye.type = 'button'; eye.className = 'pw-eye'; eye.title = 'Şifreyi göster'; eye.setAttribute('aria-label', 'Şifreyi göster');
+    eye.innerHTML = '<i class="fas fa-eye"></i>';
+    eye.addEventListener('click', function () {
+      var showing = inp.type === 'text';
+      inp.type = showing ? 'password' : 'text';
+      eye.innerHTML = showing ? '<i class="fas fa-eye"></i>' : '<i class="fas fa-eye-slash"></i>';
+      eye.title = showing ? 'Şifreyi göster' : 'Şifreyi gizle';
+      inp.focus();
+    });
+    wrap.appendChild(eye);
+  });
+
+  // Yenile: dönem, takvim ve mesajlar sunucudan yeniden yüklenir (kaydedilmemiş taslak korunur)
+  $('refreshBtn').addEventListener('click', async function () {
+    var b = $('refreshBtn'); b.classList.add('spin'); b.disabled = true;
+    try { await loadPeriod(); } catch (e) {}
+    finally { b.classList.remove('spin'); b.disabled = false; }
+  });
+
   $('unBtn').addEventListener('click', function () { $('unNew').value = ''; setMsg('unMsg', ''); openOv('unModal'); });
   $('pwBtn').addEventListener('click', function () { ['pwCur', 'pwNew1', 'pwNew2'].forEach(function (i) { $(i).value = ''; }); setMsg('pwMsg', ''); openOv('pwModal'); });
 
@@ -432,11 +486,12 @@ document.addEventListener('DOMContentLoaded', function () {
         (m.body && m.body.trim() ? '<pre>' + C.esc(m.body) + '</pre>' : '') + '</div>';
     }).join('');
     $('mPast').querySelectorAll('[data-del]').forEach(function (b) {
-      b.onclick = async function () {
-        if (!confirm('Bu dönemdeki mesajınız ve takvim işaretleriniz kalıcı olarak silinecek. Emin misiniz?')) return;
-        var r = await client.from('request_messages').delete().eq('id', b.getAttribute('data-del')).select('id');
-        if (r.error || !r.data || !r.data.length) { alert('Silinemedi: ' + (r.error ? C.friendlyError(r.error) : 'yalnızca kapalı dönem mesajları silinebilir.')); return; }
-        loadPeriod();
+      b.onclick = function () {
+        askConfirm('Mesajı Sil', 'Bu dönemdeki mesajınız ve takvim işaretleriniz kalıcı olarak silinecek. Bu işlem geri alınamaz.', 'Evet, Sil', async function () {
+          var r = await client.from('request_messages').delete().eq('id', b.getAttribute('data-del')).select('id');
+          if (r.error || !r.data || !r.data.length) { askConfirm('Silinemedi', r.error ? C.friendlyError(r.error) : 'Yalnızca kapalı dönem mesajları silinebilir.', null, null); return; }
+          loadPeriod();
+        });
       };
     });
   }
