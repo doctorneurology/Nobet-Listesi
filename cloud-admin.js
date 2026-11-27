@@ -33,10 +33,12 @@
     setTimeout(function () { t.classList.remove('show'); setTimeout(function () { t.remove(); }, 300); }, 3500);
   }
   function alertBox(title, msg) {
-    if (typeof window.showModernAlert === 'function') window.showModernAlert(title, msg); else alert(title + '\n\n' + msg);
+    C.dialog({ title: title, message: msg, cancelText: null });
   }
+  function copyFallback(url) { C.dialog({ title: 'Adresi Kopyalayın', message: 'Otomatik kopyalanamadı. Adres seçili durumda; Ctrl+C (telefonda uzun basıp Kopyala) ile kopyalayın.', input: true, value: url, readonly: true, cancelText: null, okText: 'Tamam' }); }
   function confirmBox(title, msg, cb) {
-    if (typeof window.confirmAction === 'function') window.confirmAction(title, msg, cb); else if (confirm(title + '\n\n' + msg)) cb();
+    var danger = /sil|kald[ıi]r|pasif|kapat|yerine|kaybol/i.test(title + ' ' + msg);
+    C.dialog({ title: title, message: msg, danger: danger, okText: 'Evet' }).then(function (ok) { if (ok) cb(); });
   }
   function setStatus(s) {
     S.status = s;
@@ -1035,9 +1037,11 @@
   }
   function renameUnit(table, id) {
     var u = findUnit(table, id); if (!u) return;
-    var nn = prompt('Yeni ad:', u.name); if (nn == null) return;
+    C.dialog({ title: 'Adı Değiştir', message: '"' + u.name + '" için yeni adı yazın. Değişiklik uygulamadaki tüm ekranlara ve sorumlu atamalarına taşınır.', input: true, value: u.name, maxLength: 60, okText: 'Kaydet' }).then(function (nn) {
+    if (nn == null) return;
     nn = unitNameClean(nn); if (!nn || nn === u.name) return;
     updateUnit(table, u, { name: nn }).then(function () { toast('Ad değiştirildi', 'ok'); }).catch(function (e) { alertBox('Değiştirilemedi', C.friendlyError(e)); }).then(fetchDefinitions);
+    });
   }
   function toggleUnit(table, id, active) {
     var u = findUnit(table, id); if (!u) return;
@@ -1610,7 +1614,7 @@
     openAdminPanel: openAdminPanel, openMessagesPanel: openMessagesPanel, openLogin: openLogin, logout: logout,
     refresh: fetchDefinitions,
     close: function (id) { var m = $(id); if (m) m.style.display = 'none'; },
-    tab: function (t) { for (var gi = 0; gi < GROUPS.length; gi++) if (GROUPS[gi][0] === t && !leafLabel(t)) t = GROUP_LAST[t] || GROUPS[gi][3][0]; if (S.tab === 'joker' && t !== 'joker' && S.jokerDirty && !confirm('Joker sıralamasındaki kaydedilmemiş değişiklikler kaybolacak. Devam edilsin mi?')) return; if (t !== 'joker') { S.jokerDirty = false; S.jokerDraft = null; } S.tab = t; renderPanel(); },
+    tab: function (t) { for (var gi = 0; gi < GROUPS.length; gi++) if (GROUPS[gi][0] === t && !leafLabel(t)) t = GROUP_LAST[t] || GROUPS[gi][3][0]; if (S.tab === 'joker' && t !== 'joker' && S.jokerDirty && !S._jokerLeaveOk) { C.dialog({ title: 'Kaydedilmemiş Değişiklik', message: 'Joker sıralamasındaki kaydedilmemiş değişiklikler kaybolacak. Devam edilsin mi?', danger: true, okText: 'Devam et' }).then(function (ok) { if (ok) { S._jokerLeaveOk = true; try { NobetCloud.tab(t); } finally { S._jokerLeaveOk = false; } } }); return; } if (t !== 'joker') { S.jokerDirty = false; S.jokerDraft = null; } S.tab = t; renderPanel(); },
     addAssistant: addAssistant, editAssistant: editAssistant, setActive: setActive, deleteAssistant: deleteAssistant,
     bulkActivation: bulkActivation, codeFor: codeFor, runImport: runImport,
     addUnit: addUnit, renameUnit: renameUnit, toggleUnit: toggleUnit, deleteUnit: deleteUnit, move: move,
@@ -1623,8 +1627,8 @@
     copyStaffUrl: function () {
       var url = new URL("personel.html", location.href).href;
       var done = function () { toast("Personel giriş adresi kopyalandı: " + url, "ok"); };
-      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(url).then(done, function () { prompt("Adresi kopyalayın:", url); });
-      else prompt("Adresi kopyalayın:", url);
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(url).then(done, function () { copyFallback(url); });
+      else copyFallback(url);
     },
     toggleMsgList: function () { S.msg.showList = !S.msg.showList; renderMessages(); },
     msgFilter: function (v) { S.msg.filter = v; renderMessages(); },

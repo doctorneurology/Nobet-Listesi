@@ -11,9 +11,9 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
     <!-- Supabase (merkezi tanımlar + Asistan İstek Mesajları). Bağlantı yoksa uygulama yerel kayıtlarla çalışmaya devam eder. -->
     <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js" integrity="sha384-0w2KAL2YHP6wKOkUDzkCDGgVvfmHnj02DHeQ6XcHOgTfFsGyonKOpShMH1x6nk9o" crossorigin="anonymous"></script>
-    <script defer src="config.js?v=20261127j"></script>
-    <script defer src="cloud-core.js?v=20261127j"></script>
-    <script defer src="cloud-admin.js?v=20261127j"></script>
+    <script defer src="config.js?v=20261127k"></script>
+    <script defer src="cloud-core.js?v=20261127k"></script>
+    <script defer src="cloud-admin.js?v=20261127k"></script>
 
     <style>
 /* Becayiş Tablosunda Tarih Sütununu Genişletme */
@@ -2748,7 +2748,9 @@ let extraServisAssignments = {}; // { "2026-07-01": ["Ahmet Yılmaz","Ayşe Kaya
     
     // --- MODAL & ARAÇLAR ---
     let pendingConfirmAction = null;
-    function confirmAction(title, msg, callback) { document.getElementById('genConfirmTitle').innerText = title; document.getElementById('genConfirmMsg').innerText = msg; pendingConfirmAction = callback; document.getElementById('generalConfirmModal').style.display = 'flex'; }
+    function confirmAction(title, msg, callback) {
+        if (window.NobetCore && window.NobetCore.dialog) { window.NobetCore.dialog({ title: title, message: msg, danger: true, okText: 'Evet' }).then(ok => { if (ok && callback) callback(); }); return; }
+        document.getElementById('genConfirmTitle').innerText = title; document.getElementById('genConfirmMsg').innerText = msg; pendingConfirmAction = callback; document.getElementById('generalConfirmModal').style.display = 'flex'; }
     function executeConfirm() { if(pendingConfirmAction) pendingConfirmAction(); closeGenModal(); }
     function closeGenModal() { document.getElementById('generalConfirmModal').style.display = 'none'; pendingConfirmAction = null; }
     function closeAlertModal() { document.getElementById('generalAlertModal').style.display = 'none'; }
@@ -3179,7 +3181,7 @@ function initFridayTooltips() {
     function openConstraintModal() {
         const modal = document.getElementById('modalConstraints');
         if (!modal) {
-            alert('Kişi Bazlı Kısıtlamalar penceresi sayfada bulunamadı.');
+            showModernAlert('Uyarı', 'Kişi Bazlı Kısıtlamalar penceresi sayfada bulunamadı.');
             return;
         }
 
@@ -8413,13 +8415,13 @@ function resetSwapSchedule() {
         } else if (typeof showToast === 'function') {
             showToast('Tüm değişiklikler sıfırlandı.', 'info');
         } else {
-            alert('Tüm değişiklikler sıfırlandı.');
+            showModernAlert('Bilgi', 'Tüm değişiklikler sıfırlandı.');
         }
     } else {
         if (typeof showModernAlert === 'function') {
             showModernAlert('Uyarı', 'Geri alınacak orijinal bir nöbet listesi bulunamadı.');
         } else {
-            alert('Geri alınacak orijinal bir nöbet listesi bulunamadı.');
+            showModernAlert('Uyarı', 'Geri alınacak orijinal bir nöbet listesi bulunamadı.');
         }
     }
 }
@@ -8747,7 +8749,7 @@ function checkSwapEligibilityCore(src, tgt) {
 function saveSwapChanges() {
     if (!tempSwapSchedule || tempSwapSchedule.length === 0) {
         if (typeof showModernAlert === 'function') showModernAlert('Uyarı', 'Kaydedilecek nöbet listesi bulunamadı.');
-        else alert('Kaydedilecek nöbet listesi bulunamadı.');
+        else showModernAlert('Uyarı', 'Kaydedilecek nöbet listesi bulunamadı.');
         return;
     }
 
@@ -8866,7 +8868,6 @@ function saveSwapChanges() {
         : 'Becayiş değişiklikleri kaydedildi. Eski Joker planı sıfırlandı ve yeni nöbet listesine göre yeniden oluşturuldu; servis sayaçları güncellendi.';
     if (typeof showModernAlert === 'function') showModernAlert('Başarılı', successMessage);
     else if (typeof showToast === 'function') showToast(successMessage, 'success');
-    else alert(successMessage);
 }
 
     function recalculateJokerInStep6() {
@@ -9030,7 +9031,7 @@ document.addEventListener('change', function(e) {
 
 function saveBecayisSchedule() {
     if (!window.becayisState || !window.becayisState.currentSchedule) {
-        alert("Kaydedilecek nöbet listesi bulunamadı.");
+        showModernAlert('Uyarı', 'Kaydedilecek nöbet listesi bulunamadı.');
         return;
     }
     
@@ -9052,7 +9053,7 @@ function saveBecayisSchedule() {
     }
 
     closeModal('modalSwap');
-    alert("Becayiş değişikliği ve İcapçı Öğretim Üyesi bilgileri başarıyla kaydedildi.");
+    showModernAlert('Başarılı', 'Becayiş değişikliği ve İcapçı Öğretim Üyesi bilgileri başarıyla kaydedildi.');
 }
 
 // Modern Ekranı Temizle Modalını Açma
@@ -9122,6 +9123,7 @@ function clearBecayisScreenConfirmed() {
 
 // Modern Alert (Uyarı/Bilgi Pop-Up)
 function showModernAlert(title, message) {
+    if (window.NobetCore && window.NobetCore.dialog) { window.NobetCore.dialog({ title: title, message: message, cancelText: null }); return; }
     const alertModal = document.getElementById('generalAlertModal');
     if (alertModal) {
         const titleEl = document.getElementById('genAlertTitle') || alertModal.querySelector('.modal-title') || alertModal.querySelector('h2') || alertModal.querySelector('h3') || alertModal.querySelector('h5');
@@ -9130,7 +9132,7 @@ function showModernAlert(title, message) {
         if (bodyEl) bodyEl.innerText = message;
         alertModal.style.display = 'flex';
     } else {
-        alert(`${title}: ${message}`);
+        console.warn(title + ': ' + message);
     }
 }
 // Form alanlarında yapılan değişiklikleri ayrıca otomatik kaydet.

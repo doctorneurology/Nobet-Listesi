@@ -170,7 +170,82 @@
     return p.length === 3 ? p[2] + '.' + p[1] + '.' + p[0] : iso;
   }
 
+  // Modern iletişim kutusu (tarayıcının eski confirm/prompt/alert pencereleri yerine).
+  // dialog({ title, message, input: true|false, value, readonly, okText, cancelText (null = yalnızca Tamam), danger })
+  // → Promise: onay kutusunda true/false, metin girişinde yazılan metin / null
+  function ensureDialogStyle() {
+    if (document.getElementById('ncDialogStyle')) return;
+    var st = document.createElement('style'); st.id = 'ncDialogStyle';
+    st.textContent = [
+      '.ncd-back{position:fixed;inset:0;z-index:3000;background:rgba(15,23,42,.55);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;padding:16px;animation:ncdFade .15s ease-out}',
+      '.ncd-box{background:#fff;color:#0f172a;border-radius:16px;box-shadow:0 20px 50px rgba(0,0,0,.3);width:100%;max-width:420px;padding:22px 22px 18px;font-family:inherit;animation:ncdPop .18s ease-out}',
+      '.ncd-head{display:flex;align-items:center;gap:12px;margin-bottom:10px}',
+      '.ncd-ico{flex:0 0 40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.05rem;background:#e0f2fe;color:#0369a1}',
+      '.ncd-ico.danger{background:#fee2e2;color:#b91c1c}',
+      '.ncd-title{font-weight:800;font-size:1.05rem;margin:0}',
+      '.ncd-msg{color:#475569;font-size:.92rem;line-height:1.5;white-space:pre-line;margin:0 0 14px}',
+      '.ncd-input{width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:10px;padding:10px 12px;font-size:.95rem;margin:0 0 14px;outline:none;font-family:inherit}',
+      '.ncd-input:focus{border-color:#0f172a;box-shadow:0 0 0 3px rgba(15,23,42,.12)}',
+      '.ncd-btns{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap}',
+      '.ncd-btn{border:1px solid #cbd5e1;background:#fff;color:#334155;border-radius:10px;padding:9px 16px;font-weight:700;font-size:.88rem;cursor:pointer;font-family:inherit}',
+      '.ncd-btn:hover{background:#f1f5f9}',
+      '.ncd-btn.ok{background:#0f172a;border-color:#0f172a;color:#fff}.ncd-btn.ok:hover{background:#1e293b}',
+      '.ncd-btn.ok.danger{background:#dc2626;border-color:#dc2626}.ncd-btn.ok.danger:hover{background:#b91c1c}',
+      '@keyframes ncdFade{from{opacity:0}}@keyframes ncdPop{from{opacity:0;transform:translateY(8px) scale(.97)}}'
+    ].join('\n');
+    document.head.appendChild(st);
+  }
+  function dialog(o) {
+    o = o || {};
+    return new Promise(function (resolve) {
+      ensureDialogStyle();
+      var hasCancel = o.cancelText !== null;
+      var back = document.createElement('div'); back.className = 'ncd-back';
+      back.setAttribute('role', 'dialog'); back.setAttribute('aria-modal', 'true');
+      var box = document.createElement('div'); box.className = 'ncd-box'; back.appendChild(box);
+      var head = document.createElement('div'); head.className = 'ncd-head';
+      var ico = document.createElement('div'); ico.className = 'ncd-ico' + (o.danger ? ' danger' : '');
+      ico.innerHTML = '<i class="fas ' + (o.danger ? 'fa-exclamation-triangle' : o.input ? 'fa-pen' : hasCancel ? 'fa-question' : 'fa-info') + '"></i>';
+      var h = document.createElement('h3'); h.className = 'ncd-title'; h.textContent = o.title || (hasCancel ? 'Emin misiniz?' : 'Bilgi');
+      head.appendChild(ico); head.appendChild(h); box.appendChild(head);
+      if (o.message) { var p = document.createElement('p'); p.className = 'ncd-msg'; p.textContent = o.message; box.appendChild(p); }
+      var inp = null;
+      if (o.input) {
+        inp = document.createElement('input'); inp.className = 'ncd-input'; inp.type = 'text';
+        inp.value = o.value == null ? '' : String(o.value); if (o.readonly) inp.readOnly = true;
+        if (o.maxLength) inp.maxLength = o.maxLength;
+        box.appendChild(inp);
+      }
+      var btns = document.createElement('div'); btns.className = 'ncd-btns'; box.appendChild(btns);
+      var prevFocus = document.activeElement;
+      function close(val) {
+        document.removeEventListener('keydown', onKey, true);
+        back.remove();
+        try { if (prevFocus && prevFocus.focus) prevFocus.focus(); } catch (e) {}
+        resolve(val);
+      }
+      var cancelVal = o.input ? null : false;
+      function okVal() { return o.input ? inp.value : true; }
+      if (hasCancel) {
+        var c = document.createElement('button'); c.type = 'button'; c.className = 'ncd-btn'; c.textContent = o.cancelText || 'Vazgeç';
+        c.onclick = function () { close(cancelVal); }; btns.appendChild(c);
+      }
+      var ok = document.createElement('button'); ok.type = 'button'; ok.className = 'ncd-btn ok' + (o.danger ? ' danger' : '');
+      ok.textContent = o.okText || (hasCancel ? (o.input ? 'Kaydet' : 'Evet') : 'Tamam');
+      ok.onclick = function () { close(okVal()); }; btns.appendChild(ok);
+      back.addEventListener('mousedown', function (e) { if (e.target === back) close(hasCancel ? cancelVal : okVal()); });
+      function onKey(e) {
+        if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(hasCancel ? cancelVal : okVal()); }
+        else if (e.key === 'Enter' && (!inp || document.activeElement === inp || document.activeElement === ok)) { e.preventDefault(); e.stopPropagation(); close(okVal()); }
+      }
+      document.addEventListener('keydown', onKey, true);
+      document.body.appendChild(back);
+      setTimeout(function () { if (inp) { inp.focus(); inp.select(); } else ok.focus(); }, 30);
+    });
+  }
+
   window.NobetCore = {
+    dialog: dialog,
     configured: configured, config: cfg, getClient: getClient, callFunction: callFunction,
     staffEmail: staffEmail, normalizeUsername: normalizeUsername, esc: esc, friendlyError: friendlyError,
     getRemember: getRemember, setRemember: setRemember, fmtDateTime: fmtDateTime, fmtDate: fmtDate,
