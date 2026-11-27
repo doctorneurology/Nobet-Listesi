@@ -569,9 +569,12 @@
       '<button class="btn btn-primary" onclick="NobetCloud.allCodes()" ' + (act.length ? '' : 'disabled') + ' title="Hesabı olmayanlara aktivasyon kodu, hesabı olanlara şifre sıfırlama kodu"><i class="fas fa-users"></i> Tüm personele kod üret (' + act.length + ')</button>' +
       '</div><div class="nc-toolbar"><button class="btn btn-dark" onclick="NobetCloud.openMessagesPanel()"><i class="fas fa-envelope-open-text"></i> Asistanlardan Gelen İstekler</button>' +
       '<span id="ncPeriodQuick">' + periodQuickHtml() + '</span></div>';
-    h += '<h3 class="nc-h3">Aktif Asistanlar <span class="nc-count">' + act.length + '</span></h3>';
-    h += '<p class="nc-hint"><i class="fas fa-arrows-alt-v"></i> Sırayı değiştirmek için satırı tutup sürükleyin veya oklara basın. Bu sıra "Asistan Seç" ekranında kullanılır.</p>';
-    h += '<div class="nc-list" data-dnd="assistants">' + act.map(function (a, i) { return assistantRow(a, i, act.length); }).join('') + '</div>';
+    // Aktif asistan listesi açılır düğmenin içinde (panel sade kalsın); açık/kapalı durumu oturum boyunca korunur
+    h += '<div class="nc-toolbar"><button class="btn btn-dark" onclick="NobetCloud.toggleActiveList()"><i class="fas ' + (S.showActive ? 'fa-chevron-up' : 'fa-chevron-down') + '"></i> Aktif Asistanlar <span class="nc-count" style="background:#fff;color:#0f172a">' + act.length + '</span></button></div>';
+    if (S.showActive) {
+      h += '<p class="nc-hint"><i class="fas fa-arrows-alt-v"></i> Sırayı değiştirmek için satırı tutup sürükleyin veya oklara basın. Bu sıra "Asistan Seç" ekranında kullanılır.</p>';
+      h += '<div class="nc-list" data-dnd="assistants">' + act.map(function (a, i) { return assistantRow(a, i, act.length); }).join('') + '</div>';
+    }
     h += '<h3 class="nc-h3">Pasif Asistanlar <span class="nc-count">' + pas.length + '</span></h3>';
     h += pas.length ? '<div class="nc-list">' + pas.map(function (a) { return assistantRow(a, -1, 0); }).join('') + '</div>' : '<div class="nc-empty">Pasif asistan yok.</div>';
     if (list.length > 0) h += '<details class="nc-details"><summary>Bu bilgisayardaki eski listeden eksik isimleri aktar</summary>' + renderImportBox(true) + '</details>';
@@ -1472,6 +1475,7 @@
     jokerSave: jokerSave, jokerReset: jokerReset, jokerDefault: jokerDefault,
     msgPeriod: function (id) { S.msg.periodId = id; loadMessages(); },
     msgExport: msgExport, importCalendar: importCalendar, deletePeriod: deletePeriod,
+    toggleActiveList: function () { S.showActive = !S.showActive; renderPanel(); },
     toggleMsgList: function () { S.msg.showList = !S.msg.showList; renderMessages(); },
     msgFilter: function (v) { S.msg.filter = v; renderMessages(); },
     msgExport: msgExport,

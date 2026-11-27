@@ -9,8 +9,8 @@
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js" integrity="sha384-0w2KAL2YHP6wKOkUDzkCDGgVvfmHnj02DHeQ6XcHOgTfFsGyonKOpShMH1x6nk9o" crossorigin="anonymous"></script>
-<script defer src="config.js?v=20261127b"></script>
-<script defer src="cloud-core.js?v=20261127b"></script>
+<script defer src="config.js?v=20261127d"></script>
+<script defer src="cloud-core.js?v=20261127d"></script>
 <style>
   :root { --primary:#0f172a; --accent:#3b82f6; --ok:#16a34a; --err:#dc2626; --bg:#f1f5f9; --border:#e2e8f0; --muted:#64748b; }
   * { box-sizing: border-box; }
@@ -48,6 +48,13 @@
   .past { border-top:1px solid var(--border); padding:10px 0; font-size:.88rem; }
   .past pre { white-space:pre-wrap; overflow-wrap:anywhere; font:inherit; margin:6px 0 0; color:#334155; }
   .center { text-align:center; }
+  /* Üst düğmeler ve açılır pencereler */
+  header .in { flex-wrap:wrap; }
+  .hbtns { display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end; }
+  .hbtns .btn { padding:8px 12px; font-size:.82rem; width:auto; }
+  .hbtns .sm { display:none; }
+  .ov { position:fixed; inset:0; background:rgba(15,23,42,.55); display:flex; align-items:center; justify-content:center; padding:16px; z-index:50; }
+  .ov .card { width:100%; max-width:420px; margin:0; }
   /* Takvim */
   .tools { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin:10px 0; }
   .tool { border:2px solid transparent; border-radius:10px; padding:9px 4px; font:inherit; font-weight:700; font-size:.82rem; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:5px; }
@@ -70,7 +77,7 @@
   .btn-del { background:#fff; color:#b91c1c; border:1px solid #fecaca; padding:6px 10px; font-size:.8rem; border-radius:8px; cursor:pointer; font-weight:700; }
   @media (max-width:520px) {
     .card { padding:14px; } main { margin:14px auto; padding:0 10px 30px; }
-    header h1 { font-size:.95rem; } .btn { width:100%; } header .btn { width:auto; padding:8px 12px; }
+    header h1 { font-size:.95rem; } .btn { width:100%; } header .btn { width:auto; padding:7px 9px; font-size:.78rem; } .hbtns { width:100%; justify-content:flex-start; flex-wrap:nowrap; } .hbtns .lg { display:none; } .hbtns .sm { display:inline; }
     .row.actions { flex-direction:column-reverse; align-items:stretch; }
     .tool { font-size:.75rem; padding:9px 2px; } .cal { gap:3px; } .cal .day { min-height:34px; font-size:.82rem; }
     textarea { min-height:160px; }
@@ -80,8 +87,40 @@
 <body>
 <header><div class="in">
   <h1>Nöbet İstek Alanı<small>Selçuk Üniversitesi Nöroloji Anabilim Dalı</small></h1>
-  <button class="btn btn-light hidden" id="logoutBtn" type="button"><i class="fas fa-sign-out-alt"></i> Çıkış</button>
+  <div class="hbtns hidden" id="hdrBtns">
+    <button class="btn btn-light" id="pwBtn" type="button" title="Şifremi Değiştir"><i class="fas fa-key"></i> <span class="lg">Şifremi Değiştir</span><span class="sm">Şifre</span></button>
+    <button class="btn btn-light" id="unBtn" type="button" title="Kullanıcı Adımı Değiştir"><i class="fas fa-user-edit"></i> <span class="lg">Kullanıcı Adımı Değiştir</span><span class="sm">Kullanıcı Adı</span></button>
+    <button class="btn btn-light" id="logoutBtn" type="button"><i class="fas fa-sign-out-alt"></i> Çıkış</button>
+  </div>
 </div></header>
+
+<!-- Kullanıcı adı değiştirme -->
+<div class="ov hidden" id="unModal"><div class="card">
+  <div class="row between"><h2 style="font-size:1.05rem;margin:0">Kullanıcı Adımı Değiştir</h2><button class="btn-link" type="button" data-close="unModal">Kapat</button></div>
+  <label for="unNew">Yeni kullanıcı adı</label>
+  <input type="text" id="unNew" autocapitalize="none" spellcheck="false" maxlength="32" placeholder="ör. kgulsen">
+  <div class="hint">3-32 karakter; harf, rakam, nokta, tire veya alt çizgi. Türkçe karakterler otomatik çevrilir (ü→u, ş→s…). Şifreniz değişmez.</div>
+  <div class="msg" id="unMsg"></div>
+  <div class="row" style="justify-content:flex-end; margin-top:10px">
+    <button class="btn btn-primary" id="unSave" type="button"><i class="fas fa-save"></i> Kaydet</button>
+  </div>
+</div></div>
+
+<!-- Şifre değiştirme -->
+<div class="ov hidden" id="pwModal"><div class="card">
+  <div class="row between"><h2 style="font-size:1.05rem;margin:0">Şifremi Değiştir</h2><button class="btn-link" type="button" data-close="pwModal">Kapat</button></div>
+  <label for="pwCur">Mevcut şifre</label>
+  <input type="password" id="pwCur" autocomplete="current-password" maxlength="16">
+  <label for="pwNew1">Yeni şifre</label>
+  <input type="password" id="pwNew1" autocomplete="new-password" maxlength="16">
+  <label for="pwNew2">Yeni şifre (tekrar)</label>
+  <input type="password" id="pwNew2" autocomplete="new-password" maxlength="16">
+  <div class="hint">1 ile 16 karakter arası; istediğiniz harf, rakam veya işareti kullanabilirsiniz.</div>
+  <div class="msg" id="pwMsg"></div>
+  <div class="row" style="justify-content:flex-end; margin-top:10px">
+    <button class="btn btn-primary" id="pwSave" type="button"><i class="fas fa-save"></i> Şifremi Kaydet</button>
+  </div>
+</div></div>
 
 <main>
   <div class="card center" id="viewLoading"><i class="fas fa-spinner fa-spin"></i> Yükleniyor…</div>
@@ -186,18 +225,6 @@
       <h2 style="font-size:1rem">Önceki dönem mesajlarım</h2>
       <div id="mPast"></div>
     </div>
-    <div class="card">
-      <details id="unBox">
-        <summary style="cursor:pointer; font-weight:700; color:#334155;"><i class="fas fa-user-edit"></i> Kullanıcı adımı değiştir</summary>
-        <label for="unNew">Yeni kullanıcı adı</label>
-        <input type="text" id="unNew" autocapitalize="none" spellcheck="false" maxlength="32" placeholder="ör. kgulsen">
-        <div class="hint">3-32 karakter; harf, rakam, nokta, tire veya alt çizgi. Türkçe karakterler otomatik çevrilir (ü→u, ş→s…). Şifreniz değişmez.</div>
-        <div class="msg" id="unMsg"></div>
-        <div class="row" style="justify-content:flex-end; margin-top:10px">
-          <button class="btn btn-primary" id="unSave" type="button"><i class="fas fa-save"></i> Kaydet</button>
-        </div>
-      </details>
-    </div>
   </div>
 </main>
 
@@ -212,8 +239,39 @@ document.addEventListener('DOMContentLoaded', function () {
 
   function show(v) {
     views.forEach(function (x) { $(x).classList.toggle('hidden', x !== v); });
-    $('logoutBtn').classList.toggle('hidden', v !== 'viewMain');
+    $('hdrBtns').classList.toggle('hidden', v !== 'viewMain');
+    if (v !== 'viewMain') { $('unModal').classList.add('hidden'); $('pwModal').classList.add('hidden'); }
   }
+  // Açılır pencereler: Kapat düğmesi veya karartılmış alana tıklayınca kapanır
+  function openOv(id) { $(id).classList.remove('hidden'); var f = $(id).querySelector('input'); if (f) setTimeout(function () { f.focus(); }, 30); }
+  document.querySelectorAll('[data-close]').forEach(function (b) { b.addEventListener('click', function () { $(b.getAttribute('data-close')).classList.add('hidden'); }); });
+  ['unModal', 'pwModal'].forEach(function (id) {
+    var down = false;
+    $(id).addEventListener('mousedown', function (e) { down = e.target === $(id); });
+    $(id).addEventListener('click', function (e) { if (down && e.target === $(id)) $(id).classList.add('hidden'); down = false; });
+  });
+  $('unBtn').addEventListener('click', function () { $('unNew').value = ''; setMsg('unMsg', ''); openOv('unModal'); });
+  $('pwBtn').addEventListener('click', function () { ['pwCur', 'pwNew1', 'pwNew2'].forEach(function (i) { $(i).value = ''; }); setMsg('pwMsg', ''); openOv('pwModal'); });
+
+  // ---------------- şifre değiştirme (mevcut şifre ile doğrulanır)
+  $('pwSave').addEventListener('click', async function () {
+    var cur = $('pwCur').value, n1 = $('pwNew1').value, n2 = $('pwNew2').value;
+    setMsg('pwMsg', '');
+    if (!cur) { setMsg('pwMsg', 'Mevcut şifrenizi yazın.'); return; }
+    if (n1 !== n2) { setMsg('pwMsg', 'Yeni şifreler aynı değil.'); return; }
+    if (n1.length < 1 || Array.from(n1).length > 16) { setMsg('pwMsg', 'Yeni şifre 1 ile 16 karakter arasında olmalıdır.'); return; }
+    var btn = $('pwSave'); btn.disabled = true;
+    try {
+      var email = C.staffEmail(state.me.username);
+      var chk = await client.auth.signInWithPassword({ email: email, password: C.staffAuthPassword(cur) });
+      if (chk.error) throw new Error(/invalid login/i.test(chk.error.message) ? 'Mevcut şifre hatalı.' : C.friendlyError(chk.error));
+      var r = await client.auth.updateUser({ password: C.staffAuthPassword(n1) });
+      if (r.error) throw r.error;
+      ['pwCur', 'pwNew1', 'pwNew2'].forEach(function (i) { $(i).value = ''; });
+      setMsg('pwMsg', 'Şifreniz değiştirildi. Bundan sonra yeni şifrenizle giriş yapın.', true);
+    } catch (err) { setMsg('pwMsg', err && err.message === 'Mevcut şifre hatalı.' ? err.message : C.friendlyError(err)); }
+    finally { btn.disabled = false; }
+  });
   function setMsg(id, text, ok) { var el = $(id); el.textContent = text || ''; el.className = 'msg ' + (ok ? 'ok' : 'err'); }
   document.querySelectorAll('[data-go]').forEach(function (b) {
     b.addEventListener('click', function () {
