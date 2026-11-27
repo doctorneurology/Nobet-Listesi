@@ -851,7 +851,7 @@
       '<div class="modal-header"><h2><i class="fas fa-pen" style="color:var(--primary)"></i> Asistan Bilgileri</h2><span class="close-modal" onclick="NobetCloud.close(\'ncEditModal\')">&times;</span></div>' +
       '<label class="nc-label">Ad Soyad</label><input class="nc-input" id="ncEdName" value="' + esc(a.full_name) + '">' +
       (S.isAdmin
-        ? '<label class="nc-label">Kullanıcı adı (giriş için)</label><input class="nc-input" id="ncEdUser" value="' + esc(a.username || '') + '" placeholder="ör. ayse.ozturk">' +
+        ? '<label class="nc-label">Kullanıcı adı (giriş için)</label><input class="nc-input" id="ncEdUser" value="' + esc(a.username || '') + '">' +
           '<label class="nc-label">E-posta (isteğe bağlı – şifre sıfırlama için)</label><input class="nc-input" type="email" id="ncEdEmail" value="' + esc(a.contact_email || '') + '">'
         : '<p class="nc-hint"><i class="fas fa-lock"></i> Kullanıcı adı ve e-posta kişisel bilgi olduğundan yalnızca <a href="#" onclick="NobetCloud.close(\'ncEditModal\');NobetCloud.openLogin(function(){NobetCloud.editAssistant(\'' + a.id + '\')});return false;">yönetici girişiyle</a> değiştirilebilir.</p>') +
       '<p class="nc-hint">Ad değişikliği yeni eklemelerde ve "Asistan Seç" ekranında kullanılır; bu dönemin listesine önceden eklenmiş kişinin adı değişmez.</p>' +
