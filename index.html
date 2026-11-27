@@ -11,9 +11,9 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
     <!-- Supabase (merkezi tanımlar + Asistan İstek Mesajları). Bağlantı yoksa uygulama yerel kayıtlarla çalışmaya devam eder. -->
     <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js" integrity="sha384-0w2KAL2YHP6wKOkUDzkCDGgVvfmHnj02DHeQ6XcHOgTfFsGyonKOpShMH1x6nk9o" crossorigin="anonymous"></script>
-    <script defer src="config.js?v=20261127i"></script>
-    <script defer src="cloud-core.js?v=20261127i"></script>
-    <script defer src="cloud-admin.js?v=20261127i"></script>
+    <script defer src="config.js?v=20261127j"></script>
+    <script defer src="cloud-core.js?v=20261127j"></script>
+    <script defer src="cloud-admin.js?v=20261127j"></script>
 
     <style>
 /* Becayiş Tablosunda Tarih Sütununu Genişletme */
@@ -33,6 +33,9 @@
         .header-content h1 { margin: 0; font-size: 1.3rem; line-height: 1.4; text-align: left; }
         .author-sign { font-size: 0.8rem; color: #94a3b8; margin-top: 4px; font-style: italic; font-weight: 500; opacity: 0.6; }
         .save-badge { background: rgba(255,255,255,0.1); padding: 5px 12px; border-radius: 20px; font-size: 0.85rem; }
+        .save-badge .fa-sync-alt { display: inline-block; }
+        .save-badge.syncing .fa-sync-alt { animation: syncSpin 0.9s linear 2; }
+        @keyframes syncSpin { to { transform: rotate(360deg); } }
         /* 3. Çalışma Yerleri → Birim Sorumlusu Asistanı: eşit boyutlu, hizalı kartlar */
         .su-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(165px, 1fr)); gap: 8px; align-items: stretch; }
         .su-card { display: flex; flex-direction: column; gap: 5px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 10px; min-width: 0; }
@@ -2516,18 +2519,28 @@ let extraServisAssignments = {}; // { "2026-07-01": ["Ahmet Yılmaz","Ayşe Kaya
         }
 
         const statusEl = document.getElementById('saveStatus');
-        if (statusEl && localSaved) statusEl.innerHTML = '<i class="fas fa-check"></i> Kayıtlı';
+        if (statusEl && localSaved) window.__nobetSyncPulse();
 
         // IndexedDB kaydı localStorage limitinden bağımsız ikinci bir kopya oluşturur.
         saveNobetSnapshotToIndexedDB(data).then(durableSaved => {
             if (!statusEl) return;
             if (durableSaved || localSaved) {
-                statusEl.innerHTML = '<i class="fas fa-check"></i> Güvenli Kayıtlı';
+                window.__nobetSyncPulse();
             } else {
                 statusEl.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Kayıt yapılamadı';
             }
         });
     }
+
+    // Her kayıtta / Supabase eşitlemesinde rozetteki iki ok bir kez döner
+    window.__nobetSyncPulse = function () {
+        const el = document.getElementById('saveStatus');
+        if (!el) return;
+        el.innerHTML = '<i class="fas fa-sync-alt"></i> Eşitlendi';
+        el.classList.remove('syncing'); void el.offsetWidth; el.classList.add('syncing');
+        clearTimeout(window.__nobetSyncPulseT);
+        window.__nobetSyncPulseT = setTimeout(() => el.classList.remove('syncing'), 2000);
+    };
 
     function getCurrentPrevDutyValues() {
         // Seçim kutuları henüz çizilmediyse (ör. sayfa yeni açıldığında) bellekteki kayıtlı değerler silinmesin.
@@ -3233,32 +3246,29 @@ function initFridayTooltips() {
         });
         const addTask = (name, unit) => { if (name && peopleNames.has(name)) taskByPerson.get(name).add(unit); };
 
-        // 3. Çalışma Yerleri ve 6. Jokerler & Görevler sayfaları: kişinin görevleri.
-        ["Pol-1", "Pol-2", "Pol-3", "MS Merkezi", "Konsültan", "Servis Kıdemlisi", "EMG", "Yoğun Bakım 1", "Yoğun Bakım 2"].forEach(unit => {
-            let found = { combined: [] };
-            try { found = getWorkplacePeople(unit) || found; } catch (error) { console.warn('Görev yeri okunamadı:', unit, error); }
-            (found.combined || []).forEach(name => addTask(name, unit));
-        });
-        const activeJokers = (typeof getActiveJokersWithTasks === 'function')
-            ? getActiveJokersWithTasks(false).map(j => j && j.name).filter(Boolean) : [];
-        activeJokers.forEach(name => addTask(name, "Joker"));
-        ((((jokerConfig || {}).workplaceAssignments || {}).Joker) || []).forEach(name => addTask(name, "Joker"));
+        // 3. Çalışma Yerleri → Özellikli Birimler: yalnızca birim sorumluları önerilerde yer alır
+        // (görev yerleri, EMG, Joker gibi diğer birimler önerilere katılmaz). Birim listesi Admin Paneli ile eşitlenen specialUnits'ten okunur.
+        const owners = (jokerConfig && jokerConfig.owners) || {};
+        const units = (Array.isArray(specialUnits) ? specialUnits : []).filter(u => u && u !== 'Refakatçi');
+        units.forEach(unit => addTask(owners[unit], unit));
 
-        // Yoğun bakımda nöbeti işaretli olmayan kişi, yoğun bakım görevli gibi gösterilmez.
+        // Yoğun bakımda nöbeti işaretli olmayan kişi, yoğun bakım sorumlusu gibi gösterilmez.
         people.forEach(p => {
             if (!dutyByPerson.get(p.name).has("Yoğun Bakım")) {
-                taskByPerson.get(p.name).delete("Yoğun Bakım 1");
-                taskByPerson.get(p.name).delete("Yoğun Bakım 2");
+                [...taskByPerson.get(p.name)].forEach(u => { if (/^Yoğun Bakım(\s|$)/.test(u)) taskByPerson.get(p.name).delete(u); });
             }
         });
 
-        const groups = {
-            pol: ["Pol-1", "Pol-2", "Pol-3"], ms: ["MS Merkezi"], consultant: ["Konsültan"],
-            senior: ["Servis Kıdemlisi"], joker: ["Joker"], emg: ["EMG"], icu: ["Yoğun Bakım 1", "Yoğun Bakım 2"]
-        };
+        // Birim grupları (önceki eşleştirme mantığı korunur; Admin Paneli'nde eklenen yeni birimler "diğer" grubuna girer)
+        const groupOfUnit = u => /^Pol/i.test(u) ? 'pol' : /^Yoğun Bakım(\s|$)/.test(u) ? 'icu' : u === 'MS Merkezi' ? 'ms'
+            : u === 'Konsültan' ? 'consultant' : u === 'Servis Kıdemlisi' ? 'senior' : 'other';
+        const groups = { pol: [], ms: [], consultant: [], senior: [], icu: [], other: [] };
+        units.forEach(u => groups[groupOfUnit(u)].push(u));
+
         const eligible = name => dutyByPerson.get(name).size > 0;
         const unitsIn = (name, g) => groups[g].filter(u => taskByPerson.get(name).has(u));
         const members = g => people.map(p => p.name).filter(n => eligible(n) && unitsIn(n, g).length > 0);
+        // Aynı (tek) nöbet yerinde nöbet tutanlar birbirine önerilmez; birden fazla yerde nöbet tutan herkese önerilebilir.
         const dutyDiffers = (a, b) => {
             for (const x of dutyByPerson.get(a)) for (const y of dutyByPerson.get(b)) if (x !== y) return true;
             return false;
@@ -3269,7 +3279,7 @@ function initFridayTooltips() {
             const duty = sortTr(dutyByPerson.get(name));
             const tasks = sortTr(taskByPerson.get(name));
             labels.push('Nöbet yeri: ' + (duty.length ? duty.join(', ') : 'işaretli değil'));
-            if (tasks.length) labels.push('Görev: ' + tasks.join(', '));
+            if (tasks.length) labels.push('Özellikli birim: ' + tasks.join(', '));
             return labels;
         };
         const alreadyListed = (a, b) => (Array.isArray(constraints) ? constraints : []).some(c =>
@@ -3308,17 +3318,14 @@ function initFridayTooltips() {
 
         addWithin("pol", "Farklı poliklinik birimlerinde çalışanlar", true);
         addWithin("icu", "Yoğun bakım ekibi", false);
-        addWithin("emg", "EMG çalışanları", false);
         addCross("pol", "ms", "Poliklinik – MS Merkezi");
         addCross("pol", "consultant", "Poliklinik – Konsültan");
         addCross("pol", "senior", "Poliklinik – Servis Kıdemlisi");
-        addCross("pol", "joker", "Poliklinik – Joker");
         addCross("consultant", "ms", "Konsültan – MS Merkezi");
-        addCross("consultant", "joker", "Konsültan – Joker");
         addCross("consultant", "senior", "Konsültan – Servis Kıdemlisi");
         addCross("ms", "senior", "MS Merkezi – Servis Kıdemlisi");
-        addCross("ms", "joker", "MS Merkezi – Joker");
-        addCross("joker", "senior", "Joker – Servis Kıdemlisi");
+        addWithin("other", "Özellikli birimler", true);
+        ["pol", "ms", "consultant", "senior"].forEach(g => addCross("other", g, "Özellikli birimler"));
 
         return suggestions;
     }

@@ -249,6 +249,7 @@
       syncRulesFromCloud(d);
       if (S.status !== 'live') setStatus(S.channel ? 'connecting' : 'cache');
       if (isPanelOpen()) renderPanel();
+      pulse();
       return true;
     } catch (e) {
       console.warn('Tanımlar alınamadı:', e);
@@ -257,8 +258,12 @@
     }
   }
 
+  function pulse() { try { if (typeof window.__nobetSyncPulse === 'function') window.__nobetSyncPulse(); } catch (e) {} }
+
   // ---- Nöbet yerleri + Joker sayısı (app_settings.app_rules) ↔ uygulama
-  function sameRules(a, b) { return JSON.stringify(a || null) === JSON.stringify(b || null); }
+  // Postgres jsonb anahtar sırasını değiştirir; karşılaştırma sıradan bağımsız yapılır (aksi hâlde aynı ayar tekrar tekrar yazılıyordu)
+  function canon(v) { return Array.isArray(v) ? v.map(canon) : (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function (o, k) { o[k] = canon(v[k]); return o; }, {}) : v; }
+  function sameRules(a, b) { return JSON.stringify(canon(a || null)) === JSON.stringify(canon(b || null)); }
   function currentRules() { return typeof window.__nobetCurrentRules === 'function' ? window.__nobetCurrentRules() : null; }
   function syncRulesFromCloud(d) {
     if (typeof window.__nobetApplyRules !== 'function') return;
@@ -287,6 +292,7 @@
       return false;
     }
     S.defs.app_rules = rules; S.defs.app_rules_row = r.data[0]; S.lastRules = rules;
+    pulse();
     return true;
   }
   // Uygulama ekranından (Nöbet Yerleri penceresi / Joker kutucukları) yapılan değişiklik saveData ile yakalanır
@@ -296,7 +302,7 @@
     S._rulesTimer = setTimeout(function () {
       var cur = currentRules();
       if (!cur || !cur.duty_places.length || !S.defs || sameRules(cur, S.lastRules)) return;
-      writeRules(cur).then(function (ok) { if (ok) toast('Nöbet yerleri / Joker ayarı Admin Paneli ile eşleştirildi', 'ok'); if (isPanelOpen() && S.tab === 'rules') renderPanel(); });
+      writeRules(cur).then(function () { if (isPanelOpen() && S.tab === 'rules') renderPanel(); });
     }, 700);
   }
   function hookSaveData() {
