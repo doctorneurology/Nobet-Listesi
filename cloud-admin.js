@@ -116,6 +116,60 @@
     } catch (e) { queue(); }
   }
 
+  // ---- Özellikli birim → Görev yeri yansıtması
+  // Özellikli birimin eklenmesi, adının değişmesi, silinmesi ve aktif/pasif durumu Görev Yerlerine de yansır.
+  // Yoğun Bakım 1/2 sorumluları uygulamadaki tek "Yoğun Bakım" görev yerinde toplandığı için ayrı görev yeri açılmaz.
+  function mirrorsToWork(name) { return !/^yoğun bakım(\s|$)/.test(lc(name)); }
+  function workByName(name) { return (S.defs && S.defs.work_places || []).find(function (w) { return lc(w.name) === lc(name); }); }
+  function specialByName(name) { return (S.defs && S.defs.special_units || []).find(function (u) { return lc(u.name) === lc(name); }); }
+  function isMirroredWork(w) { return !!(w && mirrorsToWork(w.name) && specialByName(w.name)); }
+  async function mirrorWork(op, name, extra) {
+    if (!S.defs) return;
+    var c = C.getClient(), w = workByName(name);
+    try {
+      if (op === 'add') {
+        if (!mirrorsToWork(name)) return;
+        if (!w) await cloudInsertName('work_places', name);
+        else if (!w.is_active && !w.system_key) await c.from('work_places').update({ is_active: true }).eq('id', w.id);
+      } else if (op === 'rename') {
+        if (!mirrorsToWork(extra) || workByName(extra)) return;
+        if (w && !w.system_key && mirrorsToWork(name)) await c.from('work_places').update({ name: extra }).eq('id', w.id);
+        else await cloudInsertName('work_places', extra);
+      } else if (op === 'delete') {
+        if (w && !w.system_key && mirrorsToWork(name)) await c.from('work_places').delete().eq('id', w.id);
+      } else if (op === 'active') {
+        if (!mirrorsToWork(name)) return;
+        if (w && !w.system_key && w.is_active !== extra) await c.from('work_places').update({ is_active: extra }).eq('id', w.id);
+        else if (!w && extra) await cloudInsertName('work_places', name);
+      }
+    } catch (e) { console.warn('Görev yeri eşitlenemedi:', name, e); }
+  }
+  // Görev yeri karşılığı olmayan özellikli birimleri tamamlar (yalnızca ekler, hiçbir şeyi silmez)
+  async function ensureMirroredWork() {
+    if (!S.isAdmin || !S.defs || S._mirroring) return;
+    var missing = (S.defs.special_units || []).filter(function (u) { return u.is_active && mirrorsToWork(u.name) && !workByName(u.name); });
+    if (!missing.length) return;
+    S._mirroring = true;
+    var added = 0;
+    try {
+      for (var i = 0; i < missing.length; i++) { try { if ((await cloudInsertName('work_places', missing[i].name)) === 'added') added++; } catch (e) { console.warn('Görev yeri eklenemedi:', missing[i].name, e); } }
+    } finally { S._mirroring = false; }
+    if (added) fetchDefinitions();
+  }
+  // Uygulamanın 3. Çalışma Yerleri ekranında silinen özellikli birim Supabase'ten de (ve görev yerlerinden) silinir
+  async function cloudDeleteSpecialFromApp(name) {
+    if (!S.isAdmin || !S.defs) return;
+    var u = specialByName(name);
+    try {
+      if (u && !u.system_key) {
+        var r = await C.getClient().from('special_units').delete().eq('id', u.id);
+        if (r.error) throw r.error;
+      }
+      await mirrorWork('delete', name);
+    } catch (e) { console.warn('Özellikli birim silinemedi:', name, e); }
+    fetchDefinitions();
+  }
+
   // Yönetici oturumunda: bekleyen eklemeler + index.html'deki CODE_DEFINITIONS bloğundaki yeni adlar
   async function syncExtraDefinitions() {
     if (!S.isAdmin || !S.defs || S._syncing) return;
@@ -171,6 +225,8 @@
       var el = $('newSpecialUnitName'); var n = el ? titleCase(el.value.trim()) : '';
       return n ? { table: 'special_units', name: n, alsoWork: true } : null;
     });
+    var origDel = window.deleteSpecialUnit;
+    if (typeof origDel === 'function') window.deleteSpecialUnit = function (name) { var out = origDel.apply(this, arguments); cloudDeleteSpecialFromApp(name); return out; };
     wrap('saveNewWorkplaceUnit', function () {
       var el = $('newWorkplaceUnitName'); var n = el ? titleCase(el.value.trim()) : '';
       return n ? { table: 'work_places', name: n } : null;
@@ -252,6 +308,7 @@
       if (S.status !== 'live') setStatus(S.channel ? 'connecting' : 'cache');
       if (isPanelOpen()) renderPanel();
       pulse();
+      ensureMirroredWork();
       return true;
     } catch (e) {
       console.warn('Tanımlar alınamadı:', e);
@@ -990,10 +1047,9 @@
     var list = (S.defs[table] || []).slice().sort(byOrder);
     var act = list.filter(function (u) { return u.is_active; }), pas = list.filter(function (u) { return !u.is_active; });
     var h = '<div class="nc-toolbar"><input class="nc-input" id="ncNewUnit" placeholder="Yeni ' + unitLabel(table) + ' adı" onkeydown="if(event.key===\'Enter\')NobetCloud.addUnit(\'' + table + '\')">' +
-      (table === 'special_units' ? '<label class="nc-check"><input type="checkbox" id="ncAlsoWork" checked> Görev yerlerine de ekle</label>' : '') +
       '<button class="btn btn-success" onclick="NobetCloud.addUnit(\'' + table + '\')"><i class="fas fa-plus"></i> Ekle</button></div>';
-    if (table === 'special_units') h += '<p class="nc-hint"><i class="fas fa-info-circle"></i> Yeni birim Joker algoritmasına otomatik dahil olur (öncelik sırasında en sona eklenir; "Joker Öncelik Sıralaması" sekmesinden değiştirebilirsiniz). <i class="fas fa-lock"></i> işaretli birimlerin algoritmada özel kuralı olduğu için adı değiştirilemez.</p>';
-    else h += '<p class="nc-hint"><i class="fas fa-info-circle"></i> Görev yerleri "Çalışma Yerleri" adımında kullanılır. <i class="fas fa-lock"></i> işaretlilerin özel kuralı olduğu için adı değiştirilemez.</p>';
+    if (table === 'special_units') h += '<p class="nc-hint"><i class="fas fa-info-circle"></i> Yeni birim Joker algoritmasına otomatik dahil olur (öncelik sırasında en sona eklenir; "Joker Öncelik Sıralaması" sekmesinden değiştirebilirsiniz). Eklenen, adı değiştirilen, pasife alınan veya silinen birim <b>Görev Yerleri</b>ne de otomatik yansır; birimin sorumlu asistanı orada otomatik görünür. <i class="fas fa-lock"></i> işaretli birimlerin algoritmada özel kuralı olduğu için adı değiştirilemez.</p>';
+    else h += '<p class="nc-hint"><i class="fas fa-info-circle"></i> Görev yerleri "Çalışma Yerleri" adımında kullanılır. <i class="fas fa-link"></i> işaretliler Özellikli Birimlerden gelir; adı ve silinmesi oradan yönetilir. <i class="fas fa-lock"></i> işaretlilerin özel kuralı olduğu için adı değiştirilemez.</p>';
     h += '<h3 class="nc-h3">Aktif <span class="nc-count">' + act.length + '</span></h3><div class="nc-list" data-dnd="' + table + '">' +
       act.map(function (u, i) { return unitRow(table, u, i, act.length); }).join('') + '</div>';
     h += '<h3 class="nc-h3">Pasif <span class="nc-count">' + pas.length + '</span></h3>' +
@@ -1001,11 +1057,11 @@
     return h;
   }
   function unitRow(table, u, i, n) {
-    var act = u.is_active, sys = !!u.system_key;
+    var act = u.is_active, linked = table === 'work_places' && isMirroredWork(u), sys = !!u.system_key || linked;
     return '<div class="nc-item' + (act ? '' : ' inactive') + '" ' + (act ? 'draggable="true" data-id="' + u.id + '"' : '') + '>' +
       (act ? '<span class="nc-handle"><i class="fas fa-grip-vertical"></i></span><span class="nc-arrows"><button ' + (i === 0 ? 'disabled' : '') + ' onclick="NobetCloud.move(\'' + table + '\',\'' + u.id + '\',-1)"><i class="fas fa-chevron-up"></i></button>' +
         '<button ' + (i === n - 1 ? 'disabled' : '') + ' onclick="NobetCloud.move(\'' + table + '\',\'' + u.id + '\',1)"><i class="fas fa-chevron-down"></i></button></span>' : '') +
-      '<span class="nc-name">' + esc(u.name) + (sys ? ' <i class="fas fa-lock nc-lock" title="Algoritmada özel kuralı olan birim; adı değiştirilemez ve silinemez"></i>' : '') + '</span>' +
+      '<span class="nc-name">' + esc(u.name) + (linked && !u.system_key ? ' <i class="fas fa-link nc-lock" title="Özellikli Birimlerden gelir; adı ve silinmesi Özellikli Birimler sekmesinden yönetilir"></i>' : sys ? ' <i class="fas fa-lock nc-lock" title="Algoritmada özel kuralı olan birim; adı değiştirilemez ve silinemez"></i>' : '') + '</span>' +
       (act ? '' : '<span class="nc-badge gray">Pasif</span>') +
       '<span class="nc-actions">' +
       (sys ? '' : '<button title="Adını değiştir" onclick="NobetCloud.renameUnit(\'' + table + '\',\'' + u.id + '\')"><i class="fas fa-pen"></i></button>') +
@@ -1019,15 +1075,11 @@
 
   async function addUnit(table) {
     var name = unitNameClean($('ncNewUnit').value); if (!name) return;
-    var also = table === 'special_units' && $('ncAlsoWork') && $('ncAlsoWork').checked;
     var c = C.getClient();
     var maxO = Math.max(0, ...(S.defs[table] || []).map(function (u) { return u.sort_order; }));
     var r = await c.from(table).insert({ name: name, sort_order: maxO + 1 });
     if (r.error) { alertBox('Eklenemedi', C.friendlyError(r.error)); return; }
-    if (also && !(S.defs.work_places || []).some(function (w) { return w.name.toLocaleLowerCase('tr-TR') === name.toLocaleLowerCase('tr-TR'); })) {
-      var maxW = Math.max(0, ...(S.defs.work_places || []).map(function (u) { return u.sort_order; }));
-      await c.from('work_places').insert({ name: name, sort_order: maxW + 1 });
-    }
+    if (table === 'special_units') await mirrorWork('add', name);
     toast(name + ' eklendi', 'ok'); await fetchDefinitions();
   }
   async function updateUnit(table, u, patch) {
@@ -1040,20 +1092,23 @@
     C.dialog({ title: 'Adı Değiştir', message: '"' + u.name + '" için yeni adı yazın. Değişiklik uygulamadaki tüm ekranlara ve sorumlu atamalarına taşınır.', input: true, value: u.name, maxLength: 60, okText: 'Kaydet' }).then(function (nn) {
     if (nn == null) return;
     nn = unitNameClean(nn); if (!nn || nn === u.name) return;
-    updateUnit(table, u, { name: nn }).then(function () { toast('Ad değiştirildi', 'ok'); }).catch(function (e) { alertBox('Değiştirilemedi', C.friendlyError(e)); }).then(fetchDefinitions);
+    var oldName = u.name;
+    updateUnit(table, u, { name: nn }).then(function () { return table === 'special_units' ? mirrorWork('rename', oldName, nn) : null; }).then(function () { toast('Ad değiştirildi', 'ok'); }).catch(function (e) { alertBox('Değiştirilemedi', C.friendlyError(e)); }).then(fetchDefinitions);
     });
   }
   function toggleUnit(table, id, active) {
     var u = findUnit(table, id); if (!u) return;
-    var go = function () { updateUnit(table, u, { is_active: active }).then(function () { toast(u.name + (active ? ' aktifleştirildi' : ' pasife alındı'), 'ok'); }).catch(function (e) { alertBox('İşlem yapılamadı', C.friendlyError(e)); }).then(fetchDefinitions); };
+    var go = function () { updateUnit(table, u, { is_active: active }).then(function () { return table === 'special_units' ? mirrorWork('active', u.name, active) : null; }).then(function () { toast(u.name + (active ? ' aktifleştirildi' : ' pasife alındı'), 'ok'); }).catch(function (e) { alertBox('İşlem yapılamadı', C.friendlyError(e)); }).then(fetchDefinitions); };
     if (active) return go();
     confirmBox('Pasife Al', u.name + ' pasife alınacak. Yeni listelerde ve seçim ekranlarında görünmez; geçmiş nöbet listeleri değişmez. Devam edilsin mi?', go);
   }
   function deleteUnit(table, id) {
     var u = findUnit(table, id); if (!u) return;
-    confirmBox('Sil', u.name + ' kalıcı olarak silinecek. Geçmiş nöbet listeleri değişmez. Yalnızca gizlemek istiyorsanız "Pasife al" kullanın. Devam edilsin mi?', async function () {
+    var also = table === 'special_units' && mirrorsToWork(u.name) && workByName(u.name) ? ' Görev Yerlerindeki aynı adlı birim de silinir.' : '';
+    confirmBox('Sil', u.name + ' kalıcı olarak silinecek.' + also + ' Geçmiş nöbet listeleri değişmez. Yalnızca gizlemek istiyorsanız "Pasife al" kullanın. Devam edilsin mi?', async function () {
       var r = await C.getClient().from(table).delete().eq('id', id);
-      if (r.error) alertBox('Silinemedi', C.friendlyError(r.error)); else toast('Silindi', 'ok');
+      if (r.error) alertBox('Silinemedi', C.friendlyError(r.error));
+      else { if (table === 'special_units') await mirrorWork('delete', u.name); toast('Silindi', 'ok'); }
       fetchDefinitions();
     });
   }
