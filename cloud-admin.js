@@ -294,16 +294,9 @@
   // ------------------------------------------------------------------ oturum
   async function handleSession(session) {
     var c = C.getClient();
-    // Admin Paneli ve tanım senkronizasyonu yönetici oturumu gerektirir; oturum yoksa son indirilen tanımlar (önbellek) kullanılır.
-    if (!session) {
-      var wasAdmin = S.isAdmin;
-      S.isAdmin = false; S.userEmail = '';
-      teardownRealtime();
-      updateChrome();
-      if (wasAdmin) closePanels();
-      return;
-    }
-    S.userEmail = session.user && session.user.email || '';
+    // Şifresiz yönetim (kullanıcı kararı, 2026-11-27): oturum olmasa da yetki sunucuya sorulur (my_role);
+    // oturumsuz ziyaretçi yönetici sayılır, personel oturumu sayılmaz.
+    S.userEmail = (session && session.user && session.user.email) || '';
     clearTimeout(S.roleRetryTimer);
     try {
       var r = await c.rpc('my_role');
@@ -316,7 +309,7 @@
       S.isAdmin = false;
       setStatus('offline');
       var delay = Math.min(60000, 3000 * Math.pow(2, S.roleRetry = (S.roleRetry || 0) + 1));
-      S.roleRetryTimer = setTimeout(function () { c.auth.getSession().then(function (x) { if (x.data.session) handleSession(x.data.session); }); }, delay);
+      S.roleRetryTimer = setTimeout(function () { c.auth.getSession().then(function (x) { handleSession(x.data.session); }); }, delay);
     }
     updateChrome();
     if (S.isAdmin) {
@@ -327,21 +320,27 @@
     }
   }
 
-  // Kilit simgesi girişsiz ziyaretçiye görünür ve yönetici girişini açar; "Admin Paneli" ve
-  // "Asistan İstek Mesajları" düğmeleri yalnızca yönetici girişi yapılınca görünür.
-  try { localStorage.removeItem('nobetAdminUnlocked'); } catch (e) {} // şifresiz dönemden kalan işaret
+  // Kilit simgesi yönetici alanını şifresiz açar. Bu tarayıcıda bir kez açıldıktan sonra kilidin yerine
+  // "Admin Paneli" düğmesi görünür.
+  var UNLOCK_KEY = 'nobetAdminUnlocked';
+  function isUnlocked() { try { return localStorage.getItem(UNLOCK_KEY) === '1'; } catch (e) { return false; } }
+  function setUnlocked() { try { localStorage.setItem(UNLOCK_KEY, '1'); } catch (e) {} }
   function updateChrome() {
     var adminBtn = $('ncAdminBtn'), loginBtn = $('ncLoginBtn'), msgBtn = $('ncMessagesBtn');
-    if (adminBtn) adminBtn.style.display = S.isAdmin ? 'inline-flex' : 'none';
-    if (loginBtn) { loginBtn.style.display = (C.configured && !S.isAdmin) ? 'inline-flex' : 'none'; loginBtn.title = 'Yönetici girişi'; loginBtn.setAttribute('aria-label', 'Yönetici girişi'); }
-    if (msgBtn) msgBtn.style.display = S.isAdmin ? 'inline-flex' : 'none';
-    var who = $('ncWho'); if (who) who.innerHTML = '<i class="fas fa-user-check"></i> Yönetici: ' + esc(S.userEmail) +
-      ' · <button class="btn btn-ghost nc-ghost" style="padding:4px 10px;font-size:.8rem" onclick="NobetCloud.accountSettings()"><i class="fas fa-user-cog"></i> E-posta / Şifre Değiştir</button>' +
-      ' · <a href="#" onclick="NobetCloud.logout();return false;">çıkış</a>';
+    var shown = C.configured && isUnlocked();
+    if (adminBtn) adminBtn.style.display = shown ? 'inline-flex' : 'none';
+    if (loginBtn) { loginBtn.style.display = (C.configured && !shown) ? 'inline-flex' : 'none'; loginBtn.title = 'Admin Paneli'; loginBtn.setAttribute('aria-label', 'Admin Paneli'); }
+    if (msgBtn) msgBtn.style.display = shown ? 'inline-flex' : 'none';
+    var who = $('ncWho'); if (who) who.innerHTML = '<i class="fas fa-lock-open"></i> Şifresiz yönetim · Tüm değişiklikler Değişiklik Kaydı\'nda saklanır.';
   }
 
   // ------------------------------------------------------------------ giriş penceresi
+  // Şifresiz yönetim modunda giriş formu gösterilmez; yetki doğrudan sunucuya sorulur.
   function openLogin(after) {
+    return ensureAdmin(after);
+  }
+  // (Eski yönetici giriş formu – şifreli yönetime dönülürse openLogin bunu çağıracak şekilde geri alınabilir.)
+  function openLoginForm(after) {
     if (!C.configured) { alertBox('Bağlantı yok', 'Supabase bağlantısı henüz yapılandırılmadı.'); return; }
     S.pendingAfterLogin = after || null;
     ensureModal('ncLoginModal', '<div class="modal-content nc-modal-sm">' +
@@ -488,14 +487,22 @@
 
   function requireAdmin(fn) {
     if (S.isAdmin) return fn();
-    openLogin(fn);
+    ensureAdmin(fn);
+  }
+  // Şifresiz yönetim: yetkiyi sunucuya yeniden sorar; açılamıyorsa nedenini söyler (giriş formu yok)
+  async function ensureAdmin(after) {
+    var c = C.getClient(); if (!c) return;
+    await handleSession((await c.auth.getSession()).data.session);
+    if (S.isAdmin) { if (typeof after === 'function') after(); return; }
+    alertBox('Yönetici alanı açılamadı', 'Sunucuya ulaşılamadı veya bu tarayıcıda personel hesabıyla oturum açık. İnternet bağlantınızı kontrol edip sayfayı yenileyin.');
   }
 
   // ------------------------------------------------------------------ YÖNETİM PANELİ
-  // Admin Paneli yönetici e-posta + şifresiyle açılır (kullanıcı kararı, 2026-11-26).
+  // Admin Paneli şifresiz açılır (kullanıcı kararı, 2026-11-27).
   function openAdminPanel(tab) {
     if (!C.configured) { alertBox('Bağlantı yok', 'Supabase bağlantısı henüz yapılandırılmadı.'); return; }
-    if (!S.isAdmin) { openLogin(function () { openAdminPanel(tab); }); return; }
+    setUnlocked(); updateChrome();
+    if (!S.isAdmin) { ensureAdmin(function () { openAdminPanel(tab); }); return; }
     if (tab) S.tab = tab;
     ensureModal('ncAdminModal', '<div class="modal-content nc-modal-lg">' +
       '<div class="modal-header"><h2><i class="fas fa-user-shield" style="color:var(--primary)"></i> Admin Paneli</h2>' +
@@ -565,10 +572,14 @@
     if (list.length === 0) h += renderImportBox();
     h += '<div class="nc-toolbar"><input class="nc-input" id="ncNewAsName" placeholder="Ad Soyad yazıp Ekle\'ye basın" onkeydown="if(event.key===\'Enter\')NobetCloud.addAssistant()">' +
       '<button class="btn btn-success" onclick="NobetCloud.addAssistant()"><i class="fas fa-plus"></i> Ekle</button></div>';
-    h += '<div class="nc-toolbar"><button class="btn btn-primary" onclick="NobetCloud.bulkActivation()" ' + (noAccount ? '' : 'disabled') + '><i class="fas fa-id-card"></i> Hesabı olmayanlara aktivasyon kodu üret (' + noAccount + ')</button>' +
-      '<button class="btn btn-primary" onclick="NobetCloud.allCodes()" ' + (act.length ? '' : 'disabled') + ' title="Hesabı olmayanlara aktivasyon kodu, hesabı olanlara şifre sıfırlama kodu"><i class="fas fa-users"></i> Tüm personele kod üret (' + act.length + ')</button>' +
-      '</div><div class="nc-toolbar"><button class="btn btn-dark" onclick="NobetCloud.openMessagesPanel()"><i class="fas fa-envelope-open-text"></i> Asistanlardan Gelen İstekler</button>' +
+    // Kod üretme düğmeleri tek "Kod" düğmesinin altında
+    h += '<div class="nc-toolbar"><button class="btn nc-red" onclick="NobetCloud.openMessagesPanel()"><i class="fas fa-envelope-open-text"></i> Asistanlardan Gelen İstekler</button>' +
+      '<button class="btn btn-primary" onclick="NobetCloud.toggleCodes()"><i class="fas ' + (S.showCodeBtns ? 'fa-chevron-up' : 'fa-id-card') + '"></i> Kod</button>' +
       '<span id="ncPeriodQuick">' + periodQuickHtml() + '</span></div>';
+    if (S.showCodeBtns) {
+      h += '<div class="nc-toolbar nc-subbox"><button class="btn btn-primary" onclick="NobetCloud.bulkActivation()" ' + (noAccount ? '' : 'disabled') + '><i class="fas fa-id-card"></i> Hesabı olmayanlara aktivasyon kodu üret (' + noAccount + ')</button>' +
+        '<button class="btn btn-primary" onclick="NobetCloud.allCodes()" ' + (act.length ? '' : 'disabled') + ' title="Hesabı olmayanlara aktivasyon kodu, hesabı olanlara şifre sıfırlama kodu"><i class="fas fa-users"></i> Tüm personele kod üret (' + act.length + ')</button></div>';
+    }
     // Aktif asistan listesi açılır düğmenin içinde (panel sade kalsın); açık/kapalı durumu oturum boyunca korunur
     h += '<div class="nc-toolbar"><button class="btn btn-dark" onclick="NobetCloud.toggleActiveList()"><i class="fas ' + (S.showActive ? 'fa-chevron-up' : 'fa-chevron-down') + '"></i> Aktif Asistanlar <span class="nc-count" style="background:#fff;color:#0f172a">' + act.length + '</span></button></div>';
     if (S.showActive) {
@@ -1361,7 +1372,7 @@
       '.nc-chip.active{background:var(--primary,#0f172a);color:#fff;border-color:var(--primary,#0f172a)}.nc-chip.green.active{background:#166534;border-color:#166534}.nc-chip.amber.active{background:#b45309;border-color:#b45309}',
       'input[type=date].nc-input{cursor:pointer}',
       '#ncLoginModal,#ncEditModal,#ncCodesModal,#ncNewPwModal,#ncAccModal,#ncImportModal{z-index:1100}',
-      '.nc-choose{margin-top:4px;color:#92400e;background:#fffbeb;border-radius:6px;padding:3px 6px;font-size:.8rem}.nc-msg-marks{margin-top:6px;font-size:.85rem;color:#1e3a8a;background:#eff6ff;border-radius:6px;padding:4px 8px}.nc-pdel{color:#b91c1c}.nc-msgsec{border-top:1px solid #e2e8f0;margin-top:6px;padding-top:10px}',
+      '.nc-red{background:#dc2626;color:#fff}.nc-red:hover{background:#b91c1c}.nc-subbox{background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:8px}.nc-choose{margin-top:4px;color:#92400e;background:#fffbeb;border-radius:6px;padding:3px 6px;font-size:.8rem}.nc-msg-marks{margin-top:6px;font-size:.85rem;color:#1e3a8a;background:#eff6ff;border-radius:6px;padding:4px 8px}.nc-pdel{color:#b91c1c}.nc-msgsec{border-top:1px solid #e2e8f0;margin-top:6px;padding-top:10px}',
       '#generalConfirmModal,#generalAlertModal{z-index:2000}',
       '.nc-modal-lg{width:980px!important;max-width:96%!important;max-height:90vh!important;padding:22px!important}',
       '.nc-modal-sm{width:440px!important;max-width:94%!important;padding:22px!important}',
@@ -1453,7 +1464,7 @@
     // Tanımlar yönetici oturumu açıldığında (handleSession) çekilir ve anlık izlenir
     window.addEventListener('online', function () {
       if (S.isAdmin) { subscribeRealtime(); fetchDefinitions(); return; }
-      c.auth.getSession().then(function (x) { if (x.data.session) { S.roleRetry = 0; handleSession(x.data.session); } });
+      c.auth.getSession().then(function (x) { S.roleRetry = 0; handleSession(x.data.session); });
     });
     window.addEventListener('offline', function () { setStatus('offline'); });
     document.addEventListener('visibilitychange', function () {
@@ -1476,6 +1487,7 @@
     msgPeriod: function (id) { S.msg.periodId = id; loadMessages(); },
     msgExport: msgExport, importCalendar: importCalendar, deletePeriod: deletePeriod,
     toggleActiveList: function () { S.showActive = !S.showActive; renderPanel(); },
+    toggleCodes: function () { S.showCodeBtns = !S.showCodeBtns; renderPanel(); },
     toggleMsgList: function () { S.msg.showList = !S.msg.showList; renderMessages(); },
     msgFilter: function (v) { S.msg.filter = v; renderMessages(); },
     msgExport: msgExport,

@@ -27,22 +27,25 @@ const BAN_FOREVER = "876000h"; // ~100 yıl
 
 type Admin = ReturnType<typeof serviceClient>;
 
-async function requireAdmin(req: Request, svc: Admin): Promise<string> {
+// Şifresiz yönetim (kullanıcı kararı, 2026-11-27): kullanıcı oturumu olmayan çağrı yönetici kabul edilir.
+// Personel oturumuyla gelen çağrı reddedilir (personel yetki yükseltemez). Dönüş: kullanıcı kimliği veya null.
+async function requireAdmin(req: Request, svc: Admin): Promise<string | null> {
   const auth = req.headers.get("Authorization") ?? "";
-  if (!auth.startsWith("Bearer ")) throw new HttpError(401, "Oturum bulunamadı.");
+  if (!auth.startsWith("Bearer ")) return null;
   const userClient = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, {
     global: { headers: { Authorization: auth } },
     auth: { persistSession: false, autoRefreshToken: false },
   });
-  const { data, error } = await userClient.auth.getUser();
-  if (error || !data?.user) throw new HttpError(401, "Oturum geçersiz.");
-  const { data: adm, error: e2 } = await svc.from("app_admins").select("user_id").eq("user_id", data.user.id).maybeSingle();
-  if (e2) throw new HttpError(500, "Yetki kontrolü yapılamadı.");
-  if (!adm) throw new HttpError(403, "Bu işlem için yönetici yetkisi gerekir.");
+  const { data } = await userClient.auth.getUser();
+  if (!data?.user) return null; // anon anahtarı / oturumsuz
+  const { data: adm } = await svc.from("app_admins").select("user_id").eq("user_id", data.user.id).maybeSingle();
+  if (adm) return data.user.id;
+  const { data: staff } = await svc.from("assistants").select("id").eq("auth_user_id", data.user.id).maybeSingle();
+  if (staff) throw new HttpError(403, "Bu işlem için yönetici yetkisi gerekir.");
   return data.user.id;
 }
 
-async function audit(svc: Admin, actor: string, action: string, rowId: string | null, info: Record<string, unknown>) {
+async function audit(svc: Admin, actor: string | null, action: string, rowId: string | null, info: Record<string, unknown>) {
   await svc.from("audit_log").insert({ table_name: "accounts", row_id: rowId, action, actor, new_data: info });
 }
 
@@ -70,7 +73,7 @@ async function revokeOpenCodes(svc: Admin, assistantId: string) {
     .eq("assistant_id", assistantId).is("used_at", null).is("revoked_at", null);
 }
 
-async function issueCode(svc: Admin, actor: string, assistantId: string, purpose: "activation" | "reset", ttlHours: number) {
+async function issueCode(svc: Admin, actor: string | null, assistantId: string, purpose: "activation" | "reset", ttlHours: number) {
   await revokeOpenCodes(svc, assistantId);
   const code = generateCode();
   const expires = new Date(Date.now() + ttlHours * 3600_000).toISOString();
@@ -143,6 +146,7 @@ Deno.serve(async (req) => {
 
       // Yönetici kendi giriş e-postasını / şifresini değiştirir (mevcut şifre doğrulanır)
       case "set_own_account": {
+        if (!actor) throw new HttpError(400, "Şifresiz yönetim modunda yönetici hesabı ayarı yoktur.");
         const { data: me } = await svc.auth.admin.getUserById(actor);
         const currentEmail = me?.user?.email ?? "";
         if (!(await verifyCurrentPassword(currentEmail, String(body.current_password ?? "")))) {
