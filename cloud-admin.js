@@ -1263,12 +1263,23 @@
   }
   function renderMessages() {
     var M = S.msg, p = M.periods.find(function (x) { return x.id === M.periodId; });
-    // 1) Dönem: seçici + Yeni Dönem Aç; seçili dönem kartı (Düzenle / Kapat-Aç / Sil)
+    var openPs = M.periods.filter(function (x) { return x.is_open; }), closedPs = M.periods.filter(function (x) { return !x.is_open; });
+    if (p && !p.is_open) M.showOld = true; // eski dönem görüntüleniyorsa kutusu açık kalsın
+    // 1) Dönem: açık dönem seçici + Yeni Dönem Aç + Eski Dönem Mesajları; seçili dönem kartı (Düzenle / Kapat-Aç / Sil)
     var h = '<div class="nc-toolbar">' +
-      (M.periods.length > 1 ? '<select class="nc-input nc-select" title="Dönem seçin" onchange="NobetCloud.msgPeriod(this.value)">' + M.periods.map(function (x) {
-        return '<option value="' + x.id + '"' + (x.id === M.periodId ? ' selected' : '') + '>' + esc(x.title) + (x.is_open ? ' • Açık' : ' • Kapalı') + '</option>';
+      (openPs.length > 1 || (openPs.length && p && !p.is_open) ? '<select class="nc-input nc-select" title="Açık dönem seçin" onchange="NobetCloud.msgPeriod(this.value)">' +
+        (p && !p.is_open ? '<option value="" selected disabled>Açık dönem seçin…</option>' : '') + openPs.map(function (x) {
+        return '<option value="' + x.id + '"' + (x.id === M.periodId ? ' selected' : '') + '>' + esc(x.title) + ' • Açık</option>';
       }).join('') + '</select>' : '') +
-      '<button class="btn btn-success" onclick="NobetCloud.newPeriod()"><i class="fas fa-plus"></i> Yeni Dönem Aç</button></div>';
+      '<button class="btn btn-success" onclick="NobetCloud.newPeriod()"><i class="fas fa-plus"></i> Yeni Dönem Aç</button>' +
+      (closedPs.length ? '<button class="btn btn-ghost nc-ghost" onclick="NobetCloud.toggleOldPeriods()"><i class="fas fa-archive"></i> Eski Dönem Mesajları (' + closedPs.length + ') <i class="fas ' + (M.showOld ? 'fa-chevron-up' : 'fa-chevron-down') + '"></i></button>' : '') +
+      '</div>';
+    if (M.showOld && closedPs.length) {
+      h += '<div class="nc-oldbox"><div class="nc-oldtitle"><i class="fas fa-archive"></i> Eski Dönem Mesajları <span class="nc-muted">— kapanan dönemlerin istekleri burada saklanır; personel ekranında görünmez</span></div><div class="nc-oldlist">' +
+        closedPs.map(function (x) {
+          return '<button class="nc-oldp' + (x.id === M.periodId ? ' active' : '') + '" onclick="NobetCloud.msgPeriod(\'' + x.id + '\')"><b>' + esc(x.title) + '</b><span>' + C.fmtDate(x.start_date) + ' – ' + C.fmtDate(x.end_date) + '</span></button>';
+        }).join('') + '</div></div>';
+    }
     if (!p) { $('ncMsgBody').innerHTML = h + '<div class="nc-empty">Personelin istek gönderebilmesi için "Yeni Dönem Aç" ile bir nöbet dönemi oluşturun.</div>'; return; }
     var sent = M.rows.filter(function (r) { return r.message_id; }), notSent = M.rows.filter(function (r) { return !r.message_id && r.is_active; });
     h += '<div class="nc-period ' + (p.is_open ? 'open' : 'closed') + '"><div><b>' + esc(p.title) + '</b> <span class="nc-muted">' + C.fmtDate(p.start_date) + ' – ' + C.fmtDate(p.end_date) + '</span> ' +
@@ -1435,9 +1446,9 @@
     };
     var fname = (p.title + ' - Asistan İstekleri').replace(/[\\/:*?"<>|]+/g, ' ').trim();
     var tableHtml = function (forWord) {
-      return '<table' + (forWord ? ' width="100%" border="1" cellspacing="0" cellpadding="3"' : '') + '><colgroup><col style="width:24%"><col style="width:76%"></colgroup>' +
-        '<thead><tr><th>Ad Soyad</th><th>İstek Mesajı</th></tr></thead><tbody>' +
-        rows.map(function (r) { return '<tr><td>' + esc(r.full_name) + '</td><td class="m">' + esc(msgOf(r)).replace(/\r?\n/g, '<br>') + '</td></tr>'; }).join('') +
+      return '<table' + (forWord ? ' width="100%" border="1" cellspacing="0" cellpadding="3"' : '') + '><colgroup><col style="width:6%"><col style="width:23%"><col style="width:71%"></colgroup>' +
+        '<thead><tr><th class="n">No</th><th>Ad Soyad</th><th>İstek Mesajı</th></tr></thead><tbody>' +
+        rows.map(function (r, i) { return '<tr><td class="n">' + (i + 1) + '</td><td>' + esc(r.full_name) + '</td><td class="m">' + esc(msgOf(r)).replace(/\r?\n/g, '<br>') + '</td></tr>'; }).join('') +
         '</tbody></table>';
     };
     var css = 'body{font-family:Arial,Helvetica,sans-serif;margin:0;color:#000}' +
@@ -1445,7 +1456,7 @@
       'table{width:calc(100% - 1mm);table-layout:fixed;border-collapse:collapse;font-size:8.5pt}' +
       'thead{display:table-header-group}tr{page-break-inside:avoid}' +
       'th,td{border:0.3mm solid #999;padding:0.6mm 1.5mm;text-align:left;vertical-align:top;overflow-wrap:anywhere;word-wrap:break-word;line-height:1.25}' +
-      'th{background:#eee}';
+      'th{background:#eee}th.n,td.n{text-align:center;padding-left:0.5mm;padding-right:0.5mm}';
     if (kind === 'print') {
       var w = window.open('', '_blank', 'noopener=no'); if (!w) return;
       w.document.write('<html><head><meta charset="utf-8"><title>' + esc(title) + '</title><style>@page{size:A4 portrait;margin:10mm}' + css + '</style></head><body><h1>' + esc(title) + '</h1>' + tableHtml(false) + '</body></html>');
@@ -1456,7 +1467,7 @@
       var doc = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">' +
         '<head><meta charset="utf-8"><title>' + esc(title) + '</title><style>@page WordSection1{size:21cm 29.7cm;margin:1cm}div.WordSection1{page:WordSection1}' +
         'body{font-family:Arial;font-size:8.5pt}h1{font-size:11pt;margin:0 0 4pt}table{border-collapse:collapse;width:100%;table-layout:fixed}' +
-        'th,td{border:0.5pt solid #999;padding:1pt 3pt;vertical-align:top;font-size:8.5pt;mso-line-height-rule:exactly;line-height:10pt}th{background:#eee}tr{page-break-inside:avoid}</style></head>' +
+        'th,td{border:0.5pt solid #999;padding:1pt 3pt;vertical-align:top;font-size:8.5pt;mso-line-height-rule:exactly;line-height:10pt}th{background:#eee}th.n,td.n{text-align:center}tr{page-break-inside:avoid}</style></head>' +
         '<body><div class="WordSection1"><h1>' + esc(title) + '</h1>' + tableHtml(true) + '</div></body></html>';
       var blob = new Blob(['﻿', doc], { type: 'application/msword' });
       var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = fname + '.doc';
@@ -1465,13 +1476,13 @@
     }
     if (kind === 'pdf') {
       if (!window.pdfMake) { alertBox('PDF', 'PDF kütüphanesi yüklenemedi; internet bağlantınızı kontrol edin.'); return; }
-      var body = [[{ text: 'Ad Soyad', bold: true, fillColor: '#eeeeee' }, { text: 'İstek Mesajı', bold: true, fillColor: '#eeeeee' }]]
-        .concat(rows.map(function (r) { return [r.full_name, msgOf(r)]; }));
+      var body = [[{ text: 'No', bold: true, fillColor: '#eeeeee', alignment: 'center' }, { text: 'Ad Soyad', bold: true, fillColor: '#eeeeee' }, { text: 'İstek Mesajı', bold: true, fillColor: '#eeeeee' }]]
+        .concat(rows.map(function (r, i) { return [{ text: String(i + 1), alignment: 'center' }, r.full_name, msgOf(r)]; }));
       window.pdfMake.createPdf({
         pageSize: 'A4', pageMargins: [28, 28, 28, 28],
         content: [
           { text: title, fontSize: 11, bold: true, margin: [0, 0, 0, 6] },
-          { table: { headerRows: 1, dontBreakRows: true, widths: ['24%', '*'], body: body },
+          { table: { headerRows: 1, dontBreakRows: true, widths: [18, '23%', '*'], body: body },
             layout: { hLineWidth: function () { return 0.5; }, vLineWidth: function () { return 0.5; }, hLineColor: function () { return '#999'; }, vLineColor: function () { return '#999'; },
                       paddingLeft: function () { return 3; }, paddingRight: function () { return 3; }, paddingTop: function () { return 1.5; }, paddingBottom: function () { return 1.5; } } }
         ],
@@ -1530,7 +1541,7 @@
       S.quickPeriods = null;
       loadPeriods(p.id);
     };
-    if (p.is_open) confirmBox('Dönemi Kapat', '"' + p.title + '" kapatılacak. Personel bu döneme mesaj yazamaz ve mevcut mesajını düzenleyemez. Mesajlar silinmez; dönemi tekrar açabilirsiniz.', go); else go();
+    if (p.is_open) confirmBox('Dönemi Kapat', '"' + p.title + '" kapatılacak. Personel bu döneme mesaj yazamaz ve kendi mesajı personel ekranından kalkar. Mesajlar silinmez; burada "Eski Dönem Mesajları" altında saklanır. Dönemi tekrar açabilirsiniz.', go); else go();
   }
   function copyMsg(id) {
     var r = S.msg.rows.find(function (x) { return x.message_id === id; }); if (!r) return;
@@ -1593,6 +1604,8 @@
       '.nc-actions{margin-left:auto;display:inline-flex;gap:4px;align-items:center}.nc-actions .warn{color:#b45309}.nc-actions .ok{color:#15803d}.nc-actions .danger{color:#b91c1c}',
       '.nc-period-actions{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-left:auto}',
       '.nc-pedit{background:#fff;border:1px solid #cbd5e1;border-radius:6px;width:30px;height:30px;cursor:pointer;color:#475569}',
+      '.nc-oldbox{border:1px solid #e2e8f0;background:#f8fafc;border-radius:12px;padding:10px;margin:0 0 12px}.nc-oldtitle{font-weight:800;font-size:.85rem;color:#334155;margin-bottom:8px}.nc-oldtitle .nc-muted{font-weight:500}',
+      '.nc-oldlist{display:flex;flex-wrap:wrap;gap:6px}.nc-oldp{display:flex;flex-direction:column;align-items:flex-start;gap:1px;background:#fff;border:1px solid #cbd5e1;border-radius:10px;padding:6px 11px;cursor:pointer;font-size:.8rem;color:#334155;text-align:left;max-width:100%}.nc-oldp span{font-size:.72rem;color:#64748b}.nc-oldp:hover{border-color:#64748b}.nc-oldp.active{background:#334155;border-color:#334155;color:#fff}.nc-oldp.active span{color:#cbd5e1}',
       '.nc-ptoggle{border:none;border-radius:8px;padding:7px 14px;font-weight:700;font-size:.85rem;color:#fff;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:6px}.nc-ptoggle.close{background:#d97706}.nc-ptoggle.open{background:#16a34a}.nc-ptoggle:hover{filter:brightness(.95)}',
       '.nc-name{font-weight:600;color:#0f172a;display:flex;flex-direction:column;min-width:0;overflow-wrap:anywhere}.nc-name small{font-weight:400;color:#64748b;font-size:.75rem}',
       '.nc-lock{color:#94a3b8;font-size:.75rem}',
@@ -1686,6 +1699,7 @@
       else copyFallback(url);
     },
     toggleMsgList: function () { S.msg.showList = !S.msg.showList; renderMessages(); },
+    toggleOldPeriods: function () { S.msg.showOld = !S.msg.showOld; renderMessages(); },
     msgFilter: function (v) { S.msg.filter = v; renderMessages(); },
     msgExport: msgExport,
     msgSort: function (v) { S.msg.sort = v; renderMessageList(); },

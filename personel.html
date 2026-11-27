@@ -9,8 +9,8 @@
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js" integrity="sha384-0w2KAL2YHP6wKOkUDzkCDGgVvfmHnj02DHeQ6XcHOgTfFsGyonKOpShMH1x6nk9o" crossorigin="anonymous"></script>
-<script defer src="config.js?v=20261127o"></script>
-<script defer src="cloud-core.js?v=20261127o"></script>
+<script defer src="config.js?v=20261127p"></script>
+<script defer src="cloud-core.js?v=20261127p"></script>
 <style>
   :root { --primary:#0f172a; --accent:#3b82f6; --ok:#16a34a; --err:#dc2626; --bg:#f1f5f9; --border:#e2e8f0; --muted:#64748b; }
   * { box-sizing: border-box; }
@@ -240,7 +240,7 @@
       </div>
     </div>
     <div class="card hidden" id="mPastCard">
-      <h2 style="font-size:1rem">Önceki dönem mesajlarım</h2>
+      <h2 style="font-size:1rem">Diğer açık dönemlerdeki mesajlarım</h2>
       <div id="mPast"></div>
     </div>
   </div>
@@ -441,6 +441,19 @@ document.addEventListener('DOMContentLoaded', function () {
     $('mUser').textContent = '@' + me.username;
     show('viewMain');
     await loadPeriod();
+    watchPeriods();
+  }
+
+  // Yönetici bir dönemi açınca/kapatınca ekran kendiliğinden yenilenir (kapanan dönemin mesajı personel ekranından kalkar)
+  function watchPeriods() {
+    if (state.periodChannel) return;
+    try {
+      state.periodChannel = client.channel('personel-periods')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'request_periods' }, function () {
+          clearTimeout(state.periodTimer); state.periodTimer = setTimeout(function () { if (state.me) loadPeriod(); }, 400);
+        }).subscribe();
+    } catch (e) { console.warn('Canlı dönem takibi başlatılamadı:', e); }
+    document.addEventListener('visibilitychange', function () { if (!document.hidden && state.me) loadPeriod(); });
   }
 
   function draftKey() { return DRAFT_PREFIX + (state.me ? state.me.id : '') + '_' + (state.period ? state.period.id : ''); }
@@ -450,6 +463,13 @@ document.addEventListener('DOMContentLoaded', function () {
     if (pr.error) { $('mPeriodBox').innerHTML = '<div class="msg err">' + C.esc(C.friendlyError(pr.error)) + '</div>'; return; }
     state.periods = pr.data || [];
     var open = state.periods.filter(function (p) { return p.is_open; });
+    // kapanan dönemlerin bu tarayıcıdaki taslakları da temizlenir
+    try {
+      var pre = DRAFT_PREFIX + state.me.id + '_';
+      Object.keys(sessionStorage).forEach(function (k) {
+        if (k.indexOf(pre) === 0 && !open.some(function (p) { return k === pre + p.id; })) sessionStorage.removeItem(k);
+      });
+    } catch (e) {}
     var mr = await client.from('request_messages').select('*').eq('assistant_id', state.me.id);
     var mine = mr.data || [];
     if (!state.period || !open.some(function (p) { return p.id === state.period.id; })) state.period = open[0] || null;
@@ -473,8 +493,12 @@ document.addEventListener('DOMContentLoaded', function () {
       renderCalendar();
       updateStatus();
     }
-    // geçmiş dönem mesajları (salt okunur; kapalı dönemdekiler silinebilir)
-    var past = mine.filter(function (m) { return !state.period || m.period_id !== state.period.id; });
+    // Diğer AÇIK dönemlerdeki mesajlar (salt okunur). Kapanan dönemlerin mesajları personel ekranında gösterilmez;
+    // yönetici panelinde "Eski Dönem Mesajları" altında saklanmaya devam eder.
+    var past = mine.filter(function (m) {
+      var p = state.periods.find(function (x) { return x.id === m.period_id; });
+      return p && p.is_open && (!state.period || m.period_id !== state.period.id);
+    });
     $('mPastCard').classList.toggle('hidden', past.length === 0);
     $('mPast').innerHTML = past.sort(function (a, b) { return Date.parse(b.updated_at) - Date.parse(a.updated_at); }).map(function (m) {
       var p = state.periods.find(function (x) { return x.id === m.period_id; });

@@ -11,9 +11,9 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
     <!-- Supabase (merkezi tanımlar + Asistan İstek Mesajları). Bağlantı yoksa uygulama yerel kayıtlarla çalışmaya devam eder. -->
     <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js" integrity="sha384-0w2KAL2YHP6wKOkUDzkCDGgVvfmHnj02DHeQ6XcHOgTfFsGyonKOpShMH1x6nk9o" crossorigin="anonymous"></script>
-    <script defer src="config.js?v=20261127o"></script>
-    <script defer src="cloud-core.js?v=20261127o"></script>
-    <script defer src="cloud-admin.js?v=20261127o"></script>
+    <script defer src="config.js?v=20261127p"></script>
+    <script defer src="cloud-core.js?v=20261127p"></script>
+    <script defer src="cloud-admin.js?v=20261127p"></script>
 
     <style>
 /* Becayiş Tablosunda Tarih Sütununu Genişletme */
@@ -3253,12 +3253,12 @@ function initFridayTooltips() {
         const owners = (jokerConfig && jokerConfig.owners) || {};
         const units = (Array.isArray(specialUnits) ? specialUnits : []).filter(u => u && u !== 'Refakatçi');
         units.forEach(unit => addTask(owners[unit], unit));
-        // Yoğun bakım çalışanları (mesai): yoğun bakım birim sorumluları + 3. Çalışma Yerleri → Görev Yerleri'ndeki "Yoğun Bakım" kişileri.
-        // Başka bir özellikli birimin sorumlusu olan kişinin mesaisi o birimdedir; yoğun bakım çalışanı sayılmaz.
+        // Kurallar: (1) iki kişi de özellikli birimde (mesai) çalışmalı; (2) farklı yerde nöbet tutanlar önerilir;
+        // (3) iki farklı yerde nöbet tutan kişi, diğerinin nöbet yerine bakılmaksızın önerilir;
+        // (4) yoğun bakım çalışanları (Yoğun Bakım 1/2 sorumluları) diğer birim çalışanlarına önerilmez, yalnızca
+        //     farklı yerde nöbet tutuyorlarsa birbirlerine önerilir.
+        // Başka bir özellikli birimin de sorumlusu olan kişinin mesaisi o birimde sayılır.
         const isIcuUnit = u => /^Yoğun Bakım(\s|$)/.test(u);
-        let icuWorkplace = [];
-        try { icuWorkplace = (getWorkplacePeople("Yoğun Bakım") || {}).combined || []; } catch (error) { console.warn('Yoğun Bakım görev yeri okunamadı:', error); }
-        icuWorkplace.forEach(name => { if (name && peopleNames.has(name) && taskByPerson.get(name).size === 0) addTask(name, "Yoğun Bakım"); });
         people.forEach(p => {
             const t = taskByPerson.get(p.name);
             if ([...t].some(u => !isIcuUnit(u))) [...t].forEach(u => { if (isIcuUnit(u)) t.delete(u); });
