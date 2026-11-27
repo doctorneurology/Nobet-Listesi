@@ -265,7 +265,11 @@
     if (!d.app_rules) {
       // Supabase'te henüz yoksa bu bilgisayardaki ayarla başlat (oturum başına bir kez denenir)
       if (S._seededRules) return; S._seededRules = true;
-      var cur = currentRules(); if (cur && cur.duty_places.length) writeRules(cur);
+      // Yalnızca gerçek nöbet verisi olan bir tarayıcı başlatabilir (boş/ilk kez açılan bir tarayıcının
+      // varsayılan ayarları yöneticinin ayarlarının yerine geçmesin)
+      var hasData = false;
+      try { var sd = JSON.parse(localStorage.getItem('nobetData') || 'null'); hasData = !!(sd && Array.isArray(sd.docs) && sd.docs.length); } catch (e) {}
+      var cur = currentRules(); if (hasData && cur && cur.duty_places.length) writeRules(cur);
       return;
     }
     S.lastRules = d.app_rules;           // uygulamadan geri yazmayı (döngüyü) önler
