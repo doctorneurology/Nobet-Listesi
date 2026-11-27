@@ -11,9 +11,9 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
     <!-- Supabase (merkezi tanımlar + Asistan İstek Mesajları). Bağlantı yoksa uygulama yerel kayıtlarla çalışmaya devam eder. -->
     <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js" integrity="sha384-0w2KAL2YHP6wKOkUDzkCDGgVvfmHnj02DHeQ6XcHOgTfFsGyonKOpShMH1x6nk9o" crossorigin="anonymous"></script>
-    <script defer src="config.js?v=20261127n"></script>
-    <script defer src="cloud-core.js?v=20261127n"></script>
-    <script defer src="cloud-admin.js?v=20261127n"></script>
+    <script defer src="config.js?v=20261127o"></script>
+    <script defer src="cloud-core.js?v=20261127o"></script>
+    <script defer src="cloud-admin.js?v=20261127o"></script>
 
     <style>
 /* Becayiş Tablosunda Tarih Sütununu Genişletme */
@@ -1151,7 +1151,7 @@ div[id*="becayis"] .modal-content {
             <h1>Selçuk Üniversitesi Nöroloji Anabilim Dalı<br>Nöbet Listesi Düzenleme Aracı</h1>
             <div class="author-sign">Dr. Kadir GÜLŞEN</div>
         </div>
-        <div style="display:flex; align-items:center; gap:12px;"><button type="button" id="ncAdminBtn" class="nc-admin-btn" style="display:none;"><i class="fas fa-user-shield"></i> Admin Paneli</button><div id="headerMonthLabel" style="display:none; background:#ffffff; color:#0f172a; font-weight:800; font-size:0.95rem; padding:6px 16px; border-radius:20px; white-space:nowrap;"></div><div class="save-badge" id="saveStatus"><i class="fas fa-check"></i> Hazır</div><button type="button" id="ncLoginBtn" class="nc-login-btn" style="display:none;" title="Yönetici girişi" aria-label="Yönetici girişi"><i class="fas fa-lock"></i></button></div>
+        <div style="display:flex; align-items:center; gap:12px;"><button type="button" id="ncAdminBtn" class="nc-admin-btn" style="display:none;"><i class="fas fa-user-shield"></i> Admin Paneli</button><div id="headerMonthLabel" class="save-badge" style="display:none; white-space:nowrap;"></div><div class="save-badge" id="saveStatus"><i class="fas fa-check"></i> Hazır</div><button type="button" id="ncLoginBtn" class="nc-login-btn" style="display:none;" title="Yönetici girişi" aria-label="Yönetici girişi"><i class="fas fa-lock"></i></button></div>
     </div>
 
     <div class="stepper">
@@ -3253,16 +3253,15 @@ function initFridayTooltips() {
         const owners = (jokerConfig && jokerConfig.owners) || {};
         const units = (Array.isArray(specialUnits) ? specialUnits : []).filter(u => u && u !== 'Refakatçi');
         units.forEach(unit => addTask(owners[unit], unit));
-        // Yoğun bakım çalışanları: yoğun bakım birim sorumluları + 3. Çalışma Yerleri → Görev Yerleri'ndeki "Yoğun Bakım" kişileri
+        // Yoğun bakım çalışanları (mesai): yoğun bakım birim sorumluları + 3. Çalışma Yerleri → Görev Yerleri'ndeki "Yoğun Bakım" kişileri.
+        // Başka bir özellikli birimin sorumlusu olan kişinin mesaisi o birimdedir; yoğun bakım çalışanı sayılmaz.
+        const isIcuUnit = u => /^Yoğun Bakım(\s|$)/.test(u);
         let icuWorkplace = [];
         try { icuWorkplace = (getWorkplacePeople("Yoğun Bakım") || {}).combined || []; } catch (error) { console.warn('Yoğun Bakım görev yeri okunamadı:', error); }
-        icuWorkplace.forEach(name => { if (name && peopleNames.has(name) && ![...taskByPerson.get(name)].some(u => /^Yoğun Bakım(\s|$)/.test(u))) addTask(name, "Yoğun Bakım"); });
-
-        // Yoğun bakımda nöbeti işaretli olmayan kişi, yoğun bakım sorumlusu gibi gösterilmez.
+        icuWorkplace.forEach(name => { if (name && peopleNames.has(name) && taskByPerson.get(name).size === 0) addTask(name, "Yoğun Bakım"); });
         people.forEach(p => {
-            if (!dutyByPerson.get(p.name).has("Yoğun Bakım")) {
-                [...taskByPerson.get(p.name)].forEach(u => { if (/^Yoğun Bakım(\s|$)/.test(u)) taskByPerson.get(p.name).delete(u); });
-            }
+            const t = taskByPerson.get(p.name);
+            if ([...t].some(u => !isIcuUnit(u))) [...t].forEach(u => { if (isIcuUnit(u)) t.delete(u); });
         });
 
         const eligible = name => dutyByPerson.get(name).size > 0;
@@ -3280,15 +3279,15 @@ function initFridayTooltips() {
             const duty = sortTr(dutyByPerson.get(name));
             const tasks = unitsOf(name);
             labels.push('Nöbet yeri: ' + (duty.length ? duty.join(', ') : 'işaretli değil'));
-            if (tasks.length) labels.push('Özellikli birim: ' + tasks.join(', '));
+            if (tasks.length) labels.push((tasks.every(isIcuUnit) ? 'Mesai: ' : 'Özellikli birim: ') + tasks.join(', '));
             return labels;
         };
         const alreadyListed = (a, b) => (Array.isArray(constraints) ? constraints : []).some(c =>
             (c.p1 === a && c.p2 === b) || (c.p1 === b && c.p2 === a));
 
-        // Yoğun bakımda gün içinde bir kişi kalması yeterli: yoğun bakım çalışanları yalnızca birbirine önerilir
-        // (nöbet yerleri aynı olsa bile); başka birimden biriyle — nöbet yerleri farklı olsa bile — önerilmez.
-        const isIcu = name => [...taskByPerson.get(name)].some(u => /^Yoğun Bakım(\s|$)/.test(u));
+        // Yoğun bakım çalışanları yalnızca birbirine önerilir (başka birimden biriyle önerilmez);
+        // onlarda da kural aynıdır: biri yoğun bakımda, biri serviste nöbet tutuyorsa önerilir, ikisi de aynı yerde tutuyorsa önerilmez.
+        const isIcu = name => [...taskByPerson.get(name)].some(isIcuUnit);
 
         const suggestions = [];
         for (let i = 0; i < members.length; i++) {
@@ -3296,11 +3295,9 @@ function initFridayTooltips() {
                 const a = members[i], b = members[j];
                 const ua = unitsOf(a), ub = unitsOf(b);
                 const icuA = isIcu(a), icuB = isIcu(b);
-                if (icuA !== icuB) continue;                         // yoğun bakım çalışanı × başka birim önerilmez
-                if (!icuA) {
-                    if (!ua.some(x => ub.some(y => x !== y))) continue; // aynı birim(ler)in sorumluları
-                    if (!dutyDiffers(a, b)) continue;                   // aynı tek yerde nöbet tutanlar önerilmez
-                }
+                if (icuA !== icuB) continue;                                    // yoğun bakım çalışanı × başka birim önerilmez
+                if (!icuA && !ua.some(x => ub.some(y => x !== y))) continue;    // aynı birim(ler)in sorumluları
+                if (!dutyDiffers(a, b)) continue;                               // aynı tek yerde nöbet tutanlar önerilmez
                 const [p1, p2] = [a, b].sort((x, y) => x.localeCompare(y, 'tr'));
                 suggestions.push({
                     p1, p2, p1Workplaces: labelsOf(p1), p2Workplaces: labelsOf(p2),
@@ -3309,6 +3306,7 @@ function initFridayTooltips() {
             }
         }
 
+        suggestions.stats = { unitPeople: members.filter(n => !isIcu(n)).length, icuPeople: members.filter(isIcu).length };
         return suggestions;
     }
 
@@ -3316,10 +3314,13 @@ function initFridayTooltips() {
         const container = document.getElementById('autoConstraintSuggestions');
         if (!container) return;
         const suggestions = buildSuggestedConstraintPairs();
+        const st = suggestions.stats || { unitPeople: 0, icuPeople: 0 };
+        const info = `Değerlendirilen: ${st.unitPeople} özellikli birim sorumlusu, ${st.icuPeople} yoğun bakım çalışanı. Farklı yerde nöbet tutanlar önerilir, aynı tek yerde nöbet tutanlar önerilmez; yoğun bakım çalışanları yalnızca birbirine önerilir.`;
         if (!suggestions.length) {
             container.innerHTML = `
                 <div style="padding:12px; border:1px solid #e2e8f0; border-radius:8px; background:#f8fafc; color:#64748b; font-size:0.85rem;">
                     <strong>Otomatik öneriler</strong><br>Önerilebilecek bir asistan çifti bulunamadı.
+                    <div style="font-size:0.78rem; margin-top:6px;">${escHtml(info)}</div>
                 </div>`;
             return;
         }
@@ -3327,7 +3328,7 @@ function initFridayTooltips() {
         container.innerHTML = `
             <div style="padding:12px; border:1px solid #bfdbfe; border-radius:8px; background:#eff6ff;">
                 <div style="font-weight:800; color:#1e40af; margin-bottom:5px;"><i class="fas fa-lightbulb"></i> Otomatik Kısıtlama Önerileri</div>
-                <div style="font-size:0.8rem; color:#475569; margin-bottom:10px;"></div>
+                <div style="font-size:0.8rem; color:#475569; margin-bottom:10px;">${escHtml(info)}</div>
                 <div id="autoConstraintSuggestionList" style="display:flex; flex-direction:column; gap:7px;"></div>
             </div>`;
         const list = document.getElementById('autoConstraintSuggestionList');

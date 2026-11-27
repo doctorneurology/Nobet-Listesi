@@ -1543,12 +1543,12 @@
     if ($('ncStyles')) return;
     var st = document.createElement('style'); st.id = 'ncStyles';
     st.textContent = [
-      '.nc-admin-btn{background:#fff;color:var(--primary,#0f172a);border:1px solid #fff;border-radius:20px;padding:6px 14px;font-weight:800;font-size:.85rem;cursor:pointer;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.2);transition:.2s}',
-      '.nc-admin-btn:hover{background:#e2e8f0}',
+      '.nc-admin-btn{background:rgba(255,255,255,.1);color:#fff;border:none;border-radius:20px;padding:5px 12px;font-weight:400;font-size:.85rem;font-family:inherit;line-height:inherit;cursor:pointer;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;transition:.2s}',
+      '.nc-admin-btn:hover{background:rgba(255,255,255,.2)}',
       '.nc-login-btn{background:transparent;color:rgba(255,255,255,.55);border:1px solid rgba(255,255,255,.25);border-radius:50%;width:30px;height:30px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-size:.8rem}',
       '.nc-login-btn:hover{color:#fff;border-color:#fff}',
       '.header>div:last-child{flex-wrap:wrap;justify-content:flex-end}',
-      '@media (max-width:640px){.header{flex-wrap:wrap;gap:10px}.header>div:last-child{width:100%;justify-content:flex-start}.nc-admin-btn{padding:5px 10px;font-size:.8rem}}',
+      '@media (max-width:640px){.header{flex-wrap:wrap;gap:10px}.header>div:last-child{width:100%;justify-content:flex-start}}',
       '.nc-overlay .modal-content{box-sizing:border-box}',
       // Katman sırası: Admin Paneli < paneldeki alt pencereler < uygulamanın onay/uyarı pencereleri
       '#ncAdminModal{z-index:1000}#ncMsgModal{z-index:1050}',
