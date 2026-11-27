@@ -289,7 +289,8 @@
         c.from('work_places').select('*'),
         c.from('app_settings').select('*').eq('key', 'joker_priority').maybeSingle(),
         S.isAdmin ? c.from('assistants').select('id,username,contact_email,auth_user_id') : Promise.resolve({ data: [] }),
-        c.from('app_settings').select('*').eq('key', 'app_rules').maybeSingle()
+        c.from('app_settings').select('*').eq('key', 'app_rules').maybeSingle(),
+        c.from('app_settings').select('*').eq('key', 'seniority').maybeSingle()
       ]);
       var err = r.find(function (x) { return x.error; });
       if (err) throw err.error;
@@ -298,7 +299,8 @@
         assistants: (r[0].data || []).map(function (a) { return Object.assign({}, a, acc[a.id] || {}); }),
         special_units: r[1].data || [], work_places: r[2].data || [],
         joker_priority: r[3].data ? r[3].data.value : null, joker_priority_row: r[3].data || null,
-        app_rules: r[5].data ? r[5].data.value : null, app_rules_row: r[5].data || null
+        app_rules: r[5].data ? r[5].data.value : null, app_rules_row: r[5].data || null,
+        seniority: r[6].data ? r[6].data.value : null, seniority_row: r[6].data || null
       };
       S.defs = d;
       S.lastFetch = Date.now();
@@ -764,7 +766,9 @@
     // Aktif asistan listesi açılır düğmenin içinde (panel sade kalsın); açık/kapalı durumu oturum boyunca korunur
     // Pasif asistanlar da aynı biçimde açılır kutuda; iki düğme yan yana
     h += '<div class="nc-toolbar"><button class="btn btn-dark" onclick="NobetCloud.toggleActiveList()"><i class="fas ' + (S.showActive ? 'fa-chevron-up' : 'fa-chevron-down') + '"></i> Aktif Asistanlar <span class="nc-count" style="background:#fff;color:#0f172a">' + act.length + '</span></button>' +
-      '<button class="btn btn-dark" onclick="NobetCloud.togglePassiveList()"><i class="fas ' + (S.showPassive ? 'fa-chevron-up' : 'fa-chevron-down') + '"></i> Pasif Asistanlar <span class="nc-count" style="background:#fff;color:#0f172a">' + pas.length + '</span></button></div>';
+      '<button class="btn btn-dark" onclick="NobetCloud.togglePassiveList()"><i class="fas ' + (S.showPassive ? 'fa-chevron-up' : 'fa-chevron-down') + '"></i> Pasif Asistanlar <span class="nc-count" style="background:#fff;color:#0f172a">' + pas.length + '</span></button>' +
+      '<button class="btn btn-dark" onclick="NobetCloud.toggleSeniority()"><i class="fas ' + (S.showSeniority ? 'fa-chevron-up' : 'fa-sort-amount-down') + '"></i> Kıdem Düzenle</button></div>';
+    if (S.showSeniority) h += '<h3 class="nc-h3">Kıdem Sırası</h3>' + renderSeniority();
     if (S.showActive) {
       h += '<p class="nc-hint"><i class="fas fa-arrows-alt-v"></i> Sırayı değiştirmek için satırı tutup sürükleyin veya oklara basın. Bu sıra "Asistan Seç" ekranında kullanılır.</p>';
       h += '<div class="nc-list" data-dnd="assistants">' + act.map(function (a, i) { return assistantRow(a, i, act.length); }).join('') + '</div>';
@@ -1148,11 +1152,81 @@
           var ids = items.map(function (x) { return x.dataset.id; });
           ids.splice(to, 0, ids.splice(from, 1)[0]);
           if (table === 'joker') { S.jokerDraft = ids; S.jokerDirty = true; renderPanel(); return; }
+          if (table === 'seniority') { writeSeniority(ids, seniorityState().ties); return; }
           var rest = (S.defs[table] || []).filter(function (x) { return !x.is_active; }).sort(byOrder).map(function (x) { return x.id; });
           saveOrder(table, ids.concat(rest));
         });
       });
     });
+  }
+
+  // ---- Kıdem sırası (Takvimden Aktar'da "Kıdemli isteği önceliklidir" için)
+  // Supabase app_settings 'seniority' = { order: [ad...], ties: [ad...] } — ties: "üstündekiyle eşit kıdem" işaretli kişiler.
+  // Liste, 2. Asistanlar'da en az bir nöbet yeri işaretli kişilerden oluşur; sırada olmayan yeni kişiler en sona eklenir.
+  /* global docs, activePlaces */
+  function dutyPeople() {
+    var appDocs = (typeof docs !== 'undefined' && Array.isArray(docs)) ? docs : [];
+    var places = (typeof activePlaces !== 'undefined' && Array.isArray(activePlaces)) ? activePlaces : [];
+    return appDocs.filter(function (d) { return d && d.name && (d.allowed || []).some(function (p) { return places.indexOf(p) >= 0; }); })
+      .map(function (d) { return { name: d.name, places: (d.allowed || []).filter(function (p) { return places.indexOf(p) >= 0; }) }; });
+  }
+  function seniorityState() {
+    var st = (S.defs && S.defs.seniority) || {};
+    var people = dutyPeople(), byLc = {};
+    people.forEach(function (p) { byLc[lc(p.name)] = p; });
+    var order = [];
+    (Array.isArray(st.order) ? st.order : []).forEach(function (n) { var p = byLc[lc(n)]; if (p && order.indexOf(p.name) < 0) order.push(p.name); });
+    var added = people.filter(function (p) { return order.indexOf(p.name) < 0; }).map(function (p) { return p.name; });
+    order = order.concat(added);
+    var ties = {}; (Array.isArray(st.ties) ? st.ties : []).forEach(function (n) { ties[lc(n)] = true; });
+    var level = {}, lv = 0;
+    order.forEach(function (n, i) { if (!(i > 0 && ties[lc(n)])) lv++; level[lc(n)] = lv; });
+    return { order: order, ties: ties, level: level, people: byLc, added: added, saved: !!(S.defs && S.defs.seniority_row) };
+  }
+  async function writeSeniority(order, ties) {
+    var c = C.getClient(), row = S.defs.seniority_row;
+    var value = { order: order, ties: order.filter(function (n, i) { return i > 0 && ties[lc(n)]; }) };
+    var r = row ? await c.from('app_settings').update({ value: value }).eq('key', 'seniority').eq('version', row.version).select()
+                : await c.from('app_settings').insert({ key: 'seniority', value: value }).select();
+    if (r.error || !r.data || !r.data.length) {
+      alertBox('Kıdem sırası kaydedilemedi', r.error ? C.friendlyError(r.error) : 'Kıdem sırası başka bir oturumda değiştirildi; güncel hâli yüklendi, lütfen tekrar deneyin.');
+      await fetchDefinitions(); return false;
+    }
+    S.defs.seniority = value; S.defs.seniority_row = r.data[0];
+    pulse(); if (isPanelOpen()) renderPanel();
+    return true;
+  }
+  function seniorityMove(name, dir) {
+    var st = seniorityState(), i = st.order.indexOf(name), j = i + dir;
+    if (i < 0 || j < 0 || j >= st.order.length) return;
+    st.order.splice(j, 0, st.order.splice(i, 1)[0]);
+    writeSeniority(st.order, st.ties);
+  }
+  function seniorityTie(name) {
+    var st = seniorityState(); var k = lc(name);
+    if (st.ties[k]) delete st.ties[k]; else st.ties[k] = true;
+    writeSeniority(st.order, st.ties);
+  }
+  function renderSeniority() {
+    var st = seniorityState();
+    if (!st.order.length) return '<div class="nc-empty">2. Asistanlar sayfasında nöbet yeri işaretli kişi yok. Kıdem sırası, bu sayfada nöbet tutacak kişilerden oluşturulur.</div>';
+    var h = '<p class="nc-hint"><i class="fas fa-info-circle"></i> En kıdemli en üstte. Sırayı sürükleyerek veya oklarla değiştirin. <i class="fas fa-equals"></i> düğmesi kişiyi <b>üstündekiyle eşit kıdemli</b> yapar. ' +
+      'Takvimden Aktar\'da aynı güne aynı nöbet yerini isteyenlerden kıdemlisinin isteği aktarılır; eşit kıdemlilerde seçim size sorulur. (Yalnızca istenen günler için; istenmeyen ve izinli günler etkilenmez.)</p>';
+    if (st.added.length && st.saved) h += '<p class="nc-warn"><i class="fas fa-user-plus"></i> Sıraya yeni eklenen (en sonda): ' + st.added.map(esc).join(', ') + '. Yerlerini düzenleyin.</p>';
+    if (!st.saved) h += '<p class="nc-warn"><i class="fas fa-exclamation-triangle"></i> Kıdem sırası henüz düzenlenmedi; şimdilik 2. Asistanlar sırası gösteriliyor. Bir değişiklik yaptığınızda kaydedilir.</p>';
+    h += '<div class="nc-list" data-dnd="seniority">' + st.order.map(function (n, i) {
+      var tied = i > 0 && st.ties[lc(n)], p = st.people[lc(n)];
+      return '<div class="nc-item nc-sen' + (tied ? ' tied' : '') + '" draggable="true" data-id="' + esc(n) + '">' +
+        '<span class="nc-handle"><i class="fas fa-grip-vertical"></i></span>' +
+        '<span class="nc-arrows"><button ' + (i === 0 ? 'disabled' : '') + ' title="Yukarı" onclick="NobetCloud.senMove(' + i + ',-1)"><i class="fas fa-chevron-up"></i></button>' +
+        '<button ' + (i === st.order.length - 1 ? 'disabled' : '') + ' title="Aşağı" onclick="NobetCloud.senMove(' + i + ',1)"><i class="fas fa-chevron-down"></i></button></span>' +
+        '<span class="nc-senlv" title="Kıdem düzeyi">' + st.level[lc(n)] + '</span>' +
+        '<span class="nc-name">' + esc(n) + '<small>' + esc((p && p.places || []).join(', ')) + '</small></span>' +
+        (tied ? '<span class="nc-badge amber">Üstündekiyle eşit</span>' : '') +
+        '<span class="nc-actions">' + (i > 0 ? '<button title="' + (tied ? 'Eşit kıdemi kaldır' : 'Üstündekiyle eşit kıdem yap') + '" class="' + (tied ? 'warn' : '') + '" onclick="NobetCloud.senTie(' + i + ')"><i class="fas fa-equals"></i></button>' : '') + '</span>' +
+        '</div>';
+    }).join('') + '</div>';
+    return h;
   }
 
   // ---- Joker öncelik sıralaması
@@ -1325,91 +1399,230 @@
   /* global docs, dates, activePlaces, refakatciMode */
   // Kullanıcı kararı (2026-11-27): takvim işaretlemesi yapmış kişinin bu nöbet dönemindeki eski işaretleri
   // önce silinir, sonra takvimden gelenler işlenir. (Takvim kullanmayan kişilere dokunulmaz.)
-  function planCalendarImport(commit) {
-    var report = { persons: [], missing: [], total: 0, cleared: 0 };
+  function planCalendarImport(commit, opts) {
+    opts = opts || {};
+    var prio = opts.prio !== false, choices = opts.choices || {};
+    var report = { persons: [], missing: [], total: 0, cleared: 0, seniority: [], ties: [], prio: prio };
     var appDocs = (typeof docs !== 'undefined' && Array.isArray(docs)) ? docs : [];
     var appDates = (typeof dates !== 'undefined' && Array.isArray(dates)) ? dates : [];
     var places = (typeof activePlaces !== 'undefined' ? activePlaces.slice() : []);
     if (typeof refakatciMode !== 'undefined' && refakatciMode) places.push('Refakatçi');
+    var sen = seniorityState();
+    var levelOf = function (name) { return sen.level[lc(name)] || 9999; };
+    var dateOf = {}; appDates.forEach(function (x) { dateOf[x.str] = x; });
+    var workPlacesOf = function (d) { return (Array.isArray(d.allowed) ? d.allowed : []).filter(function (p) { return places.indexOf(p) >= 0; }); };
+    // Uygulamanın kendi kuralları: o yer için kota ve nöbet arası boşluk
+    var canWant = function (d, ds, p, dObj) {
+      var t = d.targets && d.targets[p]; if (!t) return false;
+      if (typeof window.getMarkedCount === 'function' && window.getMarkedCount(d, p, dObj.isW) >= (dObj.isW ? t.e : t.w)) return false;
+      if (typeof window.checkGapViolation === 'function') {
+        var chk; try { chk = window.checkGapViolation(d, ds, p); } catch (e) { chk = null; }
+        if (chk && chk.error) return false;
+      }
+      return true;
+    };
+
+    // 0) Takvim işaretlemesi yapan kişilerin bu nöbet dönemindeki eski işaretleri silinir
+    var P = [];
     S.msg.rows.filter(function (r) { return r.message_id && r.marks && Object.keys(r.marks).length; }).forEach(function (r) {
       var real = appDocs.find(function (d) { return lc(d.name) === lc(r.full_name); });
       if (!real) { report.missing.push(r.full_name); return; }
       var d = commit ? real : JSON.parse(JSON.stringify(real));
       if (!d.avail) d.avail = {};
-      var res = { name: r.full_name, applied: 0, outside: 0, cleared: 0, rule: 0, choose: [] };
-      // 1) Bu kişinin uygulamadaki nöbet dönemine ait eski işaretlerini sil
+      var res = { name: r.full_name, applied: 0, outside: 0, cleared: 0, rule: 0, senLost: 0, tieLost: 0, choose: [] };
       appDates.forEach(function (x) { if (d.avail[x.str] && Object.keys(d.avail[x.str]).length) { res.cleared++; delete d.avail[x.str]; } });
       report.cleared += res.cleared;
-      // 2) Takvimden gelenleri işle
-      Object.keys(r.marks).sort().forEach(function (ds) {
-        var type = r.marks[ds], dObj = appDates.find(function (x) { return x.str === ds; });
-        if (!dObj) { res.outside++; return; }
-        d.avail[ds] = {};
+      P.push({ r: r, d: d, res: res, name: real.name });
+    });
+    var inImport = {}; P.forEach(function (x) { inImport[lc(x.name)] = true; });
+
+    // 1) İzinli ve istenmeyen günler: kişi bazında, kıdemden etkilenmez
+    var byDay = {};
+    P.forEach(function (x) {
+      Object.keys(x.r.marks).sort().forEach(function (ds) {
+        var type = x.r.marks[ds], dObj = dateOf[ds];
+        if (!dObj) { x.res.outside++; return; }
+        if (type === 'wanted') { (byDay[ds] = byDay[ds] || []).push(x); return; }
+        var d = x.d; d.avail[ds] = {};
         var myPlaces = (Array.isArray(d.allowed) && d.allowed.length ? d.allowed : places).filter(function (p) { return places.indexOf(p) >= 0; });
-        if (type === 'permit') {
-          places.forEach(function (p) { d.avail[ds][p] = 'permit'; }); d.avail[ds].GENERAL = 'permit'; res.applied++;
-        } else if (type === 'unwanted') {
-          (myPlaces.length ? myPlaces : places).forEach(function (p) { d.avail[ds][p] = 'unwanted'; }); res.applied++;
-        } else if (type === 'wanted') {
-          // Nöbet yerini yönetici 2. Asistanlar'da belirler; aktarım yer seçmez.
-          // Tek yerde çalışan kişide o yere işlenir; birden fazla yerde çalışanda gün "yer seçimi sizde" olarak raporlanır.
-          var workPlaces = (Array.isArray(d.allowed) ? d.allowed : []).filter(function (p) { return places.indexOf(p) >= 0; });
-          if (workPlaces.length > 1) { res.choose.push(ds); }
-          else if (workPlaces.length === 1) {
-            var p = workPlaces[0], t = d.targets && d.targets[p], ok = !!t;
-            if (ok && typeof window.getMarkedCount === 'function' && window.getMarkedCount(d, p, dObj.isW) >= (dObj.isW ? t.e : t.w)) ok = false;
-            if (ok && typeof window.checkGapViolation === 'function') {
-              var chk; try { chk = window.checkGapViolation(d, ds, p); } catch (e) { chk = null; }
-              if (chk && chk.error) ok = false;
-            }
-            if (ok) { d.avail[ds][p] = 'wanted'; res.applied++; } else res.rule++;
-          } else res.rule++;
-        }
+        if (type === 'permit') { places.forEach(function (p) { d.avail[ds][p] = 'permit'; }); d.avail[ds].GENERAL = 'permit'; x.res.applied++; }
+        else if (type === 'unwanted') { (myPlaces.length ? myPlaces : places).forEach(function (p) { d.avail[ds][p] = 'unwanted'; }); x.res.applied++; }
         if (!Object.keys(d.avail[ds]).length) delete d.avail[ds];
       });
-      report.total += res.applied;
-      report.persons.push(res);
+    });
+
+    // 2) İstenen günler: gün gün (tarih sırasıyla). "Kıdemli isteği önceliklidir" açıkken aynı günü isteyenler
+    //    farklı yerlerde nöbet tutuyorsa her biri kendi yerine yerleştirilir; aynı yeri isteyenlerde kıdemlisi alır,
+    //    eşit kıdemlilerde seçim yöneticiye bırakılır.
+    Object.keys(byDay).sort().forEach(function (ds) {
+      var dObj = dateOf[ds], cand = [];
+      byDay[ds].forEach(function (x) {
+        var wp = workPlacesOf(x.d);
+        if (!wp.length) { x.res.rule++; return; }
+        var ok = wp.filter(function (p) { return canWant(x.d, ds, p, dObj); });
+        if (!ok.length) { x.res.rule++; return; }
+        cand.push({ x: x, wp: wp, ok: ok, lv: levelOf(x.name) });
+      });
+      var apply = function (c, p) { if (!p) return; c.x.d.avail[ds] = c.x.d.avail[ds] || {}; c.x.d.avail[ds][p] = 'wanted'; c.x.res.applied++; };
+      if (!prio) { // önceki davranış: tek yerde nöbet tutana o yer; birden fazla yerdekinde yer seçimi yöneticide
+        cand.forEach(function (c) { if (c.wp.length > 1) c.x.res.choose.push(ds); else apply(c, c.ok[0]); });
+        return;
+      }
+      // Aktarıma katılmayan kişilerin o gün için önceden işaretli istekleri dolu sayılır (değiştirilmez)
+      var occupied = {};
+      appDocs.forEach(function (d) {
+        if (!d || inImport[lc(d.name)] || !d.avail || !d.avail[ds]) return;
+        Object.keys(d.avail[ds]).forEach(function (p) { if (d.avail[ds][p] === 'wanted' && places.indexOf(p) >= 0 && !occupied[p]) occupied[p] = d.name; });
+      });
+      var assign = function (set) { // her yere bir kişi; bulunamazsa null
+        var used = {}, out = new Map();
+        var rec = function (i) {
+          if (i === set.length) return true;
+          var c = set[i];
+          for (var k = 0; k < c.ok.length; k++) {
+            var p = c.ok[k]; if (used[p] || occupied[p]) continue;
+            used[p] = true; out.set(c, p);
+            if (rec(i + 1)) return true;
+            delete used[p]; out.delete(c);
+          }
+          return false;
+        };
+        return rec(0) ? out : null;
+      };
+      var levels = [];
+      cand.slice().sort(function (a, b) { return a.lv - b.lv; }).forEach(function (c) {
+        var L = levels[levels.length - 1];
+        if (L && L.lv === c.lv) L.m.push(c); else levels.push({ lv: c.lv, m: [c] });
+      });
+      var matched = [], extra = [], losers = [];
+      levels.forEach(function (L) {
+        var m = L.m;
+        if (assign(matched.concat(m))) { matched = matched.concat(m); return; }
+        var best = [], bestN = -1, lim = 1 << Math.min(m.length, 12);
+        for (var mask = 0; mask < lim; mask++) {
+          var sub = m.filter(function (c, i) { return mask & (1 << i); });
+          if (sub.length < bestN || !assign(matched.concat(sub))) continue;
+          if (sub.length > bestN) { bestN = sub.length; best = [sub]; } else best.push(sub);
+        }
+        if (best.length <= 1) { // kıdemlisi kazandı (ya da yer önceden dolu)
+          var win = best[0] || [];
+          matched = matched.concat(win);
+          m.forEach(function (c) { if (win.indexOf(c) < 0) losers.push(c); });
+          return;
+        }
+        // Eşit kıdem: kimin aktarılacağını yönetici seçer
+        var common = m.filter(function (c) { return best.every(function (b) { return b.indexOf(c) >= 0; }); });
+        var conflict = m.filter(function (c) { return common.indexOf(c) < 0; });
+        var key = ds + '|' + conflict.map(function (c) { return c.x.name; }).sort().join('|');
+        var ch = choices[key] || '';
+        var pl = []; conflict.forEach(function (c) { c.ok.forEach(function (p) { if (pl.indexOf(p) < 0) pl.push(p); }); });
+        report.ties.push({ key: key, ds: ds, names: conflict.map(function (c) { return c.x.name; }), places: pl, choice: ch });
+        if (ch === '__all') { matched = matched.concat(common); conflict.forEach(function (c) { extra.push(c); }); }
+        else if (ch && ch !== '__none') {
+          var pick = best.find(function (b) { return b.some(function (c) { return c.x.name === ch; }); }) || common;
+          matched = matched.concat(pick);
+          m.forEach(function (c) { if (pick.indexOf(c) < 0) c.x.res.tieLost++; });
+        } else { matched = matched.concat(common); conflict.forEach(function (c) { c.x.res.tieLost++; }); }
+      });
+      var plan = assign(matched) || new Map();
+      var taken = []; plan.forEach(function (p) { taken.push(p); });
+      matched.forEach(function (c) {
+        // Birden fazla yerde nöbet tutan kişi o gün kimseyle çakışmıyorsa yer seçimi yine yöneticide
+        var contended = cand.some(function (o) { return o !== c && o.ok.some(function (p) { return c.ok.indexOf(p) >= 0; }); }) || c.ok.some(function (p) { return occupied[p]; });
+        if (c.wp.length > 1 && !contended) { c.x.res.choose.push(ds); return; }
+        apply(c, plan.get(c));
+      });
+      extra.forEach(function (c) { // "Hepsini aktar" seçildi: boş yer yoksa aynı yere de işlenir
+        var free = c.ok.filter(function (p) { return !occupied[p] && taken.indexOf(p) < 0; });
+        var p = free[0] || c.ok[0]; taken.push(p); apply(c, p);
+      });
+      losers.forEach(function (c) {
+        c.x.res.senLost++;
+        var winners = [];
+        matched.forEach(function (o) { var p = plan.get(o); if (c.ok.indexOf(p) >= 0) winners.push(o.x.name + ' – ' + p); });
+        c.ok.forEach(function (p) { if (occupied[p]) winners.push(occupied[p] + ' – ' + p + ' (önceden işaretli)'); });
+        report.seniority.push({ ds: ds, name: c.x.name, winners: winners });
+      });
+    });
+
+    P.forEach(function (x) {
+      appDates.forEach(function (dd) { if (x.d.avail[dd.str] && !Object.keys(x.d.avail[dd.str]).length) delete x.d.avail[dd.str]; });
+      report.total += x.res.applied;
+      report.persons.push(x.res);
     });
     return report;
   }
+  function dayLabel(ds) { return C.marksText((function () { var o = {}; o[ds] = 'wanted'; return o; })()).replace(/^[^:]*:\s*/, ''); }
   function importCalendar() {
     var p = S.msg.periods.find(function (x) { return x.id === S.msg.periodId; }); if (!p) return;
     var withMarks = S.msg.rows.filter(function (r) { return r.message_id && r.marks && Object.keys(r.marks).length; });
     if (!withMarks.length) { alertBox('Takvimden Aktar', 'Bu dönemde takvim işaretlemesi yapan personel yok.'); return; }
     var appStart = $('startDate') && $('startDate').value, appEnd = $('endDate') && $('endDate').value;
+    if (S.impPrio === undefined) S.impPrio = true;
+    S.impChoices = {};
+    var opts = function () { return { prio: S.impPrio, choices: S.impChoices }; };
     var render = function () {
-      var rep = planCalendarImport(false);
+      var rep = planCalendarImport(false, opts());
       var rowsHtml = rep.persons.map(function (x) {
         var skip = [];
         if (x.cleared) skip.push(x.cleared + ' eski işaret silinecek');
+        if (x.senLost) skip.push(x.senLost + ' istenen gün kıdem nedeniyle aktarılmayacak');
+        if (x.tieLost) skip.push(x.tieLost + ' istenen gün eşit kıdem seçimine göre aktarılmayacak');
         if (x.rule) skip.push(x.rule + ' istenen gün kota/boşluk kuralına uymadı veya kişiye nöbet yeri atanmamış');
         if (x.outside) skip.push(x.outside + ' gün uygulamadaki tarih aralığı dışında');
         var choose = x.choose.length ? '<div class="nc-choose"><i class="fas fa-hand-pointer"></i> Yer seçimi sizde (birden fazla nöbet yerinde çalışıyor): <b>' +
           esc(C.marksText(x.choose.reduce(function (o, ds) { o[ds] = 'wanted'; return o; }, {}))) + '</b> → 4. İstekler\'de uygun yere işaretleyin.</div>' : '';
         return '<tr><td>' + esc(x.name) + '</td><td><b>' + x.applied + '</b></td><td class="nc-muted">' + esc(skip.join(', ') || (x.choose.length ? '' : '—')) + choose + '</td></tr>';
       }).join('');
-      $('ncImpBody').innerHTML =
-        '<p class="nc-hint">Uygulamadaki nöbet dönemi: <b>' + esc(C.fmtDate(appStart) || '?') + ' – ' + esc(C.fmtDate(appEnd) || '?') + '</b>. İstek dönemi: <b>' + esc(p.title) + '</b>. Yalnızca bu dönemin listesinde (2. Asistanlar) bulunan kişilere aktarılır.</p>' +
-        '<table class="nc-table"><thead><tr><th>Asistan</th><th>Aktarılacak gün</th><th>Notlar</th></tr></thead><tbody>' + (rowsHtml || '<tr><td colspan="3" class="nc-muted">Aktarılacak kişi yok.</td></tr>') + '</tbody></table>' +
+      var h = '<p class="nc-hint">Uygulamadaki nöbet dönemi: <b>' + esc(C.fmtDate(appStart) || '?') + ' – ' + esc(C.fmtDate(appEnd) || '?') + '</b>. İstek dönemi: <b>' + esc(p.title) + '</b>. Yalnızca bu dönemin listesinde (2. Asistanlar) bulunan kişilere aktarılır.</p>';
+      h += '<label class="nc-check" style="margin:4px 0 6px"><input type="checkbox" ' + (S.impPrio ? 'checked' : '') + ' onchange="NobetCloud.impPrio(this.checked)"> <b>Kıdemli isteği önceliklidir</b> <span class="nc-muted">(yalnızca istenen günler; sıra: Admin Paneli → Asistanlar → Kıdem Düzenle)</span></label>';
+      if (S.impPrio && !seniorityState().saved) h += '<p class="nc-warn"><i class="fas fa-exclamation-triangle"></i> Kıdem sırası henüz düzenlenmedi; 2. Asistanlar sırası kıdem sırası olarak kullanılıyor.</p>';
+      if (rep.ties.length) {
+        h += '<div class="nc-imp-sec" style="border-color:#f59e0b"><h4><i class="fas fa-balance-scale" style="color:#d97706"></i> Eşit kıdem — seçiminiz gerekli (' + rep.ties.length + ')</h4>' +
+          rep.ties.map(function (t) {
+            var opt = function (val, label) {
+              return '<label class="' + (t.choice === val ? 'on' : '') + '"><input type="radio" name="tie_' + esc(t.key) + '" ' + (t.choice === val ? 'checked' : '') +
+                ' onchange="NobetCloud.impChoice(this.dataset.k,this.dataset.v)" data-k="' + esc(t.key) + '" data-v="' + esc(val) + '"> ' + esc(label) + '</label>';
+            };
+            return '<div class="nc-tie"><b>' + esc(dayLabel(t.ds)) + '</b> · ' + esc(t.places.join(' / ')) + ' — ' + esc(t.names.join(', ')) + ' aynı günü istedi ve kıdemleri eşit.' +
+              '<div class="nc-tie-opts">' + t.names.map(function (n) { return opt(n, 'Yalnızca ' + n); }).join('') + opt('__all', 'Hepsini aktar') + opt('__none', 'Hiçbirini aktarma') + '</div>' +
+              (t.choice ? '' : '<div class="nc-muted" style="margin-top:4px">Seçim yapmazsanız bu gün bu kişiler için aktarılmaz.</div>') + '</div>';
+          }).join('') + '</div>';
+      }
+      if (rep.seniority.length) {
+        h += '<div class="nc-imp-sec" style="border-color:#fca5a5"><h4><i class="fas fa-exclamation-triangle" style="color:#dc2626"></i> Kıdem nedeniyle aktarılmayacak istekler (' + rep.seniority.length + ')</h4><ul>' +
+          rep.seniority.map(function (s) { return '<li><b>' + esc(dayLabel(s.ds)) + '</b>: ' + esc(s.name) + ' — aynı gün aynı nöbet yerini kıdemi daha yüksek olan ' + esc(s.winners.join(', ') || 'kişi') + ' istedi.</li>'; }).join('') + '</ul></div>';
+      }
+      h += '<table class="nc-table"><thead><tr><th>Asistan</th><th>Aktarılacak gün</th><th>Notlar</th></tr></thead><tbody>' + (rowsHtml || '<tr><td colspan="3" class="nc-muted">Aktarılacak kişi yok.</td></tr>') + '</tbody></table>' +
         (rep.missing.length ? '<p class="nc-warn" style="margin-top:8px">Bu dönemin asistan listesinde olmadığı için atlanacak: ' + rep.missing.map(esc).join(', ') + '</p>' : '') +
         '<p class="nc-hint"><i class="fas fa-info-circle"></i> Personel yalnızca günü işaretler; nöbet yerini siz 2. Asistanlar\'da belirlersiniz ve aktarım bunu değiştirmez. İzinli ve istenmeyen günler günün tamamı için işlenir. ' +
-        'İstenen gün yalnızca tek nöbet yerinde çalışan kişide o yere işlenir; birden fazla yerde çalışanlarda yer seçimi size bırakılır. Aktarımdan sonra 4. İstekler takviminde dilediğiniz gibi düzenleyebilirsiniz. ' +
+        'Aynı günü isteyenler farklı yerlerde nöbet tutuyorsa her biri kendi yerine yerleştirilir; birden fazla yerde nöbet tutan kişi gerekirse boş kalan yere yerleştirilir, çakışma yoksa yer seçimi size bırakılır. ' +
         'Aktarım, istek değişikliği olduğu için daha önce oluşturulmuş nöbet listesi sonuçlarını sıfırlar.</p>' +
         '<p class="nc-warn"><i class="fas fa-exclamation-triangle"></i> Takvim işaretlemesi yapan kişilerin bu nöbet dönemindeki <b>eski işaretleri (toplam ' + rep.cleared + ') silinir</b>, yerine takvimden gelenler yazılır. Takvim kullanmayan kişilerin işaretlerine dokunulmaz.</p>';
+      $('ncImpBody').innerHTML = h;
       $('ncImpGo').disabled = rep.total === 0 && rep.cleared === 0;
       $('ncImpGo').innerHTML = '<i class="fas fa-file-import"></i> ' + rep.total + ' günü aktar';
     };
+    S._impRender = render;
     ensureModal('ncImportModal', '<div class="modal-content nc-modal-lg">' +
       '<div class="modal-header"><h2><i class="fas fa-file-import" style="color:var(--primary)"></i> Takvimden Aktar</h2><span class="close-modal" onclick="NobetCloud.close(\'ncImportModal\')">&times;</span></div>' +
       '<div id="ncImpBody"></div>' +
       '<div class="nc-row-end"><button class="btn btn-ghost nc-ghost" onclick="NobetCloud.close(\'ncImportModal\')">Vazgeç</button><button class="btn btn-success" id="ncImpGo"></button></div></div>');
     $('ncImpGo').onclick = function () {
-      var rep = planCalendarImport(true);
+      var rep = planCalendarImport(true, opts());
       try { if (typeof window.invalidateResults === 'function') window.invalidateResults(); } catch (e) {}
       try { if (typeof window.saveData === 'function') window.saveData(); } catch (e) {}
       try { if (typeof window.renderCal === 'function') window.renderCal(); } catch (e) {}
       NobetCloud.close('ncImportModal');
       toast(rep.total + ' gün 4. İstekler takvimine aktarıldı', 'ok');
+      // Kıdem / eşit kıdem kararları uyarı olarak gösterilir
+      var lines = [];
+      rep.seniority.forEach(function (s) { lines.push('• ' + dayLabel(s.ds) + ': ' + s.name + ' aktarılmadı — kıdemi daha yüksek ' + (s.winners.join(', ') || 'kişi') + ' aynı günü istedi.'); });
+      rep.ties.forEach(function (t) {
+        var what = t.choice === '__all' ? 'hepsi aktarıldı' : t.choice === '__none' || !t.choice ? 'hiçbiri aktarılmadı' : 'yalnızca ' + t.choice + ' aktarıldı';
+        lines.push('• ' + dayLabel(t.ds) + ' (eşit kıdem: ' + t.names.join(', ') + '): ' + what + '.');
+      });
+      if (lines.length) C.dialog({ title: 'Kıdem Uyarısı', message: 'Aynı güne aynı nöbet yerini isteyenler için kıdem sırası uygulandı:\n\n' + lines.join('\n'), cancelText: null, okText: 'Tamam' });
     };
     show('ncImportModal');
     render();
@@ -1605,6 +1818,9 @@
       '.nc-actions{margin-left:auto;display:inline-flex;gap:4px;align-items:center}.nc-actions .warn{color:#b45309}.nc-actions .ok{color:#15803d}.nc-actions .danger{color:#b91c1c}',
       '.nc-period-actions{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-left:auto}',
       '.nc-pedit{background:#fff;border:1px solid #cbd5e1;border-radius:6px;width:30px;height:30px;cursor:pointer;color:#475569}',
+      '.nc-senlv{flex:0 0 26px;height:26px;border-radius:50%;background:#0f172a;color:#fff;font-weight:800;font-size:.78rem;display:inline-flex;align-items:center;justify-content:center}.nc-sen.tied{border-left:4px solid #f59e0b}.nc-sen.tied .nc-senlv{background:#f59e0b}',
+      '.nc-imp-sec{border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;margin:10px 0;background:#fff}.nc-imp-sec h4{margin:0 0 6px;font-size:.88rem}.nc-imp-sec ul{margin:0;padding-left:18px;font-size:.82rem;color:#334155}.nc-imp-sec li{margin:3px 0}',
+      '.nc-tie{border-top:1px dashed #e2e8f0;padding:8px 0;font-size:.84rem}.nc-tie:first-of-type{border-top:none}.nc-tie-opts{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}.nc-tie-opts label{display:inline-flex;align-items:center;gap:5px;border:1px solid #cbd5e1;border-radius:8px;padding:5px 9px;cursor:pointer;background:#f8fafc}.nc-tie-opts label.on{background:#0f172a;color:#fff;border-color:#0f172a}',
       '.nc-oldbox{border:1px solid #e2e8f0;background:#f8fafc;border-radius:12px;padding:10px;margin:0 0 12px}.nc-oldtitle{font-weight:800;font-size:.85rem;color:#334155;margin-bottom:8px}.nc-oldtitle .nc-muted{font-weight:500}',
       '.nc-oldlist{display:flex;flex-wrap:wrap;gap:6px}.nc-oldp{display:flex;flex-direction:column;align-items:flex-start;gap:1px;background:#fff;border:1px solid #cbd5e1;border-radius:10px;padding:6px 11px;cursor:pointer;font-size:.8rem;color:#334155;text-align:left;max-width:100%}.nc-oldp span{font-size:.72rem;color:#64748b}.nc-oldp:hover{border-color:#64748b}.nc-oldp.active{background:#334155;border-color:#334155;color:#fff}.nc-oldp.active span{color:#cbd5e1}',
       '.nc-ptoggle{border:none;border-radius:8px;padding:7px 14px;font-weight:700;font-size:.85rem;color:#fff;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:6px}.nc-ptoggle.close{background:#d97706}.nc-ptoggle.open{background:#16a34a}.nc-ptoggle:hover{filter:brightness(.95)}',
@@ -1692,6 +1908,14 @@
     msgExport: msgExport, importCalendar: importCalendar, deletePeriod: deletePeriod,
     toggleActiveList: function () { S.showActive = !S.showActive; renderPanel(); },
     togglePassiveList: function () { S.showPassive = !S.showPassive; renderPanel(); },
+    // Test kancası: verilen istek satırlarıyla aktarım önizlemesini hesaplar (hiçbir şeyi kaydetmez)
+    _setMsgRows: function (rows) { S.msg.rows = rows; },
+    _previewImport: function (rows, opts) { var old = S.msg.rows; S.msg.rows = rows; try { return planCalendarImport(false, opts); } finally { S.msg.rows = old; } },
+    toggleSeniority: function () { S.showSeniority = !S.showSeniority; renderPanel(); },
+    senMove: function (i, dir) { var o = seniorityState().order; if (o[i]) seniorityMove(o[i], dir); },
+    senTie: function (i) { var o = seniorityState().order; if (o[i]) seniorityTie(o[i]); },
+    impPrio: function (on) { S.impPrio = !!on; if (S._impRender) S._impRender(); },
+    impChoice: function (key, val) { S.impChoices = S.impChoices || {}; S.impChoices[key] = val; if (S._impRender) S._impRender(); },
     toggleCodes: function () { S.showCodeBtns = !S.showCodeBtns; renderPanel(); },
     rulesAdd: rulesAdd, rulesMove: rulesMove, rulesDel: rulesDel, rulesJoker: rulesJoker,
     copyStaffUrl: function () {
